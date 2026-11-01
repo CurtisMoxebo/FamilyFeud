@@ -108,17 +108,21 @@ jobs:
         working-directory: ./backend
         run: npx prisma generate
 
-      - name: Execute Backend Regression Tests
+      - name: Execute Backend Regression Tests & Coverage
         working-directory: ./backend
-        run: npm run test -- --reporter=verbose
+        run: npm run test:coverage -- --reporter=verbose
 
-      - name: Publish Backend Test Summary
+      - name: Publish Backend Coverage Summary
         if: always()
-        run: |
-          echo "### 📡 Backend Regression Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: Completed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Test Specs**: REST API (Health check), Socket.io real-time sync, Prisma client delegates" >> $GITHUB_STEP_SUMMARY
-          echo "- **Framework**: Vitest v4 + Supertest" >> $GITHUB_STEP_SUMMARY
+        run: node .github/scripts/generate-coverage-summary.js "Backend API" backend/coverage/coverage-summary.json
+
+      - name: Upload Backend Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-report
+          path: backend/coverage/
+          retention-days: 14
 
   # ==========================================
   # Frontend Regression Tests
@@ -145,17 +149,21 @@ jobs:
         working-directory: ./frontend
         run: npm ci --include=dev
 
-      - name: Execute Frontend Regression Tests
+      - name: Execute Frontend Regression Tests & Coverage
         working-directory: ./frontend
-        run: npm run test -- --reporter=verbose
+        run: npm run test:coverage -- --reporter=verbose
 
-      - name: Publish Frontend Test Summary
+      - name: Publish Frontend Coverage Summary
         if: always()
-        run: |
-          echo "### 💻 Frontend Regression Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: Completed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Test Specs**: App landing page, useSocket hook lifecycle, Game Show Theme tokens" >> $GITHUB_STEP_SUMMARY
-          echo "- **Framework**: Vitest v4 + @testing-library/react + jsdom" >> $GITHUB_STEP_SUMMARY
+        run: node .github/scripts/generate-coverage-summary.js "Frontend Client" frontend/coverage/coverage-summary.json
+
+      - name: Upload Frontend Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          retention-days: 14
 
   # ==========================================
   # Docker Container Build Verification
