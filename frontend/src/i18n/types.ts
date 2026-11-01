@@ -23,7 +23,6 @@ export interface TranslationDictionary {
     submitButton: string;
     submitting: string;
     validationErrorEmpty: string;
-    validationErrorLength: string;
   };
   gameModes: {
     fastMoneyTitle: string;

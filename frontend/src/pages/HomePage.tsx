@@ -38,7 +38,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onRoomCreated }) => {
         </p>
 
         {/* Real-time WebSocket Status Pill */}
-        <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900/60 border border-slate-700/60 text-xs font-semibold">
+        <div
+          title={t.app.connectionStatus}
+          aria-label={t.app.connectionStatus}
+          className="mt-4 inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900/60 border border-slate-700/60 text-xs font-semibold"
+        >
           {isConnected ? (
             <>
               <span className="w-2 h-2 rounded-full bg-green-400 animate-ping" />

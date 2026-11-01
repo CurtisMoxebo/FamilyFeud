@@ -1,10 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export interface RouteMatch {
-  path: string;
-  params: Record<string, string>;
-}
-
 export interface RouterContextType {
   path: string;
   navigate: (to: string) => void;

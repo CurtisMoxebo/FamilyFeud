@@ -25,7 +25,6 @@ export const fr: TranslationDictionary = {
     submitButton: 'Créer le salon',
     submitting: 'Création en cours...',
     validationErrorEmpty: 'Please enter a room name (3-50 characters)',
-    validationErrorLength: 'Please enter a room name (3-50 characters)',
   },
   gameModes: {
     fastMoneyTitle: 'Face-à-Face Rapide',

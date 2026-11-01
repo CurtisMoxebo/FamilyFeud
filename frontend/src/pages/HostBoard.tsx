@@ -169,6 +169,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
               type="button"
               onClick={handleCopyLink}
               data-testid="host-copy-link-btn"
+              title={t.host.shareLink}
+              aria-label={t.host.shareLink}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-feud-gold/20 hover:bg-feud-gold/30 border border-feud-gold/50 text-feud-gold font-bold text-sm transition-all cursor-pointer"
             >
               {copied ? (

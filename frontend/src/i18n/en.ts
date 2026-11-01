@@ -25,7 +25,6 @@ export const en: TranslationDictionary = {
     submitButton: 'Create Room',
     submitting: 'Creating Room...',
     validationErrorEmpty: 'Please enter a room name (3-50 characters)',
-    validationErrorLength: 'Please enter a room name (3-50 characters)',
   },
   gameModes: {
     fastMoneyTitle: 'Fast Money',
