@@ -15,7 +15,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["vite/client"]
+    "allowJs": true,
+    "types": ["vite/client", "vitest/globals"]
   },
   "include": ["src"]
 }
