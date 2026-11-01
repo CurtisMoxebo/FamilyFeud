@@ -3,6 +3,8 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import { config } from './config/env';
+import { logger, getSocketIp } from './utils/logger';
+import { requestLogger } from './middleware/requestLogger';
 
 const app = express();
 const server = http.createServer(app);
@@ -24,6 +26,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(requestLogger);
 
 // Health Check Endpoint
 app.get('/api/health', (_req: Request, res: Response) => {
@@ -44,22 +47,21 @@ export const io = new SocketIOServer(server, {
 });
 
 io.on('connection', (socket) => {
-  console.log(`[Socket] Client connected: ${socket.id}`);
+  const clientIp = getSocketIp(socket);
+  const transport = socket.conn.transport.name;
+  logger.socket('CONNECT', socket.id, clientIp, `Transport: ${transport}`);
 
   socket.on('disconnect', (reason) => {
-    console.log(`[Socket] Client disconnected (${socket.id}): ${reason}`);
+    logger.socket('DISCONNECT', socket.id, clientIp, `Reason: ${reason}`);
   });
 });
 
 // Start listening if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   server.listen(config.port, () => {
-    console.log(`=========================================`);
-    console.log(`🚀 Family Feud Backend Server Running!`);
-    console.log(`📡 Port: ${config.port}`);
-    console.log(`🌐 Health Check: http://localhost:${config.port}/api/health`);
-    console.log(`🎮 Client Origin: ${config.clientUrl}`);
-    console.log(`=========================================`);
+    logger.info(`🚀 Family Feud Backend Server Running on port ${config.port}`);
+    logger.info(`🌐 Health Check: http://localhost:${config.port}/api/health`);
+    logger.info(`🎮 Client Origin: ${config.clientUrl}`);
   });
 }
 
