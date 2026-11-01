@@ -21,11 +21,16 @@ concurrency:
 
 jobs:
   # ==========================================
-  # Backend CI: Lint, Typecheck, Prisma & Tests
+  # Backend Regression Tests
   # ==========================================
-  backend-ci:
-    name: Backend CI (Node.js 20)
+  backend-regression-tests:
+    name: Backend Regression Tests (Vitest + Supertest)
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      CLIENT_URL: http://localhost:5173
+      DATABASE_URL: "mysql://root:root@localhost:3306/family_feud"
 
     steps:
       - name: Checkout Code
@@ -50,16 +55,26 @@ jobs:
         working-directory: ./backend
         run: npm run build
 
-      - name: Run Backend Regression Tests
+      - name: Execute Backend Regression Tests
         working-directory: ./backend
-        run: npm run test
+        run: npx vitest run --reporter=verbose --reporter=github
+
+      - name: Publish Backend Test Summary
+        if: always()
+        run: |
+          echo "### 📡 Backend Regression Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test Specs**: REST API (Health check), Socket.io real-time sync, Prisma client delegates" >> $GITHUB_STEP_SUMMARY
+          echo "- **Framework**: Vitest v4 + Supertest" >> $GITHUB_STEP_SUMMARY
 
   # ==========================================
-  # Frontend CI: Typecheck, Build & Tests
+  # Frontend Regression Tests
   # ==========================================
-  frontend-ci:
-    name: Frontend CI (Node.js 20)
+  frontend-regression-tests:
+    name: Frontend Regression Tests (Vitest + React Testing Library)
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
 
     steps:
       - name: Checkout Code
@@ -76,21 +91,29 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
-      - name: Build Frontend Production Bundle
+      - name: Validate TypeScript & Build Bundle
         working-directory: ./frontend
         run: npm run build
 
-      - name: Run Frontend Regression Tests
+      - name: Execute Frontend Regression Tests
         working-directory: ./frontend
-        run: npm run test
+        run: npx vitest run --reporter=verbose --reporter=github
+
+      - name: Publish Frontend Test Summary
+        if: always()
+        run: |
+          echo "### 💻 Frontend Regression Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test Specs**: App landing page, useSocket hook lifecycle, Game Show Theme tokens" >> $GITHUB_STEP_SUMMARY
+          echo "- **Framework**: Vitest v4 + @testing-library/react + jsdom" >> $GITHUB_STEP_SUMMARY
 
   # ==========================================
-  # Docker Containerization Verification
+  # Docker Container Build Verification
   # ==========================================
   docker-build-check:
     name: Docker Build Validation
     runs-on: ubuntu-latest
-    needs: [backend-ci, frontend-ci]
+    needs: [backend-regression-tests, frontend-regression-tests]
 
     steps:
       - name: Checkout Code
@@ -114,4 +137,3 @@ jobs:
           file: ./frontend/Dockerfile
           push: false
           tags: familyfeud-frontend:ci-check
-
