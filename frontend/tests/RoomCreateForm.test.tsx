@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
-import { RoomCreateForm } from './RoomCreateForm';
-import { LanguageProvider } from '../i18n/LanguageContext';
+import { RoomCreateForm } from '../src/components/RoomCreateForm';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
 
 describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
   const renderWithProviders = (ui: React.ReactElement) => {

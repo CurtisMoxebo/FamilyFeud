@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
-import { HostBoard } from './HostBoard';
-import { LanguageProvider } from '../i18n/LanguageContext';
-import { RouterProvider } from '../router/router';
-import { Room } from '../types';
+import { HostBoard } from '../src/pages/HostBoard';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
+import { RouterProvider } from '../src/router/router';
+import { Room } from '../src/types';
 
 describe('Frontend Regression Suite: HostBoard Page (US-02)', () => {
   const mockRoom: Room = {
@@ -118,3 +118,4 @@ describe('Frontend Regression Suite: HostBoard Page (US-02)', () => {
     expect(screen.getByText(/copié/i)).toBeInTheDocument();
   });
 });
+

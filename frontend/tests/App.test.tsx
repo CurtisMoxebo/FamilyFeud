@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import App, { AppContent } from './App';
-import { LanguageProvider } from './i18n/LanguageContext';
-import { RouterProvider } from './router/router';
+import App, { AppContent } from '../src/App';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
+import { RouterProvider } from '../src/router/router';
 
 describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02)', () => {
   beforeEach(() => {
@@ -94,3 +94,4 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02)', () 
     expect(screen.getByText('Direct Access Night')).toBeInTheDocument();
   });
 });
+
