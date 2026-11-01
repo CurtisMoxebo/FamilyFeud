@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.env.*
+*.log
+src/test
+src/**/*.test.ts
+src/**/*.test.tsx
+

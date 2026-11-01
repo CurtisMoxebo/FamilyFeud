@@ -1,0 +1,197 @@
+name: Continuous Integration (CI)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - dev
+      - develop
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+      - master
+      - dev
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================
+  # Backend Build
+  # ==========================================
+  backend-build:
+    name: Backend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci --include=dev
+
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+
+      - name: Compile Backend TypeScript
+        working-directory: ./backend
+        run: npm run build
+
+  # ==========================================
+  # Frontend Build
+  # ==========================================
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci --include=dev
+
+      - name: Build Frontend Production Bundle
+        working-directory: ./frontend
+        run: npm run build
+
+  # ==========================================
+  # Backend Regression Tests
+  # ==========================================
+  backend-regression-tests:
+    name: Backend Regression Tests
+    runs-on: ubuntu-latest
+    needs: [backend-build]
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      CLIENT_URL: http://localhost:5173
+      DATABASE_URL: "mysql://root:root@localhost:3306/family_feud"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci --include=dev
+
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+
+      - name: Execute Backend Regression Tests & Coverage
+        working-directory: ./backend
+        run: npm run test:coverage -- --reporter=verbose
+
+      - name: Publish Backend Coverage Summary
+        if: always()
+        run: node .github/scripts/generate-coverage-summary.js "Backend API" backend/coverage/coverage-summary.json
+
+      - name: Upload Backend Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-report
+          path: backend/coverage/
+          retention-days: 14
+
+  # ==========================================
+  # Frontend Regression Tests
+  # ==========================================
+  frontend-regression-tests:
+    name: Frontend Regression Tests
+    runs-on: ubuntu-latest
+    needs: [frontend-build]
+    env:
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci --include=dev
+
+      - name: Execute Frontend Regression Tests & Coverage
+        working-directory: ./frontend
+        run: npm run test:coverage -- --reporter=verbose
+
+      - name: Publish Frontend Coverage Summary
+        if: always()
+        run: node .github/scripts/generate-coverage-summary.js "Frontend Client" frontend/coverage/coverage-summary.json
+
+      - name: Upload Frontend Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          retention-days: 14
+
+  # ==========================================
+  # Docker Container Build Verification
+  # ==========================================
+  docker-build-check:
+    name: Docker Build Validation
+    runs-on: ubuntu-latest
+    needs: [backend-regression-tests, frontend-regression-tests]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: familyfeud-backend:ci-check
+
+      - name: Build Frontend Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: familyfeud-frontend:ci-check
