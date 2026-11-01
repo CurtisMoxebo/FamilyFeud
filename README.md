@@ -166,6 +166,11 @@ npm run test:backend
 
 # Run frontend regression tests (Components, useSocket hook, Theme tokens)
 npm run test:frontend
+
+# Generate code coverage reports (V8 engine)
+npm run test:coverage
+npm run test:coverage:backend
+npm run test:coverage:frontend
 ```
 
 ---

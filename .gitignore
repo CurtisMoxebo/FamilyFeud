@@ -14,6 +14,8 @@ node_modules/
 dist/
 build/
 out/
+coverage/
+*.lcov
 
 # Documentation (stored in GitHub Wiki)
 docs/
