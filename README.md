@@ -43,10 +43,11 @@ FamilyFeud/
 │   ├── src/
 │   │   ├── config/          # Environment configuration
 │   │   ├── controllers/     # REST route handlers
+│   │   ├── middleware/      # Request logging & security filters
 │   │   ├── routes/          # Express API routes
 │   │   ├── services/        # Gemini AI & DB business logic
 │   │   ├── sockets/         # Real-time game state managers
-│   │   ├── utils/           # String normalizers & sound helpers
+│   │   ├── utils/           # Structured logger & normalizers
 │   │   └── server.ts        # Server entry point
 │   ├── prisma/
 │   │   └── schema.prisma    # Code-First Prisma models
@@ -89,10 +90,10 @@ Run the full stack (MySQL database, Express/Socket.io backend, and Nginx/React f
    Create a `.env` file in the project root (or set an environment variable):
    ```bash
    # In PowerShell
-   $env:GEMINI_API_KEY="AIzaSy...YourKey"
+   $env:GEMINI_API_KEY="your_gemini_api_key_here"
 
    # In Bash / macOS / Linux
-   export GEMINI_API_KEY="AIzaSy...YourKey"
+   export GEMINI_API_KEY="your_gemini_api_key_here"
    ```
 
 2. **Start the Multi-Container Stack**:
@@ -103,7 +104,7 @@ Run the full stack (MySQL database, Express/Socket.io backend, and Nginx/React f
 3. **Access the Applications**:
    - 📺 **Host & Player Web App**: [`http://localhost`](http://localhost) (Port 80 via Nginx)
    - 📡 **Backend REST & Health API**: [`http://localhost:5000/api/health`](http://localhost:5000/api/health)
-   - 🗄️ **MySQL Database**: `localhost:3306` (`user: root`, `password: feud_root_password`, `database: family_feud`)
+   - 🗄️ **MySQL Database**: `localhost:3306` (`user: family-feud-user`, `password: 123`, `database: family_feud` / `root: feud_root_password`)
 
 4. **Initialize Database Schema with Prisma (first run)**:
    ```bash
