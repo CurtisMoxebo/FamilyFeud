@@ -29,6 +29,8 @@ An interactive, real-time multiplayer web application bringing the classic telev
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Socket.io-client, Canvas Confetti |
 | **Backend** | Node.js, Express, TypeScript, Socket.io, `@google/genai` (Google Gemini SDK) |
 | **Database & ORM** | MySQL 8.0, Prisma ORM (Code-First with versioned migrations) |
+| **Testing** | Vitest, Supertest, @testing-library/react, jsdom |
+| **DevOps & Containers** | Docker, Docker Compose, Nginx, GitHub Actions (CI) |
 | **Audio & Speech** | Native Web Speech API (`window.speechSynthesis`) + Web Audio API synthesizer |
 
 ---
@@ -73,30 +75,74 @@ FamilyFeud/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Node.js** v18.0.0 or higher
-- **npm** v9.0.0 or higher
-- **MySQL Server** v8.0 or MariaDB v10.5+
 - **Google Gemini API Key** (Free from [Google AI Studio](https://aistudio.google.com/))
+- **Docker & Docker Compose** (for containerized setup) **OR**
+- **Node.js** v18+ & **MySQL** v8.0+ (for manual local development)
 
-### 1. Database Setup
+---
+
+### Option A: Run the Whole Project with Docker (Recommended)
+
+Run the full stack (MySQL database, Express/Socket.io backend, and Nginx/React frontend) with a single command without installing MySQL or Node locally:
+
+1. **Set your Google Gemini API Key**:
+   Create a `.env` file in the project root (or set an environment variable):
+   ```bash
+   # In PowerShell
+   $env:GEMINI_API_KEY="AIzaSy...YourKey"
+
+   # In Bash / macOS / Linux
+   export GEMINI_API_KEY="AIzaSy...YourKey"
+   ```
+
+2. **Start the Multi-Container Stack**:
+   ```bash
+   docker compose up --build
+   ```
+
+3. **Access the Applications**:
+   - 📺 **Host & Player Web App**: [`http://localhost`](http://localhost) (Port 80 via Nginx)
+   - 📡 **Backend REST & Health API**: [`http://localhost:5000/api/health`](http://localhost:5000/api/health)
+   - 🗄️ **MySQL Database**: `localhost:3306` (`user: root`, `password: feud_root_password`, `database: family_feud`)
+
+4. **Initialize Database Schema with Prisma (first run)**:
+   ```bash
+   docker compose exec backend npx prisma db push
+   ```
+
+5. **Stop the Application**:
+   ```bash
+   # Stop all running containers
+   docker compose down
+
+   # Stop and delete persistent database volumes (reset data)
+   docker compose down -v
+   ```
+
+---
+
+### Option B: Manual Local Development Setup
+
+#### 1. Database Setup
 Create your local MySQL database:
 ```sql
 CREATE DATABASE family_feud CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### 2. Backend Setup
+#### 2. Backend Setup
 ```bash
 cd backend
 npm install
 cp .env.example .env
 # Edit .env with your DATABASE_URL and GEMINI_API_KEY
+npx prisma generate
 npx prisma migrate dev --name init
 npm run dev
 ```
 The backend API and WebSocket server will run at `http://localhost:5000`.
 
-### 3. Frontend Setup
-In a new terminal:
+#### 3. Frontend Setup
+In a separate terminal:
 ```bash
 cd frontend
 npm install
@@ -104,6 +150,23 @@ cp .env.example .env
 npm run dev
 ```
 The frontend application will be accessible at `http://localhost:5173`.
+
+---
+
+## 🧪 Running Regression Tests
+
+The project includes automated regression test suites powered by **Vitest** for both backend and frontend:
+
+```bash
+# Run all regression tests across the whole project
+npm test
+
+# Run backend regression tests (REST API, WebSockets, Prisma delegates)
+npm run test:backend
+
+# Run frontend regression tests (Components, useSocket hook, Theme tokens)
+npm run test:frontend
+```
 
 ---
 
