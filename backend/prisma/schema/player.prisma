@@ -1,0 +1,18 @@
+model Player {
+  id          String   @id @default(uuid())
+  roomId      String   @map("room_id")
+  nickname    String   @db.VarChar(50)
+  team        Team     @default(NONE)
+  socketId    String?  @map("socket_id") @db.VarChar(100)
+  isReady     Boolean  @default(false) @map("is_ready")
+  totalScore  Int      @default(0) @map("total_score")
+  isConnected Boolean  @default(true) @map("is_connected")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  room        Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  responses   PlayerResponse[]
+
+  @@index([roomId, isConnected])
+  @@map("players")
+}
+

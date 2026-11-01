@@ -1,0 +1,16 @@
+model Game {
+  id                     String     @id @default(uuid())
+  roomId                 String     @map("room_id")
+  mode                   GameMode
+  status                 GameStatus @default(IN_PROGRESS)
+  currentRound           Int        @default(1) @map("current_round")
+  winnerTeam             String?    @map("winner_team") @db.VarChar(50)
+  totalPointsAccumulated Int        @default(0) @map("total_points_accumulated")
+  createdAt              DateTime   @default(now()) @map("created_at")
+
+  room                   Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  questions              Question[]
+
+  @@map("games")
+}
+

@@ -1,0 +1,15 @@
+model Answer {
+  id         String   @id @default(uuid())
+  questionId String   @map("question_id")
+  rankOrder  Int      @map("rank_order")
+  answerText String   @map("answer_text") @db.VarChar(255)
+  points     Int
+  isRevealed Boolean  @default(false) @map("is_revealed")
+
+  question   Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  responses  PlayerResponse[]
+
+  @@index([questionId, rankOrder])
+  @@map("answers")
+}
+
