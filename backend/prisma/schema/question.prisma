@@ -1,0 +1,17 @@
+model Question {
+  id           String   @id @default(uuid())
+  gameId       String   @map("game_id")
+  roundNumber  Int      @map("round_number")
+  orderIndex   Int      @default(1) @map("order_index")
+  language     String   @db.VarChar(10)
+  questionText String   @map("question_text") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  game         Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  answers      Answer[]
+  responses    PlayerResponse[]
+
+  @@index([gameId, roundNumber, orderIndex])
+  @@map("questions")
+}
+

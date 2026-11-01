@@ -30,3 +30,4 @@ describe('Frontend Regression Suite: Game Show Theme & Design Tokens', () => {
     expect(animations?.['strike-shake']).toBeDefined();
   });
 });
+

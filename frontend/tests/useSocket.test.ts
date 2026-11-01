@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useSocket } from './useSocket';
+import { useSocket } from '../src/hooks/useSocket';
 import { io } from 'socket.io-client';
 
 vi.mock('socket.io-client', () => {

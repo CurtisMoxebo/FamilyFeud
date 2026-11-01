@@ -49,7 +49,7 @@ describe('Backend Regression Suite: Real-time Socket.io Sync', () => {
   it('handles client disconnection cleanly', async () => {
     expect(clientSocket.connected).toBe(true);
     await new Promise<void>((resolve) => {
-      clientSocket.on('disconnect', (reason) => {
+      clientSocket.on('disconnect', () => {
         expect(clientSocket.connected).toBe(false);
         resolve();
       });

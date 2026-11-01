@@ -1,0 +1,28 @@
+enum Language {
+  EN
+  FR
+  ES
+}
+
+enum GameMode {
+  FAST_MONEY
+  MAIN_GAME
+}
+
+enum RoomStatus {
+  LOBBY
+  ACTIVE
+  FINISHED
+}
+
+enum Team {
+  TEAM_1
+  TEAM_2
+  NONE
+}
+
+enum GameStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+

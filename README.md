@@ -17,7 +17,7 @@ An interactive, real-time multiplayer web application bringing the classic telev
   - **Fast Money**: 2 players, 5 questions, 60s & 75s countdowns, pass & return mechanic, duplicate answer detection ("Try again"), sequential reveal, and a 200-point combined victory target.
   - **Main Game**: 2 to 10 players (even count), auto-balanced into two teams, 1-on-1 buzzer face-offs, pass or play decisions, sequential team guessing, 3-strike counter, and dramatic steal attempts.
 - **Zero-Friction Joining**: Scan a high-contrast QR code or share a direct URL. No app store downloads or user account registration required.
-- **Code-First Database**: Full persistence via **Prisma ORM** with version-controlled migrations on MySQL.
+- **Code-First Database**: Full persistence via **Prisma ORM** with modular schemas and version-controlled migrations on MySQL.
 - **Resilient Networking**: Automatic host and player reconnection within a 30-second grace window to protect ongoing games against screen locks or Wi-Fi drops.
 
 ---
@@ -27,8 +27,8 @@ An interactive, real-time multiplayer web application bringing the classic telev
 | Layer | Technologies |
 | :--- | :--- |
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Socket.io-client, Canvas Confetti |
-| **Backend** | Node.js, Express, TypeScript, Socket.io, `@google/genai` (Google Gemini SDK) |
-| **Database & ORM** | MySQL 8.0, Prisma ORM (Code-First with versioned migrations) |
+| **Backend** | Node.js, Express, TypeScript, Socket.io, `@google/genai` (Google Gemini SDK), Zod |
+| **Database & ORM** | MySQL 8.0, Prisma ORM (Code-First with modular multi-file schema) |
 | **Testing** | Vitest, Supertest, @testing-library/react, jsdom |
 | **DevOps & Containers** | Docker, Docker Compose, Nginx, GitHub Actions (CI) |
 | **Audio & Speech** | Native Web Speech API (`window.speechSynthesis`) + Web Audio API synthesizer |
@@ -42,26 +42,45 @@ FamilyFeud/
 ├── backend/
 │   ├── src/
 │   │   ├── config/          # Environment configuration
-│   │   ├── controllers/     # REST route handlers
-│   │   ├── middleware/      # Request logging & security filters
+│   │   ├── controllers/     # REST route handlers (rooms, etc.)
+│   │   ├── middleware/      # Request logging & Zod validation
 │   │   ├── routes/          # Express API routes
 │   │   ├── services/        # Gemini AI & DB business logic
 │   │   ├── sockets/         # Real-time game state managers
-│   │   ├── utils/           # Structured logger & normalizers
+│   │   ├── utils/           # Structured logger & roomCode generator
+│   │   ├── validators/      # Zod request validation schemas
 │   │   └── server.ts        # Server entry point
 │   ├── prisma/
-│   │   └── schema.prisma    # Code-First Prisma models
+│   │   └── schema/          # Modular multi-file Prisma schema
+│   │       ├── base.prisma
+│   │       ├── enums.prisma
+│   │       ├── room.prisma
+│   │       ├── player.prisma
+│   │       ├── game.prisma
+│   │       ├── question.prisma
+│   │       ├── answer.prisma
+│   │       └── response.prisma
+│   ├── tests/               # Backend regression & integration suites
 │   ├── tsconfig.json
 │   ├── package.json
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # Board, Buzzer, Strikes, Scoreboard
-│   │   ├── pages/           # Home, HostBoard, PlayerController
-│   │   ├── hooks/           # useSocket, useTTS, useAudio
+│   │   ├── components/      # RoomCreateForm, LanguageSelector, GameModeCard
+│   │   ├── i18n/            # Modular i18n localization
+│   │   │   ├── en.ts        # English translations
+│   │   │   ├── fr.ts        # French translations
+│   │   │   ├── es.ts        # Spanish translations
+│   │   │   ├── types.ts     # Translation dictionary schema
+│   │   │   ├── translations.ts # Aggregated dictionary lookup
+│   │   │   └── LanguageContext.tsx # React Context & useTranslation hook
+│   │   ├── pages/           # HomePage, HostBoard, PlayerController
+│   │   ├── router/          # Client router with param matching
+│   │   ├── hooks/           # useSocket
 │   │   ├── types/           # Shared TypeScript contracts
 │   │   ├── App.tsx
 │   │   └── main.tsx
+│   ├── tests/               # Symmetrical frontend regression & component suites
 │   ├── tailwind.config.js
 │   ├── tsconfig.json
 │   ├── package.json
@@ -137,7 +156,7 @@ npm install
 cp .env.example .env
 # Edit .env with your DATABASE_URL and GEMINI_API_KEY
 npx prisma generate
-npx prisma migrate dev --name init
+npx prisma db push
 npm run dev
 ```
 The backend API and WebSocket server will run at `http://localhost:5000`.
@@ -152,20 +171,31 @@ npm run dev
 ```
 The frontend application will be accessible at `http://localhost:5173`.
 
+> **Tip**: From the project root, you can also start backend and frontend concurrently in two terminals:
+> ```bash
+> # Terminal 1 (Backend API & WebSocket server)
+> npm run dev:backend
+> 
+> # Terminal 2 (Vite Frontend dev server)
+> npm run dev:frontend
+> ```
+
 ---
 
 ## 🧪 Running Regression Tests
 
-The project includes automated regression test suites powered by **Vitest** for both backend and frontend:
+The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
+
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. This guarantees pure production builds without requiring test-file exclusions:
 
 ```bash
 # Run all regression tests across the whole project
 npm test
 
-# Run backend regression tests (REST API, WebSockets, Prisma delegates)
+# Run backend regression tests (REST API, WebSockets, Prisma delegates, Room endpoints)
 npm run test:backend
 
-# Run frontend regression tests (Components, useSocket hook, Theme tokens)
+# Run frontend regression tests (Components, i18n, router, HostBoard, useSocket hook)
 npm run test:frontend
 
 # Generate code coverage reports (V8 engine)
