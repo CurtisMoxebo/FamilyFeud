@@ -1,6 +1,6 @@
 import React from 'react';
 import { Language } from '../types';
-import { Globe, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 export interface LanguageOption {
   code: Language;
