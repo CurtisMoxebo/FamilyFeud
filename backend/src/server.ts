@@ -51,15 +51,18 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start listening
-server.listen(config.port, () => {
-  console.log(`=========================================`);
-  console.log(`🚀 Family Feud Backend Server Running!`);
-  console.log(`📡 Port: ${config.port}`);
-  console.log(`🌐 Health Check: http://localhost:${config.port}/api/health`);
-  console.log(`🎮 Client Origin: ${config.clientUrl}`);
-  console.log(`=========================================`);
-});
+// Start listening if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(config.port, () => {
+    console.log(`=========================================`);
+    console.log(`🚀 Family Feud Backend Server Running!`);
+    console.log(`📡 Port: ${config.port}`);
+    console.log(`🌐 Health Check: http://localhost:${config.port}/api/health`);
+    console.log(`🎮 Client Origin: ${config.clientUrl}`);
+    console.log(`=========================================`);
+  });
+}
 
+export { app, server };
 export default server;
 
