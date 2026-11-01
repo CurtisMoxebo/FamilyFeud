@@ -67,13 +67,20 @@ FamilyFeud/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/      # RoomCreateForm, LanguageSelector, GameModeCard
-│   │   ├── i18n/            # Translations (EN, FR, ES) & LanguageContext
+│   │   ├── i18n/            # Modular i18n localization
+│   │   │   ├── en.ts        # English translations
+│   │   │   ├── fr.ts        # French translations
+│   │   │   ├── es.ts        # Spanish translations
+│   │   │   ├── types.ts     # Translation dictionary schema
+│   │   │   ├── translations.ts # Aggregated dictionary lookup
+│   │   │   └── LanguageContext.tsx # React Context & useTranslation hook
 │   │   ├── pages/           # HomePage, HostBoard, PlayerController
 │   │   ├── router/          # Client router with param matching
 │   │   ├── hooks/           # useSocket
 │   │   ├── types/           # Shared TypeScript contracts
 │   │   ├── App.tsx
 │   │   └── main.tsx
+│   ├── tests/               # Symmetrical frontend regression & component suites
 │   ├── tailwind.config.js
 │   ├── tsconfig.json
 │   ├── package.json
@@ -164,11 +171,22 @@ npm run dev
 ```
 The frontend application will be accessible at `http://localhost:5173`.
 
+> **Tip**: From the project root, you can also start backend and frontend concurrently in two terminals:
+> ```bash
+> # Terminal 1 (Backend API & WebSocket server)
+> npm run dev:backend
+> 
+> # Terminal 2 (Vite Frontend dev server)
+> npm run dev:frontend
+> ```
+
 ---
 
 ## 🧪 Running Regression Tests
 
-The project includes automated regression test suites powered by **Vitest** for both backend and frontend:
+The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
+
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. This guarantees pure production builds without requiring test-file exclusions:
 
 ```bash
 # Run all regression tests across the whole project
