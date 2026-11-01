@@ -5,6 +5,7 @@ import cors from 'cors';
 import { config } from './config/env';
 import { logger, getSocketIp } from './utils/logger';
 import { requestLogger } from './middleware/requestLogger';
+import roomRoutes from './routes/roomRoutes';
 
 const app = express();
 const server = http.createServer(app);
@@ -38,6 +39,9 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
+// REST API Routes
+app.use('/api/rooms', roomRoutes);
+
 // Initialize Socket.io Server
 export const io = new SocketIOServer(server, {
   cors: {
@@ -67,4 +71,3 @@ if (process.env.NODE_ENV !== 'test') {
 
 export { app, server };
 export default server;
-
