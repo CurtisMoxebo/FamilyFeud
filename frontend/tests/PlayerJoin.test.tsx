@@ -5,9 +5,10 @@ import React from 'react';
 import { PlayerJoin } from '../src/pages/PlayerJoin';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
-import { Room } from '../src/types';
+import { Room, RoomStateUpdate } from '../src/types';
+import * as socketHook from '../src/hooks/useSocket';
 
-describe('Frontend Regression Suite: PlayerJoin Page (US-03)', () => {
+describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
   const mockRoom: Room = {
     id: 'room-123',
     roomCode: 'FEUD-8291',
@@ -16,6 +17,17 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03)', () => {
     gameMode: 'FAST_MONEY',
     status: 'LOBBY',
     createdAt: new Date().toISOString(),
+  };
+
+  const defaultSocketMock = {
+    socket: null,
+    isConnected: true,
+    socketId: 'mock-player-socket',
+    roomState: null,
+    roomError: null,
+    joinRoom: vi.fn(),
+    leaveRoom: vi.fn(),
+    clearError: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {
@@ -29,6 +41,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     sessionStorage.clear();
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({ ...defaultSocketMock, joinRoom: vi.fn() });
   });
 
   afterEach(() => {
@@ -107,7 +120,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03)', () => {
 
     // Shows welcome state
     await waitFor(() => {
-      expect(screen.getByText(/welcome, sophie!/i)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /welcome, sophie!/i })).toBeInTheDocument();
     });
   });
 
@@ -160,5 +173,140 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03)', () => {
 
     await user.click(backBtn);
   });
-});
 
+  /* -------------------------------------------------------------
+   * US-04 Specific Tests: Socket Join, Waiting Lobby & Room Full
+   * ------------------------------------------------------------- */
+  it('satisfies US-04 Scenario 1: joins room via socket and displays waiting lobby with live roster', async () => {
+    const user = userEvent.setup();
+    const joinRoomMock = vi.fn();
+    const mockState: RoomStateUpdate = {
+      roomCode: 'FEUD-8291',
+      roomName: 'Soirée Famille',
+      language: 'FR',
+      gameMode: 'FAST_MONEY',
+      status: 'LOBBY',
+      playerCount: 2,
+      maxPlayers: 2,
+      canStart: true,
+      players: [
+        { id: 'p1', nickname: 'Sophie', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p2', nickname: 'Alex', team: 'NONE', isReady: true, isConnected: false },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      socket: null,
+      isConnected: true,
+      socketId: 'player-socket-1',
+      roomState: mockState,
+      roomError: null,
+      joinRoom: joinRoomMock,
+      leaveRoom: vi.fn(),
+      clearError: vi.fn(),
+    });
+
+    renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+    const input = screen.getByTestId('player-nickname-input');
+    await user.type(input, 'Sophie');
+    const submitBtn = screen.getByTestId('player-join-submit-btn');
+    await user.click(submitBtn);
+
+    expect(joinRoomMock).toHaveBeenCalledWith({
+      roomCode: 'FEUD-8291',
+      nickname: 'Sophie',
+      isHost: false,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('player-waiting-lobby')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('player-waiting-status')).toHaveTextContent(/en attente du lancement par l/i);
+    expect(screen.getByTestId('player-roster-count')).toHaveTextContent('2 / 2');
+    expect(screen.getByTestId('player-roster-item-Sophie')).toHaveTextContent('Prêt');
+    expect(screen.getByTestId('player-roster-item-Alex')).toHaveTextContent('Déconnecté');
+  });
+
+  it('satisfies US-04 Scenario 2: displays room full rejection view when roomError is ROOM_FULL', async () => {
+    const user = userEvent.setup();
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      socket: null,
+      isConnected: true,
+      socketId: 'player-socket-3',
+      roomState: null,
+      roomError: {
+        code: 'ROOM_FULL',
+        message: 'This Fast Money room is already full (2/2 players).',
+      },
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
+      clearError: vi.fn(),
+    });
+
+    renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+    expect(screen.getByTestId('player-room-full-screen')).toBeInTheDocument();
+    expect(screen.getByTestId('player-room-full-message')).toHaveTextContent(
+      'This Fast Money room is already full (2/2 players).'
+    );
+
+    const backBtn = screen.getByTestId('player-room-full-back-btn');
+    expect(backBtn).toBeInTheDocument();
+    await user.click(backBtn);
+  });
+
+  it('satisfies US-04 Scenario 2: displays localized fallback when ROOM_FULL has no server message', () => {
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      socket: null,
+      isConnected: true,
+      socketId: 'player-socket-3',
+      roomState: null,
+      roomError: {
+        code: 'ROOM_FULL',
+        message: '',
+      },
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
+      clearError: vi.fn(),
+    });
+
+    renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+    expect(screen.getByTestId('player-room-full-screen')).toBeInTheDocument();
+    expect(screen.getByTestId('player-room-full-message')).toHaveTextContent(
+      /Ce salon Face-à-Face Rapide est déjà complet/i
+    );
+  });
+
+  it('allows player to navigate back to home from waiting lobby', async () => {
+    const user = userEvent.setup();
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      socket: null,
+      isConnected: true,
+      socketId: 'player-socket-1',
+      roomState: null,
+      roomError: null,
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
+      clearError: vi.fn(),
+    });
+
+    renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+    const input = screen.getByTestId('player-nickname-input');
+    await user.type(input, 'Sophie');
+    await user.click(screen.getByTestId('player-join-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('player-waiting-lobby')).toBeInTheDocument();
+    });
+
+    const backHomeBtn = screen.getByRole('button', { name: /retour/i });
+    expect(backHomeBtn).toBeInTheDocument();
+    await user.click(backHomeBtn);
+  });
+});
