@@ -215,8 +215,11 @@ export interface BoardRevealPayload {
   roomCode: string;
   type: 'ANSWER' | 'POINTS';
   slotNumber: number;
+  column?: 1 | 2;
   slot: FastMoneyRevealSlot;
   totalScore: number;
+  p1TotalScore?: number;
+  p2TotalScore?: number;
   isAllRevealed: boolean;
   nextActiveSlotNumber: number | null;
 }

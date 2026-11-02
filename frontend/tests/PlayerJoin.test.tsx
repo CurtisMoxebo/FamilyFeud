@@ -47,6 +47,12 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     p2TurnEnded: null,
     duplicateWarning: null,
     clearDuplicateWarning: vi.fn(),
+    gameOver: null,
+    clearGameOver: vi.fn(),
+    startP2FastMoneyRevealPhase: vi.fn(),
+    revealP2FastMoneyAnswer: vi.fn(),
+    revealP2FastMoneyPoints: vi.fn(),
+    requestReplay: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {
