@@ -111,7 +111,10 @@ export const es: TranslationDictionary = {
     p2ReadyTitle: '¡Jugador 2, te toca!',
     p2ReadySubtitle: '¡El jugador 1 anotó {score} puntos. Toca listo cuando estés preparado!',
     watchingReveal: 'Viendo la secuencia de revelación del Jugador 1...',
-
+    duplicateWarningHost: '¡Ya se dijo! ¡Intenta de nuevo!',
+    duplicateWarningPlayer: '¡Respuesta duplicada! Ingresa otra respuesta.',
+    p2SpeedRoundTitle: 'Dinero Rápido - Jugador 2',
+    p2SpeedRoundSubtitle: '¡Tienes 75 segundos. Los duplicados del Jugador 1 no están permitidos!',
   },
 };
 

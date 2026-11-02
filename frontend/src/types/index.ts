@@ -124,6 +124,17 @@ export interface Player2IsolationSnapshot {
   totalScore?: number;
   revealSlots?: FastMoneyRevealSlot[];
   activeRevealSlotNumber?: number | null;
+  currentQuestion?: {
+    id: string;
+    questionText: string;
+    questionNumber: number;
+    totalQuestions: number;
+  } | null;
+  answeredCount?: number;
+  passedCount?: number;
+  totalQuestions?: number;
+  canSubmit?: boolean;
+  canPass?: boolean;
 }
 
 export interface TimerTickPayload {
@@ -153,6 +164,9 @@ export interface HostStateSnapshot {
   totalScore?: number;
   revealSlots?: FastMoneyRevealSlot[];
   activeRevealSlotNumber?: number | null;
+  p1Slots?: FastMoneyRevealSlot[];
+  p2Slots?: FastMoneyRevealSlot[];
+  p1TotalScore?: number;
 }
 
 export interface QuestionData {
@@ -172,4 +186,13 @@ export interface BoardRevealPayload {
   totalScore: number;
   isAllRevealed: boolean;
   nextActiveSlotNumber: number | null;
+}
+
+export interface DuplicateAnswerWarningPayload {
+  roomCode: string;
+  rawInput: string;
+  message: string;
+  questionId: string;
+  duplicateWithAnswer?: string;
+  reason?: 'EXACT_RAW' | 'SEMANTIC_MATCH';
 }

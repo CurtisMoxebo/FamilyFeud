@@ -10,6 +10,7 @@ import {
   TimerTickPayload,
   TurnEndedPayload,
   BoardRevealPayload,
+  DuplicateAnswerWarningPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -28,12 +29,25 @@ export function useSocket(options?: UseSocketOptions) {
   const [roomError, setRoomError] = useState<RoomErrorPayload | null>(null);
   const [gameStarted, setGameStarted] = useState<GameStartedPayload | null>(null);
 
-  // Fast Money Speed Round States (US-07)
+  // Fast Money Speed Round States (US-07 & US-09)
   const [fastMoneyP1State, setFastMoneyP1State] = useState<Player1StateSnapshot | null>(null);
   const [fastMoneyP2State, setFastMoneyP2State] = useState<Player2IsolationSnapshot | null>(null);
   const [fastMoneyHostState, setFastMoneyHostState] = useState<HostStateSnapshot | null>(null);
   const [timerTick, setTimerTick] = useState<TimerTickPayload | null>(null);
   const [turnEnded, setTurnEnded] = useState<TurnEndedPayload | null>(null);
+  const [p2TurnStarted, setP2TurnStarted] = useState<{
+    roomCode: string;
+    endsAt: number;
+    duration: number;
+    currentQuestionNumber: number;
+    questionText: string;
+  } | null>(null);
+  const [p2TurnEnded, setP2TurnEnded] = useState<TurnEndedPayload | null>(null);
+
+  // Fast Money Duplicate Answer Warning (US-09)
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateAnswerWarningPayload | null>(
+    null
+  );
 
   // Fast Money Reveal Sequence States (US-08)
   const [boardReveal, setBoardReveal] = useState<BoardRevealPayload | null>(null);
@@ -101,6 +115,10 @@ export function useSocket(options?: UseSocketOptions) {
     []
   );
 
+  const clearDuplicateWarning = useCallback(() => {
+    setDuplicateWarning(null);
+  }, []);
+
   // Fast Money Reveal Triggers (US-08)
   const startFastMoneyRevealPhase = useCallback((roomCode: string) => {
     setRoomError(null);
@@ -135,6 +153,9 @@ export function useSocket(options?: UseSocketOptions) {
     setFastMoneyHostState(null);
     setTimerTick(null);
     setTurnEnded(null);
+    setP2TurnStarted(null);
+    setP2TurnEnded(null);
+    setDuplicateWarning(null);
     setBoardReveal(null);
     setP1RevealCompleted(null);
   }, []);
@@ -188,7 +209,7 @@ export function useSocket(options?: UseSocketOptions) {
       setGameStarted(payload);
     });
 
-    // Fast Money Speed Round Listeners (US-07)
+    // Fast Money Speed Round Listeners (US-07 & US-09)
     socket.on('fast_money_p1_state', (state: Player1StateSnapshot) => {
       setFastMoneyP1State(state);
     });
@@ -207,6 +228,29 @@ export function useSocket(options?: UseSocketOptions) {
 
     socket.on('p1_turn_ended', (payload: TurnEndedPayload) => {
       setTurnEnded(payload);
+    });
+
+    socket.on(
+      'p2_turn_started',
+      (payload: {
+        roomCode: string;
+        endsAt: number;
+        duration: number;
+        currentQuestionNumber: number;
+        questionText: string;
+      }) => {
+        setP2TurnStarted(payload);
+      }
+    );
+
+    socket.on('p2_turn_ended', (payload: TurnEndedPayload) => {
+      setTurnEnded(payload);
+      setP2TurnEnded(payload);
+    });
+
+    // Fast Money Duplicate Answer Warning (US-09)
+    socket.on('duplicate_answer_warning', (warning: DuplicateAnswerWarningPayload) => {
+      setDuplicateWarning(warning);
     });
 
     // Fast Money Reveal Sequence Listeners (US-08)
@@ -238,6 +282,9 @@ export function useSocket(options?: UseSocketOptions) {
     fastMoneyHostState,
     timerTick,
     turnEnded,
+    p2TurnStarted,
+    p2TurnEnded,
+    duplicateWarning,
     boardReveal,
     p1RevealCompleted,
     joinRoom,
@@ -245,6 +292,7 @@ export function useSocket(options?: UseSocketOptions) {
     sendPlayerReady,
     submitFastMoneyAnswer,
     passFastMoneyQuestion,
+    clearDuplicateWarning,
     startFastMoneyRevealPhase,
     revealFastMoneyAnswer,
     revealFastMoneyPoints,

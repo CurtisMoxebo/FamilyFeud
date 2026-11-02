@@ -5,6 +5,7 @@ import {
   FastMoneySession,
   FastMoneyQuestionItem,
   FastMoneyRevealSlot,
+  DuplicateAnswerError,
 } from '../services/fastMoneySession';
 import { SupportedLanguage } from '../services/geminiService';
 import { evaluatePlayerAnswer } from '../services/answerValidationService';
@@ -27,6 +28,15 @@ export interface PassQuestionPayload {
   roomCode: string;
   playerId: string;
   questionId: string;
+}
+
+export interface DuplicateAnswerWarningPayload {
+  roomCode: string;
+  rawInput: string;
+  message: string;
+  questionId: string;
+  duplicateWithAnswer?: string;
+  reason?: 'EXACT_RAW' | 'SEMANTIC_MATCH';
 }
 
 export interface TimerTickPayload {
@@ -80,6 +90,7 @@ export function initFastMoneySession(
     player2Id: string;
     questions: FastMoneyQuestionItem[];
     timerDurationSeconds?: number;
+    p2TimerDurationSeconds?: number;
     language?: SupportedLanguage;
   }
 ): FastMoneySession {
@@ -93,6 +104,7 @@ export function initFastMoneySession(
     player2Id: options.player2Id,
     questions: options.questions,
     timerDurationSeconds: options.timerDurationSeconds ?? 60,
+    p2TimerDurationSeconds: options.p2TimerDurationSeconds ?? 75,
     language: options.language ?? 'EN',
   });
 
@@ -141,31 +153,57 @@ export function broadcastFastMoneyState(io: SocketIOServer, session: FastMoneySe
 }
 
 /**
- * Starts the authoritative 60-second countdown timer on the server.
+ * Starts the authoritative countdown timer on the server.
+ * Supports Player 1 (60s) and Player 2 (75s).
  * Broadcasts 1-second ticks and auto-terminates the turn when time expires.
  */
 export function startAuthoritativeTimer(
   io: SocketIOServer,
   session: FastMoneySession,
-  onTurnEnd?: (reason: 'TIME_EXPIRED' | 'ALL_ANSWERED') => void
+  playerOrOnTurnEnd?: (1 | 2) | ((reason: 'TIME_EXPIRED' | 'ALL_ANSWERED') => void),
+  onTurnEndParam?: (reason: 'TIME_EXPIRED' | 'ALL_ANSWERED') => void
 ): void {
+  let playerNumber: 1 | 2 = session.getPhase() === 'P2_PLAYING' ? 2 : 1;
+  let onTurnEnd: ((reason: 'TIME_EXPIRED' | 'ALL_ANSWERED') => void) | undefined = onTurnEndParam;
+
+  if (typeof playerOrOnTurnEnd === 'function') {
+    onTurnEnd = playerOrOnTurnEnd;
+  } else if (playerOrOnTurnEnd === 1 || playerOrOnTurnEnd === 2) {
+    playerNumber = playerOrOnTurnEnd;
+  }
+
   const roomCode = session.roomCode;
   clearFastMoneyTimer(roomCode);
 
-  const durationMs = session.timerDurationSeconds * 1000;
+  const duration =
+    playerNumber === 2 ? session.p2TimerDurationSeconds : session.timerDurationSeconds;
+  const durationMs = duration * 1000;
   const endsAt = Date.now() + durationMs;
 
+  const activeQuestion = session.getCurrentQuestion();
+
   // Broadcast initial turn started event
-  io.to(`room:${roomCode}`).emit('p1_turn_started', {
-    roomCode,
-    endsAt,
-    duration: session.timerDurationSeconds,
-    currentQuestionNumber: 1,
-  });
+  if (playerNumber === 2) {
+    io.to(`room:${roomCode}`).emit('p2_turn_started', {
+      roomCode,
+      endsAt,
+      duration,
+      currentQuestionNumber: 1,
+      questionText: activeQuestion?.questionText ?? '',
+    });
+  } else {
+    io.to(`room:${roomCode}`).emit('p1_turn_started', {
+      roomCode,
+      endsAt,
+      duration,
+      currentQuestionNumber: 1,
+      questionText: activeQuestion?.questionText ?? '',
+    });
+  }
 
   // Broadcast initial timer tick
   io.to(`room:${roomCode}`).emit('timer_tick', {
-    secondsRemaining: session.timerDurationSeconds,
+    secondsRemaining: duration,
     endsAt,
   });
 
@@ -186,20 +224,37 @@ export function startAuthoritativeTimer(
       session.expireTimer();
 
       const reason = session.isAllAnswered() ? 'ALL_ANSWERED' : 'TIME_EXPIRED';
-      session.startRevealPhase();
 
-      logger.info(
-        `[FAST_MONEY:TURN_END] Room ${roomCode} Player 1 turn finished (${reason}, ${session.getAnsweredCount()} answers)`
-      );
+      if (playerNumber === 2) {
+        logger.info(
+          `[FAST_MONEY:TURN_END] Room ${roomCode} Player 2 turn finished (${reason}, ${session.getPlayer2AnsweredCount()} answers)`
+        );
 
-      const turnEndedPayload: TurnEndedPayload = {
-        roomCode,
-        reason,
-        answeredCount: session.getAnsweredCount(),
-        totalQuestions: 5,
-      };
+        const turnEndedPayload: TurnEndedPayload = {
+          roomCode,
+          reason,
+          answeredCount: session.getPlayer2AnsweredCount(),
+          totalQuestions: 5,
+        };
 
-      io.to(`room:${roomCode}`).emit('p1_turn_ended', turnEndedPayload);
+        io.to(`room:${roomCode}`).emit('p2_turn_ended', turnEndedPayload);
+      } else {
+        session.startRevealPhase();
+
+        logger.info(
+          `[FAST_MONEY:TURN_END] Room ${roomCode} Player 1 turn finished (${reason}, ${session.getPlayer1AnsweredCount()} answers)`
+        );
+
+        const turnEndedPayload: TurnEndedPayload = {
+          roomCode,
+          reason,
+          answeredCount: session.getPlayer1AnsweredCount(),
+          totalQuestions: 5,
+        };
+
+        io.to(`room:${roomCode}`).emit('p1_turn_ended', turnEndedPayload);
+      }
+
       broadcastFastMoneyState(io, session);
 
       if (onTurnEnd) {
@@ -220,8 +275,9 @@ export function registerFastMoneyHandlers(
   db: PrismaClient = defaultPrisma
 ): void {
   /**
-   * Scenario 1: Ready Button Starts 60-Second Timer
-   * Player 1 clicks "I'm Ready!" -> Starts authoritative server clock and broadcasts state.
+   * Scenario 1: Ready Button Starts Authoritative Timer
+   * Player 1 clicks "I'm Ready!" -> Starts 60-second timer.
+   * Player 2 clicks "I'm Ready!" -> Starts 75-second timer.
    */
   socket.on(
     'player_ready',
@@ -245,27 +301,50 @@ export function registerFastMoneyHandlers(
           return;
         }
 
-        if (playerId !== session.player1Id) {
-          const errMsg = 'Only Player 1 can start their Fast Money turn';
+        const phase = session.getPhase();
+
+        if (phase === 'P1_READY') {
+          if (playerId !== session.player1Id) {
+            const errMsg = 'Only Player 1 can start their Fast Money turn';
+            socket.emit('room_error', { code: 'CANNOT_START', message: errMsg });
+            if (callback) callback({ success: false, error: errMsg });
+            return;
+          }
+
+          // Start Player 1 turn (60s)
+          session.startPlayer1Turn(playerId);
+          startAuthoritativeTimer(io, session, 1);
+          broadcastFastMoneyState(io, session);
+
+          logger.info(
+            `[FAST_MONEY:START] Player 1 (${playerId}) started 60s speed round in room ${normalizedCode}`
+          );
+
+          if (callback) callback({ success: true });
+        } else if (phase === 'P2_READY') {
+          if (playerId !== session.player2Id) {
+            const errMsg = 'Only Player 2 can start their Fast Money turn';
+            socket.emit('room_error', { code: 'CANNOT_START', message: errMsg });
+            if (callback) callback({ success: false, error: errMsg });
+            return;
+          }
+
+          // Start Player 2 turn (75s)
+          session.startPlayer2Turn(playerId);
+          startAuthoritativeTimer(io, session, 2);
+          broadcastFastMoneyState(io, session);
+
+          logger.info(
+            `[FAST_MONEY:START] Player 2 (${playerId}) started 75s speed round in room ${normalizedCode}`
+          );
+
+          if (callback) callback({ success: true });
+        } else {
+          const errMsg = `Cannot start turn from phase ${phase}`;
           socket.emit('room_error', { code: 'CANNOT_START', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
           return;
         }
-
-        // Start session turn
-        session.startPlayer1Turn(playerId);
-
-        // Start server timer interval
-        startAuthoritativeTimer(io, session);
-
-        // Broadcast active state to host and players
-        broadcastFastMoneyState(io, session);
-
-        logger.info(
-          `[FAST_MONEY:START] Player 1 (${playerId}) started 60s speed round in room ${normalizedCode}`
-        );
-
-        if (callback) callback({ success: true });
       } catch (error: unknown) {
         logger.error('[FAST_MONEY:ERROR] Error in player_ready handler', error);
         const errMsg = error instanceof Error ? error.message : 'Failed to start Fast Money round';
@@ -279,8 +358,7 @@ export function registerFastMoneyHandlers(
   );
 
   /**
-   * Scenario 2: Submitting an Answer Advances with Zero Latency (Non-Blocking)
-   * Records answer submission, advances question queue instantly, and validates via US-06 in background.
+   * Scenario 2: Submitting an Answer Advances Question Queue (with Duplicate Check for Player 2)
    */
   socket.on(
     'submit_answer',
@@ -290,9 +368,17 @@ export function registerFastMoneyHandlers(
     ) => {
       try {
         const { roomCode, playerId, questionId, rawAnswer } = payload || {};
-        if (!roomCode || !playerId || !questionId || !rawAnswer) {
+        if (!roomCode || !playerId || !questionId || rawAnswer === undefined || rawAnswer === null) {
           const errMsg = 'roomCode, playerId, questionId, and rawAnswer are required';
           socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const trimmedAnswer = rawAnswer.trim();
+        if (!trimmedAnswer) {
+          const errMsg = 'Cannot submit an empty answer';
+          socket.emit('room_error', { code: 'INVALID_ANSWER', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
           return;
         }
@@ -307,66 +393,235 @@ export function registerFastMoneyHandlers(
           return;
         }
 
-        const activeQuestion = session.getCurrentQuestion();
-        if (!activeQuestion || activeQuestion.id !== questionId) {
-          const errMsg = 'Submitted questionId does not match current active question';
+        const phase = session.getPhase();
+
+        if (phase === 'P1_PLAYING') {
+          if (playerId !== session.player1Id) {
+            const errMsg = 'Unauthorized player for Player 1 turn';
+            socket.emit('room_error', { code: 'UNAUTHORIZED', message: errMsg });
+            if (callback) callback({ success: false, error: errMsg });
+            return;
+          }
+
+          const activeQuestion = session.getCurrentQuestion();
+          if (!activeQuestion || activeQuestion.id !== questionId) {
+            const errMsg = 'Submitted questionId does not match current active question';
+            socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+            if (callback) callback({ success: false, error: errMsg });
+            return;
+          }
+
+          // 1. Submit answer in session immediately (advances queue instantly with 0ms lag)
+          session.submitAnswer(playerId, questionId, trimmedAnswer);
+
+          // 2. Broadcast updated snapshots to Host and Players immediately
+          broadcastFastMoneyState(io, session);
+
+          const isFinished = session.isAllAnswered() || session.isTurnFinished();
+
+          if (callback) {
+            callback({ success: true, isFinished });
+          }
+
+          // 3. If all 5 questions answered, finish turn and transition to reveal phase
+          if (isFinished) {
+            clearFastMoneyTimer(normalizedCode);
+            session.startRevealPhase();
+
+            const turnEndedPayload: TurnEndedPayload = {
+              roomCode: normalizedCode,
+              reason: 'ALL_ANSWERED',
+              answeredCount: session.getPlayer1AnsweredCount(),
+              totalQuestions: 5,
+            };
+
+            io.to(`room:${normalizedCode}`).emit('p1_turn_ended', turnEndedPayload);
+            broadcastFastMoneyState(io, session);
+          }
+
+          // 4. Background validation & persistence via US-06 (non-blocking)
+          evaluatePlayerAnswer({
+            questionId,
+            playerId,
+            questionText: activeQuestion.questionText,
+            candidateAnswers: activeQuestion.answers ?? [],
+            rawInput: trimmedAnswer,
+            language: session.language,
+            persistAudit: true,
+            prismaClient: db,
+          })
+            .then((outcome) => {
+              session.recordEvaluation(
+                questionId,
+                outcome.pointsAwarded,
+                outcome.isMatched,
+                outcome.matchedAnswer?.id,
+                1
+              );
+              logger.info(
+                `[FAST_MONEY:BG_EVAL] Evaluated question ${questionId}: ${outcome.pointsAwarded} pts (matched: ${outcome.isMatched})`
+              );
+            })
+            .catch((err) => {
+              logger.error(
+                `[FAST_MONEY:BG_EVAL_ERROR] Background evaluation failed for question ${questionId}:`,
+                err
+              );
+            });
+        } else if (phase === 'P2_PLAYING') {
+          if (playerId !== session.player2Id) {
+            const errMsg = 'Unauthorized player for Player 2 turn';
+            socket.emit('room_error', { code: 'UNAUTHORIZED', message: errMsg });
+            if (callback) callback({ success: false, error: errMsg });
+            return;
+          }
+
+          const activeQuestion = session.getCurrentQuestion();
+          if (!activeQuestion || activeQuestion.id !== questionId) {
+            const errMsg = 'Submitted questionId does not match current active question';
+            socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+            if (callback) callback({ success: false, error: errMsg });
+            return;
+          }
+
+          // US-09 Duplicate Answer Detection:
+          // Check 1: Direct exact match against Player 1 raw submission
+          const directDup = session.checkPlayer2Duplicate(questionId, trimmedAnswer);
+          if (directDup.isDuplicate) {
+            const warningPayload: DuplicateAnswerWarningPayload = {
+              roomCode: normalizedCode,
+              rawInput: trimmedAnswer,
+              message: directDup.message ?? 'Answer already given by Player 1! Try again.',
+              questionId,
+              duplicateWithAnswer: directDup.duplicateWithAnswer,
+              reason: directDup.reason,
+            };
+
+            // Emit duplicate warning to player and to host/room
+            socket.emit('duplicate_answer_warning', warningPayload);
+            io.to(`player:${playerId}`).emit('duplicate_answer_warning', warningPayload);
+            io.to(`room:${normalizedCode}`).emit('duplicate_answer_warning', warningPayload);
+
+            logger.info(
+              `[FAST_MONEY:DUPLICATE_ANSWER] Direct duplicate detected for room ${normalizedCode}, question ${questionId}: "${trimmedAnswer}"`
+            );
+
+            if (callback) {
+              callback({
+                success: false,
+                error: warningPayload.message,
+                isFinished: false,
+              });
+            }
+            return;
+          }
+
+          // Check 2: Evaluate answer to check semantic duplicate against Player 1's matched answer
+          const outcome = await evaluatePlayerAnswer({
+            questionId,
+            playerId,
+            questionText: activeQuestion.questionText,
+            candidateAnswers: activeQuestion.answers ?? [],
+            rawInput: trimmedAnswer,
+            language: session.language,
+            persistAudit: true,
+            prismaClient: db,
+          });
+
+          if (outcome.isMatched && outcome.matchedAnswer) {
+            const semanticDup = session.checkPlayer2Duplicate(
+              questionId,
+              trimmedAnswer,
+              outcome.matchedAnswer.id
+            );
+            if (semanticDup.isDuplicate) {
+              const warningPayload: DuplicateAnswerWarningPayload = {
+                roomCode: normalizedCode,
+                rawInput: trimmedAnswer,
+                message: semanticDup.message ?? 'Answer already given by Player 1! Try again.',
+                questionId,
+                duplicateWithAnswer: semanticDup.duplicateWithAnswer,
+                reason: semanticDup.reason,
+              };
+
+              socket.emit('duplicate_answer_warning', warningPayload);
+              io.to(`player:${playerId}`).emit('duplicate_answer_warning', warningPayload);
+              io.to(`room:${normalizedCode}`).emit('duplicate_answer_warning', warningPayload);
+
+              logger.info(
+                `[FAST_MONEY:DUPLICATE_ANSWER] Semantic duplicate detected for room ${normalizedCode}, question ${questionId}: "${trimmedAnswer}" (matched ${outcome.matchedAnswer.id})`
+              );
+
+              if (callback) {
+                callback({
+                  success: false,
+                  error: warningPayload.message,
+                  isFinished: false,
+                });
+              }
+              return;
+            }
+          }
+
+          // Valid alternate answer: submit and record evaluation
+          session.submitAnswer(playerId, questionId, trimmedAnswer, {
+            matchedAnswerId: outcome.matchedAnswer?.id,
+          });
+          session.recordEvaluation(
+            questionId,
+            outcome.pointsAwarded,
+            outcome.isMatched,
+            outcome.matchedAnswer?.id,
+            2
+          );
+
+          // Broadcast updated state
+          broadcastFastMoneyState(io, session);
+
+          const isFinished = session.isAllAnswered() || session.isTurnFinished();
+
+          if (callback) {
+            callback({ success: true, isFinished });
+          }
+
+          // Turn completion
+          if (isFinished) {
+            clearFastMoneyTimer(normalizedCode);
+            session.expireTimer();
+
+            const turnEndedPayload: TurnEndedPayload = {
+              roomCode: normalizedCode,
+              reason: 'ALL_ANSWERED',
+              answeredCount: session.getPlayer2AnsweredCount(),
+              totalQuestions: 5,
+            };
+
+            io.to(`room:${normalizedCode}`).emit('p2_turn_ended', turnEndedPayload);
+            broadcastFastMoneyState(io, session);
+          }
+        } else {
+          const errMsg = `No speed round is active (current phase: ${phase})`;
           socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
           return;
         }
-
-        // 1. Submit answer in session immediately (advances queue instantly with 0ms lag)
-        session.submitAnswer(playerId, questionId, rawAnswer);
-
-        // 2. Broadcast updated snapshots to Host and Players immediately
-        broadcastFastMoneyState(io, session);
-
-        const isFinished = session.isAllAnswered() || session.isTurnFinished();
-
-        if (callback) {
-          callback({ success: true, isFinished });
-        }
-
-        // 3. If all 5 questions answered, finish turn and transition to reveal phase
-        if (isFinished) {
-          clearFastMoneyTimer(normalizedCode);
-          session.startRevealPhase();
-
-          const turnEndedPayload: TurnEndedPayload = {
-            roomCode: normalizedCode,
-            reason: 'ALL_ANSWERED',
-            answeredCount: session.getAnsweredCount(),
-            totalQuestions: 5,
-          };
-
-          io.to(`room:${normalizedCode}`).emit('p1_turn_ended', turnEndedPayload);
-          broadcastFastMoneyState(io, session);
-        }
-
-        // 4. Background validation & persistence via US-06 (non-blocking)
-        evaluatePlayerAnswer({
-          questionId,
-          playerId,
-          questionText: activeQuestion.questionText,
-          candidateAnswers: activeQuestion.answers ?? [],
-          rawInput: rawAnswer,
-          language: session.language,
-          persistAudit: true,
-          prismaClient: db,
-        })
-          .then((outcome) => {
-            session.recordEvaluation(questionId, outcome.pointsAwarded, outcome.isMatched);
-            logger.info(
-              `[FAST_MONEY:BG_EVAL] Evaluated question ${questionId}: ${outcome.pointsAwarded} pts (matched: ${outcome.isMatched})`
-            );
-          })
-          .catch((err) => {
-            logger.error(
-              `[FAST_MONEY:BG_EVAL_ERROR] Background evaluation failed for question ${questionId}:`,
-              err
-            );
-          });
       } catch (error: unknown) {
+        if (error instanceof DuplicateAnswerError) {
+          const warningPayload: DuplicateAnswerWarningPayload = {
+            roomCode: payload.roomCode,
+            rawInput: error.rawAnswer,
+            message: error.message,
+            questionId: error.questionId,
+            duplicateWithAnswer: error.duplicateWithAnswer,
+            reason: error.reason,
+          };
+          socket.emit('duplicate_answer_warning', warningPayload);
+          io.to(`player:${payload.playerId}`).emit('duplicate_answer_warning', warningPayload);
+          io.to(`room:${payload.roomCode}`).emit('duplicate_answer_warning', warningPayload);
+          if (callback) callback({ success: false, error: error.message });
+          return;
+        }
+
         logger.error('[FAST_MONEY:ERROR] Error in submit_answer handler', error);
         const errMsg = error instanceof Error ? error.message : 'Failed to submit answer';
         socket.emit('room_error', {
@@ -412,6 +667,17 @@ export function registerFastMoneyHandlers(
           return;
         }
 
+        const phase = session.getPhase();
+        const isPlayer1 = phase === 'P1_PLAYING' && playerId === session.player1Id;
+        const isPlayer2 = phase === 'P2_PLAYING' && playerId === session.player2Id;
+
+        if (!isPlayer1 && !isPlayer2) {
+          const errMsg = `Cannot pass question (phase: ${phase}, playerId: ${playerId})`;
+          socket.emit('room_error', { code: 'UNAUTHORIZED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
         // 1. Pass question in session
         const nextQ = session.passQuestion(playerId, questionId);
 
@@ -419,7 +685,7 @@ export function registerFastMoneyHandlers(
         broadcastFastMoneyState(io, session);
 
         logger.info(
-          `[FAST_MONEY:PASS] Player 1 passed question ${questionId} in room ${normalizedCode}. Next: ${
+          `[FAST_MONEY:PASS] Player ${isPlayer2 ? 2 : 1} passed question ${questionId} in room ${normalizedCode}. Next: ${
             nextQ ? nextQ.id : 'NONE'
           }`
         );
@@ -428,7 +694,7 @@ export function registerFastMoneyHandlers(
           callback({
             success: true,
             nextQuestionId: nextQ?.id ?? null,
-            passedCount: session.getPassedCount(),
+            passedCount: session.getPassedCount(playerId),
           });
         }
       } catch (error: unknown) {

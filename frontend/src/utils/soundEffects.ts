@@ -168,10 +168,51 @@ export function playBuzzerBlip(): void {
   }
 }
 
+/**
+ * Scenario 2: Game Show Duplicate Answer Alarm (US-09)
+ * Plays a classic alternating two-tone alarm / buzz when a duplicate answer is submitted.
+ * Distinct from 0-point single buzzer; warns contestant to give another answer.
+ */
+export function playDuplicateWarning(): void {
+  if (isSoundMuted) return;
+
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    // Two rapid alert pulses: tone 1 (440 Hz) and tone 2 (330 Hz)
+    const pulses = [
+      { freq: 440, start: now, duration: 0.12 },
+      { freq: 330, start: now + 0.14, duration: 0.18 },
+    ];
+
+    pulses.forEach(({ freq, start, duration }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, start);
+
+      gain.gain.setValueAtTime(0.28, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(start);
+      osc.stop(start + duration);
+    });
+  } catch (err) {
+    console.warn('[SFX:WARN] Failed to synthesize Duplicate Warning sound:', err);
+  }
+}
+
 export const sfx = {
   playDing,
   playPointsChime,
   playBuzzerBlip,
+  playDuplicateWarning,
   setMuted,
   isMuted,
   getAudioContext,

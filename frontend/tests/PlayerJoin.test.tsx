@@ -43,6 +43,10 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     startFastMoneyRevealPhase: vi.fn(),
     revealFastMoneyAnswer: vi.fn(),
     revealFastMoneyPoints: vi.fn(),
+    p2TurnStarted: null,
+    p2TurnEnded: null,
+    duplicateWarning: null,
+    clearDuplicateWarning: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {
@@ -446,4 +450,72 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     await user.click(screen.getByTestId('p2-ready-btn'));
     expect(sendPlayerReady).toHaveBeenCalledWith('FEUD-8291', 'p2');
   });
-});
+
+  it('satisfies US-09: transitions Player 2 to FastMoneyController upon P2_PLAYING and wires duplicate warning', async () => {
+      const user = userEvent.setup();
+      const submitFastMoneyAnswer = vi.fn();
+      const clearDuplicateWarning = vi.fn();
+
+      const mockP2Playing = {
+        phase: 'P2_PLAYING',
+        isOffstage: false,
+        isolationMessage: '',
+        remainingSeconds: 75,
+        isTimerRunning: true,
+        canSubmit: true,
+        canPass: true,
+        currentQuestion: {
+          id: 'q-1',
+          questionText: 'Name a hot beverage',
+          questionNumber: 1,
+          totalQuestions: 5,
+        },
+        answeredCount: 0,
+        passedCount: 0,
+        totalQuestions: 5,
+      };
+
+      const mockDuplicateWarning = {
+        roomCode: 'FEUD-8291',
+        rawInput: 'coffee',
+        message: 'Duplicate answer! Enter another answer.',
+        questionId: 'q-1',
+        duplicateWithAnswer: 'Coffee',
+        reason: 'EXACT_RAW' as const,
+      };
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        socketId: 'player-socket-2',
+        roomState: {
+          roomCode: 'FEUD-8291',
+          status: 'PLAYING',
+          playerCount: 2,
+          maxPlayers: 2,
+          players: [
+            { id: 'p1', nickname: 'Sophie', isConnected: true, isReady: true },
+            { id: 'p2', nickname: 'Marc', isConnected: true, isReady: true },
+          ],
+        },
+        fastMoneyP2State: mockP2Playing,
+        duplicateWarning: mockDuplicateWarning,
+        clearDuplicateWarning,
+        submitFastMoneyAnswer,
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Marc');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('fast-money-playing-screen')).toBeInTheDocument();
+        expect(screen.getByTestId('fast-money-timer')).toHaveTextContent('75s');
+        expect(screen.getByTestId('duplicate-warning-banner')).toBeInTheDocument();
+        expect(screen.getByTestId('duplicate-warning-banner')).toHaveTextContent(
+          'Duplicate answer! Enter another answer.'
+        );
+      });
+    });
+  });

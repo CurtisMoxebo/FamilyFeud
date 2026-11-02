@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { speakQuestion, cancelSpeech } from '../src/utils/tts';
+import { speakQuestion, cancelSpeech, speakDuplicateAlert, getDuplicateWarningPhrase, DUPLICATE_WARNING_PHRASES } from '../src/utils/tts';
 
 describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
   let mockSpeak: any;
@@ -100,5 +100,52 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect.any(Error)
     );
   });
-});
+  describe('speakDuplicateAlert (US-09 Scenario 2)', () => {
+    it('speaks English duplicate warning by default', () => {
+      speakDuplicateAlert();
 
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Already said! Try again!');
+      expect(utterance.lang).toBe('en-US');
+    });
+
+    it('speaks French duplicate warning when language is FR', () => {
+      speakDuplicateAlert('FR');
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Déjà dit ! Réessayez !');
+      expect(utterance.lang).toBe('fr-FR');
+    });
+
+    it('speaks Spanish duplicate warning when language is ES', () => {
+      speakDuplicateAlert('ES');
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('¡Ya se dijo! ¡Intenta de nuevo!');
+      expect(utterance.lang).toBe('es-ES');
+    });
+
+    it('allows speaking custom duplicate warning text', () => {
+      speakDuplicateAlert('EN', 'Custom warning!');
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Custom warning!');
+    });
+
+    it('getDuplicateWarningPhrase returns localized phrases and English fallback', () => {
+      expect(DUPLICATE_WARNING_PHRASES.EN).toBe('Already said! Try again!');
+      expect(getDuplicateWarningPhrase('EN')).toBe('Already said! Try again!');
+      expect(getDuplicateWarningPhrase('FR')).toBe('Déjà dit ! Réessayez !');
+      expect(getDuplicateWarningPhrase('ES')).toBe('¡Ya se dijo! ¡Intenta de nuevo!');
+      expect(getDuplicateWarningPhrase('DE')).toBe('Already said! Try again!');
+    });
+  });
+});

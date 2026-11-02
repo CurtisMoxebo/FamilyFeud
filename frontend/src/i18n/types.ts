@@ -109,5 +109,9 @@ export interface TranslationDictionary {
     p2ReadyTitle: string;
     p2ReadySubtitle: string;
     watchingReveal: string;
+    duplicateWarningHost: string;
+    duplicateWarningPlayer: string;
+    p2SpeedRoundTitle: string;
+    p2SpeedRoundSubtitle: string;
   };
 }

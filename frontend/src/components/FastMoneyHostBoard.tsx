@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HostStateSnapshot, TimerTickPayload, FastMoneyRevealSlot } from '../types';
-import { speakQuestion } from '../utils/tts';
-import { playDing, playPointsChime, playBuzzerBlip } from '../utils/soundEffects';
+import {
+  HostStateSnapshot,
+  TimerTickPayload,
+  FastMoneyRevealSlot,
+  DuplicateAnswerWarningPayload,
+} from '../types';
+import { speakQuestion, speakDuplicateAlert } from '../utils/tts';
+import { playDing, playPointsChime, playBuzzerBlip, playDuplicateWarning } from '../utils/soundEffects';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
   Timer,
@@ -15,11 +20,13 @@ import {
   Pause,
   ChevronRight,
   UserCheck,
+  AlertTriangle,
 } from 'lucide-react';
 
 export interface FastMoneyHostBoardProps {
   snapshot?: HostStateSnapshot | null;
   timerTick?: TimerTickPayload | null;
+  duplicateWarning?: DuplicateAnswerWarningPayload | null;
   language?: string;
   roomName?: string;
   roomCode?: string;
@@ -33,6 +40,7 @@ export interface FastMoneyHostBoardProps {
 export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   snapshot = null,
   timerTick = null,
+  duplicateWarning = null,
   language = 'EN',
   roomName = 'Family Feud',
   roomCode = '',
@@ -46,23 +54,28 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   const [audioEnabled, setAudioEnabled] = useState<boolean>(enableSFX || enableTTS);
   const isInitialMountRef = useRef<boolean>(true);
   const [isAutoPacing, setIsAutoPacing] = useState<boolean>(false);
+  const [activeWarning, setActiveWarning] = useState<DuplicateAnswerWarningPayload | null>(null);
 
   const lastSpokenQuestionRef = useRef<string | null>(null);
   const lastSpokenRevealSlotRef = useRef<number | null>(null);
   const prevRevealStatesRef = useRef<Map<number, { answer: boolean; points: boolean }>>(new Map());
   const autoPacingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const phase = snapshot?.phase ?? 'P1_READY';
+  const isP2Playing = phase === 'P2_PLAYING';
+  const isP2SpeedRound = phase === 'P2_PLAYING' || phase === 'P2_FINISHED';
+  const isRevealPhase = phase === 'P1_REVEAL';
+  const isReadyForP2 = phase === 'P2_READY';
+  const isRevealOrP2 = isRevealPhase || isReadyForP2;
 
   const remainingSeconds =
     timerTick && typeof timerTick.secondsRemaining === 'number'
       ? timerTick.secondsRemaining
-      : snapshot?.remainingSeconds ?? 60;
+      : snapshot?.remainingSeconds ?? (isP2Playing ? 75 : 60);
 
-  const phase = snapshot?.phase ?? 'P1_READY';
   const currentQuestionText = snapshot?.currentQuestionText ?? null;
   const activeNumber = snapshot?.activeQuestionNumber ?? 1;
-  const isRevealPhase = phase === 'P1_REVEAL';
-  const isReadyForP2 = phase === 'P2_READY';
-  const isRevealOrP2 = isRevealPhase || isReadyForP2;
 
   const totalScore = snapshot?.totalScore ?? 0;
   const activeRevealSlotNumber = snapshot?.activeRevealSlotNumber ?? (isReadyForP2 ? null : 1);
@@ -121,17 +134,20 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     },
   ];
 
+  // Player 1 slots for dual-column view
+  const p1Slots: FastMoneyRevealSlot[] = snapshot?.p1Slots ?? snapshot?.revealSlots ?? revealSlots;
+
   // Current active slot object in reveal mode
   const activeRevealSlot =
     revealSlots.find((s) => s.slotNumber === activeRevealSlotNumber) ??
     (revealSlots.length > 0 ? revealSlots[0] : null);
 
-  // 1. Speak question via TTS during P1_PLAYING
+  // 1. Speak question via TTS during P1_PLAYING and P2_PLAYING (US-07 & US-09 Scenario 1)
   useEffect(() => {
     if (
       enableTTS &&
       audioEnabled &&
-      phase === 'P1_PLAYING' &&
+      (phase === 'P1_PLAYING' || phase === 'P2_PLAYING') &&
       currentQuestionText &&
       currentQuestionText !== lastSpokenQuestionRef.current
     ) {
@@ -140,7 +156,30 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }
   }, [currentQuestionText, phase, language, enableTTS, audioEnabled]);
 
-  // 2. Speak question via TTS when new slot begins in P1_REVEAL (Scenario 1)
+  // 2. Duplicate Answer Detection Alarm & Speech (US-09 Scenario 2)
+  useEffect(() => {
+    if (duplicateWarning) {
+      setActiveWarning(duplicateWarning);
+
+      if (enableSFX && audioEnabled) {
+        playDuplicateWarning();
+      }
+
+      if (enableTTS && audioEnabled) {
+        speakDuplicateAlert(language);
+      }
+
+      if (warningTimeoutRef.current) {
+        clearTimeout(warningTimeoutRef.current);
+      }
+
+      warningTimeoutRef.current = setTimeout(() => {
+        setActiveWarning(null);
+      }, 3500);
+    }
+  }, [duplicateWarning, enableSFX, enableTTS, audioEnabled, language]);
+
+  // 3. Speak question via TTS when new slot begins in P1_REVEAL (Scenario 1)
   useEffect(() => {
     if (
       enableTTS &&
@@ -158,7 +197,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }
   }, [activeRevealSlotNumber, isRevealPhase, activeRevealSlot, language, enableTTS, audioEnabled]);
 
-  // 3. Play Synchronized Sound Effects on Reveal Flips (Scenario 1 & 2)
+  // 4. Play Synchronized Sound Effects on Reveal Flips (Scenario 1 & 2)
   useEffect(() => {
     if (!isRevealOrP2) return;
 
@@ -202,8 +241,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     });
   }, [revealSlots, isRevealOrP2, enableSFX, audioEnabled]);
 
-  // 4. Auto-Pacing Execution Engine with 1.5-Second Suspense Pause (Scenario 1 & DoD)
-
+  // 5. Auto-Pacing Execution Engine with 1.5-Second Suspense Pause (Scenario 1 & DoD)
   useEffect(() => {
     if (!isAutoPacing || !isRevealPhase || !activeRevealSlotNumber) {
       if (autoPacingTimeoutRef.current) {
@@ -249,7 +287,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }
   };
 
-  // Timer style for P1_PLAYING
+  // Timer style for P1_PLAYING and P2_PLAYING
   const getTimerStyle = () => {
     if (remainingSeconds > 30) return 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40';
     if (remainingSeconds > 10) return 'text-amber-400 border-amber-500/40 bg-amber-950/40';
@@ -271,7 +309,11 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-widest text-feud-gold px-2.5 py-0.5 rounded-full bg-feud-gold/10 border border-feud-gold/20">
-                  {isRevealOrP2 ? t.fastMoney.revealPhaseTitle : 'Fast Money Speed Round'}
+                  {isRevealOrP2
+                    ? t.fastMoney.revealPhaseTitle
+                    : isP2SpeedRound
+                    ? t.fastMoney.p2SpeedRoundTitle
+                    : 'Fast Money Speed Round'}
                 </span>
                 <span
                   data-testid="host-phase-badge"
@@ -291,7 +333,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
             </div>
           </div>
 
-          {/* Right Header Area: Total Score (Reveal) or 60s Clock (Playing) */}
+          {/* Right Header Area: Total Score (Reveal) or Authoritative Countdown Clock */}
           <div className="flex items-center gap-3">
             {/* Audio Toggle Button */}
             <button
@@ -301,11 +343,15 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               title={audioEnabled ? 'Mute Sounds & TTS' : 'Unmute Sounds & TTS'}
               className="p-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
             >
-              {audioEnabled ? <Volume2 className="w-5 h-5 text-feud-gold" /> : <VolumeX className="w-5 h-5 text-slate-500" />}
+              {audioEnabled ? (
+                <Volume2 className="w-5 h-5 text-feud-gold" />
+              ) : (
+                <VolumeX className="w-5 h-5 text-slate-500" />
+              )}
             </button>
 
             {isRevealOrP2 ? (
-              /* Real-Time Cumulative Round Total Score Counter (Scenario 3) */
+              /* Real-Time Cumulative Round Total Score Counter */
               <div
                 data-testid="fast-money-total-score"
                 className="flex items-center gap-2.5 px-6 py-3 rounded-2xl border border-feud-gold/50 bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/60 text-feud-gold font-black font-game text-3xl sm:text-4xl tracking-wider shadow-lg shadow-feud-gold/10 transition-all"
@@ -317,7 +363,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                 </span>
               </div>
             ) : (
-              /* Synchronized Authoritative 60-Second Clock */
+              /* Synchronized Authoritative 60s (P1) or 75s (P2) Clock */
               <div
                 data-testid="fast-money-host-timer"
                 className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl border font-black font-game text-3xl sm:text-4xl tracking-wider transition-colors shadow-lg ${getTimerStyle()}`}
@@ -338,6 +384,8 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                 ? `Reveal Slot #${activeRevealSlotNumber ?? 1}`
                 : isReadyForP2
                 ? 'Player 1 Complete'
+                : isP2Playing
+                ? `Player 2 • Question #${activeNumber}`
                 : `Question #${activeNumber}`}
             </span>
           </div>
@@ -352,132 +400,272 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               ? 'Player 1 Speed Round Complete! Click "Start Reveal" below.'
               : isReadyForP2
               ? 'Player 1 Reveal Sequence Complete! Ready for Player 2.'
+              : phase === 'P2_FINISHED'
+              ? 'Player 2 Speed Round Complete!'
               : isRevealPhase && activeRevealSlot
               ? activeRevealSlot.questionText
               : currentQuestionText || 'Loading question...'}
           </h2>
         </div>
+
+        {/* US-09 Scenario 2: Duplicate Answer Warning Visual Alert Banner */}
+        {activeWarning && (
+          <div
+            data-testid="host-duplicate-warning-banner"
+            className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-red-600 via-amber-600 to-red-600 border-2 border-yellow-300 text-white text-center shadow-[0_0_30px_rgba(239,68,68,0.7)] animate-bounce"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <AlertTriangle className="w-7 h-7 text-yellow-300 shrink-0" />
+              <span className="text-2xl font-black uppercase tracking-wider">
+                {activeWarning.message || t.fastMoney.duplicateWarningHost}
+              </span>
+              <AlertTriangle className="w-7 h-7 text-yellow-300 shrink-0" />
+            </div>
+            {activeWarning.duplicateWithAnswer && (
+              <p className="text-xs font-semibold text-yellow-100 mt-1">
+                Player 1 already answered: &quot;{activeWarning.duplicateWithAnswer}&quot;
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 5 Fast Money Answer & Point Slots */}
+      {/* Answer & Point Slots Board */}
       <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-feud-slate-border/80 pb-4 mb-6">
-          <h3 className="text-lg font-black uppercase tracking-wider text-slate-200">
-            {isRevealOrP2 ? 'Player 1 Reveal Board' : 'Player 1 Board (Answers Concealed)'}
-          </h3>
-          <div className="text-xs font-bold uppercase tracking-wider text-feud-gold">
-            {isRevealOrP2
-              ? `${revealSlots.filter((s) => s.isPointsRevealed).length} / 5 Revealed`
-              : `${snapshot?.answeredCount ?? 0} / 5 Answered`}
-          </div>
-        </div>
+        {/* Dual-Column Layout for Player 2 Speed Round (US-09) */}
+        {isP2SpeedRound ? (
+          <div>
+            <div className="flex items-center justify-between border-b border-feud-slate-border/80 pb-4 mb-6">
+              <h3 className="text-lg font-black uppercase tracking-wider text-slate-200">
+                Fast Money Dual Column Board
+              </h3>
+              <div className="text-xs font-bold uppercase tracking-wider text-blue-400">
+                Player 2 Speed Round: {snapshot?.answeredCount ?? 0} / 5 Answered
+              </div>
+            </div>
 
-        {/* The 5 Slot Grid with 3D Flip Card Aesthetics */}
-        <div className="flex flex-col gap-3">
-          {revealSlots.map((slot) => {
-            const isActive = isRevealPhase && activeRevealSlotNumber === slot.slotNumber;
-            const isPlayingActive =
-              phase === 'P1_PLAYING' && activeNumber === slot.slotNumber;
-
-            return (
-              <div
-                key={slot.slotNumber}
-                data-testid={`fast-money-slot-${slot.slotNumber}`}
-                className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${
-                  isActive
-                    ? 'border-feud-gold bg-slate-800/90 shadow-[0_0_20px_rgba(245,158,11,0.35)] scale-[1.01]'
-                    : isPlayingActive
-                    ? 'border-blue-400 bg-slate-800/90'
-                    : 'border-slate-800 bg-slate-900/70'
-                }`}
-              >
-                {/* Slot Number & Raw Contestant Answer Box */}
-                <div className="flex items-center gap-3.5 min-w-0 flex-1 mr-4">
-                  <span
-                    className={`w-9 h-9 rounded-xl border font-black text-sm flex items-center justify-center shrink-0 ${
-                      isActive
-                        ? 'bg-feud-gold text-slate-950 border-yellow-300 shadow-md'
-                        : 'bg-slate-800 border-slate-700 text-feud-gold'
-                    }`}
-                  >
-                    {slot.slotNumber}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Left Column: Player 1 Revealed Board */}
+              <div className="flex flex-col gap-3 p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-bold uppercase tracking-wider">
+                  <span className="text-feud-gold font-extrabold">Player 1</span>
+                  <span className="text-feud-gold">
+                    {snapshot?.p1TotalScore ?? totalScore} PTS
                   </span>
-
-                  {/* Contestant Answer Text (Flips open in Scenario 1) */}
+                </div>
+                {p1Slots.map((slot) => (
                   <div
-                    data-testid={`fast-money-slot-status-${slot.slotNumber}`}
-                    className="font-mono text-base tracking-wider font-bold truncate"
+                    key={`p1-${slot.slotNumber}`}
+                    data-testid={`host-p1-slot-${slot.slotNumber}`}
+                    className="flex items-center justify-between p-3 rounded-xl border border-slate-800/80 bg-slate-900/60"
                   >
-                    {isRevealOrP2 ? (
-                      slot.isAnswerRevealed ? (
+                    <div className="flex items-center gap-2.5 min-w-0 mr-2">
+                      <span className="w-7 h-7 rounded-lg bg-slate-800 text-feud-gold text-xs font-black flex items-center justify-center shrink-0">
+                        {slot.slotNumber}
+                      </span>
+                      <span className="font-mono text-sm font-bold text-white uppercase truncate">
+                        {slot.rawAnswer || (
+                          <span className="text-slate-500 italic">{t.fastMoney.noAnswer}</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="w-12 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-game font-black text-sm text-feud-gold">
+                      {slot.pointsAwarded}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Right Column: Player 2 Speed Round Slots (Concealed) */}
+              <div className="flex flex-col gap-3 p-4 rounded-2xl bg-slate-950/60 border border-blue-500/30 shadow-lg shadow-blue-500/5">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-bold uppercase tracking-wider">
+                  <span className="text-blue-400 font-extrabold">Player 2</span>
+                  <span className="text-slate-400">
+                    {snapshot?.answeredCount ?? 0} / 5 Answered
+                  </span>
+                </div>
+                {revealSlots.map((slot) => {
+                  const isPlayingActive =
+                    phase === 'P2_PLAYING' && activeNumber === slot.slotNumber;
+                  const isFilled =
+                    snapshot?.slots?.[slot.slotNumber - 1]?.isFilled ?? false;
+
+                  return (
+                    <div
+                      key={slot.slotNumber}
+                      data-testid={`fast-money-slot-${slot.slotNumber}`}
+                      className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all duration-300 ${
+                        isPlayingActive
+                          ? 'border-blue-400 bg-slate-800/90 shadow-[0_0_15px_rgba(96,165,250,0.3)] scale-[1.01]'
+                          : 'border-slate-800 bg-slate-900/70'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 mr-2">
                         <span
-                          data-testid={`revealed-answer-${slot.slotNumber}`}
-                          className="text-white font-extrabold uppercase tracking-widest text-lg drop-shadow"
+                          className={`w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 ${
+                            isPlayingActive
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-slate-800 text-blue-400'
+                          }`}
                         >
-                          {slot.rawAnswer || (
-                            <span className="text-slate-500 italic">
-                              {t.fastMoney.noAnswer}
+                          {slot.slotNumber}
+                        </span>
+                        <div
+                          data-testid={`fast-money-slot-status-${slot.slotNumber}`}
+                          className="font-mono text-sm tracking-wider font-bold truncate"
+                        >
+                          {isFilled ? (
+                            <span
+                              data-testid={`fast-money-slot-filled-${slot.slotNumber}`}
+                              className="inline-flex items-center gap-1.5 text-emerald-400"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>••••••••••••••••••••</span>
+                            </span>
+                          ) : (
+                            <span
+                              data-testid={`fast-money-slot-empty-${slot.slotNumber}`}
+                              className="text-slate-600 select-none"
+                            >
+                              — — — — — — — — — —
                             </span>
                           )}
-                        </span>
-                      ) : (
-                        <span
-                          data-testid={`unrevealed-answer-${slot.slotNumber}`}
-                          className="text-slate-600 select-none tracking-widest"
-                        >
-                          — — — — — — — — — —
-                        </span>
-                      )
-                    ) : slot.rawAnswer || snapshot?.slots?.[slot.slotNumber - 1]?.isFilled ? (
-                      <span
-                        data-testid={`fast-money-slot-filled-${slot.slotNumber}`}
-                        className="inline-flex items-center gap-2 text-emerald-400"
+                        </div>
+                      </div>
+                      <div
+                        data-testid={`revealed-points-box-${slot.slotNumber}`}
+                        className="w-12 h-8 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center font-game font-black text-sm text-slate-600"
                       >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        <span>••••••••••••••••••••</span>
-                      </span>
-                    ) : (
-                      <span
-                        data-testid={`fast-money-slot-empty-${slot.slotNumber}`}
-                        className="text-slate-600 select-none"
-                      >
-                        — — — — — — — — — —
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Point Value Box (Flips open with Chime or Buzzer in Scenario 2 & 3) */}
-                <div
-                  data-testid={`revealed-points-box-${slot.slotNumber}`}
-                  className={`w-16 h-11 rounded-xl border flex items-center justify-center font-game font-black text-lg select-none shadow-inner transition-all ${
-                    slot.isPointsRevealed
-                      ? slot.pointsAwarded > 0
-                        ? 'bg-gradient-to-tr from-amber-600 to-yellow-400 text-slate-950 border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
-                        : 'bg-slate-900 border-red-500/50 text-red-400'
-                      : 'bg-slate-950 border-slate-800 text-slate-600'
-                  }`}
-                >
-                  {isRevealOrP2 ? (
-                    slot.isPointsRevealed ? (
-                      <span data-testid={`points-val-${slot.slotNumber}`}>
-                        {slot.pointsAwarded}
-                      </span>
-                    ) : (
-                      '--'
-                    )
-                  ) : snapshot?.slots?.[slot.slotNumber - 1]?.isFilled ? (
-                    '--'
-                  ) : (
-                    ''
-                  )}
-                </div>
+                        {isFilled ? '--' : ''}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          </div>
+        ) : (
+          /* Single Column Layout for P1 Speed Round & P1 Reveal */
+          <div>
+            <div className="flex items-center justify-between border-b border-feud-slate-border/80 pb-4 mb-6">
+              <h3 className="text-lg font-black uppercase tracking-wider text-slate-200">
+                {isRevealOrP2 ? 'Player 1 Reveal Board' : 'Player 1 Board (Answers Concealed)'}
+              </h3>
+              <div className="text-xs font-bold uppercase tracking-wider text-feud-gold">
+                {isRevealOrP2
+                  ? `${revealSlots.filter((s) => s.isPointsRevealed).length} / 5 Revealed`
+                  : `${snapshot?.answeredCount ?? 0} / 5 Answered`}
+              </div>
+            </div>
 
-        {/* Host Pacing Controls & Auto-Pacing Mode (Scenario 1 & 5) */}
+            {/* The 5 Slot Grid with 3D Flip Card Aesthetics */}
+            <div className="flex flex-col gap-3">
+              {revealSlots.map((slot) => {
+                const isActive = isRevealPhase && activeRevealSlotNumber === slot.slotNumber;
+                const isPlayingActive =
+                  phase === 'P1_PLAYING' && activeNumber === slot.slotNumber;
+
+                return (
+                  <div
+                    key={slot.slotNumber}
+                    data-testid={`fast-money-slot-${slot.slotNumber}`}
+                    className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${
+                      isActive
+                        ? 'border-feud-gold bg-slate-800/90 shadow-[0_0_20px_rgba(245,158,11,0.35)] scale-[1.01]'
+                        : isPlayingActive
+                        ? 'border-blue-400 bg-slate-800/90'
+                        : 'border-slate-800 bg-slate-900/70'
+                    }`}
+                  >
+                    {/* Slot Number & Raw Contestant Answer Box */}
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1 mr-4">
+                      <span
+                        className={`w-9 h-9 rounded-xl border font-black text-sm flex items-center justify-center shrink-0 ${
+                          isActive
+                            ? 'bg-feud-gold text-slate-950 border-yellow-300 shadow-md'
+                            : 'bg-slate-800 border-slate-700 text-feud-gold'
+                        }`}
+                      >
+                        {slot.slotNumber}
+                      </span>
+
+                      {/* Contestant Answer Text */}
+                      <div
+                        data-testid={`fast-money-slot-status-${slot.slotNumber}`}
+                        className="font-mono text-base tracking-wider font-bold truncate"
+                      >
+                        {isRevealOrP2 ? (
+                          slot.isAnswerRevealed ? (
+                            <span
+                              data-testid={`revealed-answer-${slot.slotNumber}`}
+                              className="text-white font-extrabold uppercase tracking-widest text-lg drop-shadow"
+                            >
+                              {slot.rawAnswer || (
+                                <span className="text-slate-500 italic">
+                                  {t.fastMoney.noAnswer}
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span
+                              data-testid={`unrevealed-answer-${slot.slotNumber}`}
+                              className="text-slate-600 select-none tracking-widest"
+                            >
+                              — — — — — — — — — —
+                            </span>
+                          )
+                        ) : slot.rawAnswer || snapshot?.slots?.[slot.slotNumber - 1]?.isFilled ? (
+                          <span
+                            data-testid={`fast-money-slot-filled-${slot.slotNumber}`}
+                            className="inline-flex items-center gap-2 text-emerald-400"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                            <span>••••••••••••••••••••</span>
+                          </span>
+                        ) : (
+                          <span
+                            data-testid={`fast-money-slot-empty-${slot.slotNumber}`}
+                            className="text-slate-600 select-none"
+                          >
+                            — — — — — — — — — —
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Point Value Box */}
+                    <div
+                      data-testid={`revealed-points-box-${slot.slotNumber}`}
+                      className={`w-16 h-11 rounded-xl border flex items-center justify-center font-game font-black text-lg select-none shadow-inner transition-all ${
+                        slot.isPointsRevealed
+                          ? slot.pointsAwarded > 0
+                            ? 'bg-gradient-to-tr from-amber-600 to-yellow-400 text-slate-950 border-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                            : 'bg-slate-900 border-red-500/50 text-red-400'
+                          : 'bg-slate-950 border-slate-800 text-slate-600'
+                      }`}
+                    >
+                      {isRevealOrP2 ? (
+                        slot.isPointsRevealed ? (
+                          <span data-testid={`points-val-${slot.slotNumber}`}>
+                            {slot.pointsAwarded}
+                          </span>
+                        ) : (
+                          '--'
+                        )
+                      ) : snapshot?.slots?.[slot.slotNumber - 1]?.isFilled ? (
+                        '--'
+                      ) : (
+                        ''
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Host Pacing Controls & Auto-Pacing Mode */}
         {isRevealPhase && (
           <div
             data-testid="host-reveal-controls"
