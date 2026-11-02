@@ -32,7 +32,7 @@ export function validateTeamCount(count: number): TeamValidationResult {
   if (count < 2) {
     return {
       isValid: false,
-      error: `At least 2 players required to start Main Game (current: ${count}).`,
+      error: `At least 2 players required (current: ${count})`,
       count,
       neededToEven: 2 - count,
     };
@@ -41,7 +41,7 @@ export function validateTeamCount(count: number): TeamValidationResult {
   if (count > 10) {
     return {
       isValid: false,
-      error: `Maximum 10 players allowed in Main Game (current: ${count}).`,
+      error: 'Maximum 10 players allowed',
       count,
     };
   }

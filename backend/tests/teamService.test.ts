@@ -48,11 +48,11 @@ describe('US-11: Main Game Team Partitioning Service (teamService)', () => {
     it('rejects player counts greater than 10', () => {
       const res11 = validateTeamCount(11);
       expect(res11.isValid).toBe(false);
-      expect(res11.error).toBe('Maximum 10 players allowed in Main Game (current: 11).');
+      expect(res11.error).toBe('Maximum 10 players allowed');
 
       const res12 = validateTeamCount(12);
       expect(res12.isValid).toBe(false);
-      expect(res12.error).toBe('Maximum 10 players allowed in Main Game (current: 12).');
+      expect(res12.error).toBe('Maximum 10 players allowed');
     });
 
     it('accepts even player counts between 2 and 10 inclusive', () => {
