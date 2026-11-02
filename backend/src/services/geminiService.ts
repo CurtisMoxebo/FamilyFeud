@@ -1,7 +1,11 @@
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType, ResponseSchema } from '@google/generative-ai';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { getFallbackQuestions } from '../data/fallbackQuestions';
+import {
+  findOfflineFuzzyMatch,
+  CandidateAnswer,
+} from '../utils/stringNormalizer';
 
 export type SupportedLanguage = 'EN' | 'FR' | 'ES';
 export type SupportedGameMode = 'FAST_MONEY' | 'MAIN_GAME';
@@ -238,5 +242,198 @@ export async function generateQuestions(
     );
     const fallbacks = getFallbackQuestions(gameMode, language, roundNumber);
     return fallbacks.slice(0, count);
+  }
+}
+
+/**
+ * Structured schema for Gemini answer validation response.
+ */
+export const AnswerValidationSchema: ResponseSchema = {
+  type: SchemaType.OBJECT,
+  description: 'Validation result of contestant guess against candidate survey answers',
+  properties: {
+    is_matched: {
+      type: SchemaType.BOOLEAN,
+      description: 'Whether the player guess matches one of the candidate answers',
+    },
+    matched_answer_index: {
+      type: SchemaType.INTEGER,
+      description: 'The 0-based index of the matched candidate answer, or -1 if no match',
+      nullable: true,
+    },
+    reasoning: {
+      type: SchemaType.STRING,
+      description: 'Concise explanation of the decision',
+    },
+  },
+  required: ['is_matched'],
+};
+
+export interface ValidateAnswerOptions<T extends CandidateAnswer = CandidateAnswer> {
+  questionText: string;
+  candidateAnswers: readonly T[];
+  rawInput: string;
+  language?: SupportedLanguage;
+}
+
+export interface SemanticValidationResult<T extends CandidateAnswer = CandidateAnswer> {
+  isMatched: boolean;
+  matchedIndex: number | null;
+  matchedAnswer: T | null;
+  reasoning: string;
+  tier: 'TIER_2_GEMINI' | 'TIER_2_FALLBACK';
+}
+
+/**
+ * Builds the prompt instructing Gemini to evaluate contestant guess against target survey answers.
+ */
+export function buildValidationPrompt(
+  questionText: string,
+  candidateAnswers: string[],
+  rawInput: string,
+  language: SupportedLanguage
+): string {
+  const langName =
+    language === 'FR' ? 'French' : language === 'ES' ? 'Spanish' : 'English';
+
+  const answersList = candidateAnswers
+    .map((ans, idx) => `  [Index ${idx}] "${ans}"`)
+    .join('\n');
+
+  return `You are an expert impartial judge for the TV game show Family Feud in ${langName}.
+Survey Question: "${questionText}"
+
+Available Target Answers on the Board:
+${answersList}
+
+Contestant's Guess: "${rawInput}"
+
+Your task is to judge whether the contestant's guess matches any of the target answers listed above.
+
+Rules for Matching:
+1. Approve (is_matched: true) if the guess is:
+   - A minor spelling mistake or typo (e.g., "refrigirater" matches "Refrigerator").
+   - A direct synonym, common alternate name, or colloquial phrasing (e.g., "car" or "vehicle" matches "Automobile", "fridge" matches "Refrigerator", "tele" or "tv" matches "Television").
+   - A specific subcategory or instance directly synonymous in the context of this survey question.
+2. Reject (is_matched: false, matched_answer_index: null) if the guess is:
+   - Completely unrelated or wrong (e.g., "Submarine" for kitchen items).
+   - A distinct object/concept not represented on the board.
+   - Too broad, too vague, or refers to a different category.
+3. If matched, "matched_answer_index" MUST be the exact 0-based integer index of the matching target answer from the list above. If not matched, "matched_answer_index" must be null or -1.
+
+Output ONLY valid JSON matching the schema.`;
+}
+
+/**
+ * Tier 2 Semantic Validation via Google Gemini (with automatic offline fallback).
+ * Evaluates synonyms, colloquialisms, and typos under deterministic temperature (0.2).
+ */
+export async function validateAnswerWithGemini<T extends CandidateAnswer = CandidateAnswer>(
+  options: ValidateAnswerOptions<T>
+): Promise<SemanticValidationResult<T>> {
+  const { questionText, candidateAnswers, rawInput, language = 'EN' } = options;
+
+  if (!rawInput || !rawInput.trim() || !candidateAnswers || candidateAnswers.length === 0) {
+    return {
+      isMatched: false,
+      matchedIndex: null,
+      matchedAnswer: null,
+      reasoning: 'Empty input or candidate answers list',
+      tier: 'TIER_2_FALLBACK',
+    };
+  }
+
+  // Fallback if no Gemini API key is configured
+  if (!config.geminiApiKey || config.geminiApiKey.trim() === '') {
+    logger.warn('[GEMINI:VALIDATION] No GEMINI_API_KEY configured. Using offline fuzzy fallback.');
+    const fallback = findOfflineFuzzyMatch(rawInput, candidateAnswers);
+    return {
+      isMatched: fallback.isMatched,
+      matchedIndex: fallback.matchedIndex,
+      matchedAnswer: fallback.matchedAnswer,
+      reasoning: fallback.reasoning,
+      tier: 'TIER_2_FALLBACK',
+    };
+  }
+
+  try {
+    const genAI = geminiClientFactory.createClient(config.geminiApiKey);
+    const model = genAI.getGenerativeModel({
+      model: config.geminiModel,
+      generationConfig: {
+        temperature: 0.2, // Low temperature for deterministic evaluation
+        responseMimeType: 'application/json',
+        responseSchema: AnswerValidationSchema,
+      },
+    });
+
+    const targetAnswersList = candidateAnswers.map((c) => c.answerText);
+    const prompt = buildValidationPrompt(questionText, targetAnswersList, rawInput, language);
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    if (!text || text.trim() === '') {
+      throw new Error('Gemini API returned empty validation response');
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        parsed = JSON.parse(match[0]);
+      } else {
+        throw new Error('Could not parse Gemini validation JSON');
+      }
+    }
+
+    const isMatched = Boolean(parsed.is_matched ?? parsed.isMatched ?? false);
+    let matchedIndex: number | null =
+      parsed.matched_answer_index ?? parsed.matchedAnswerIndex ?? null;
+
+    if (
+      typeof matchedIndex === 'number' &&
+      (matchedIndex < 0 || matchedIndex >= candidateAnswers.length)
+    ) {
+      matchedIndex = null;
+    }
+
+    if (!isMatched) {
+      matchedIndex = null;
+    }
+
+    const matchedAnswer =
+      isMatched && matchedIndex !== null ? candidateAnswers[matchedIndex] : null;
+
+    const reasoning =
+      typeof parsed.reasoning === 'string'
+        ? parsed.reasoning
+        : isMatched
+        ? `Matched target answer at index ${matchedIndex}`
+        : 'No semantic match found';
+
+    return {
+      isMatched,
+      matchedIndex,
+      matchedAnswer,
+      reasoning,
+      tier: 'TIER_2_GEMINI',
+    };
+  } catch (error: any) {
+    logger.warn(
+      `[GEMINI:VALIDATION_ERROR] Semantic evaluation failed (${
+        error?.message || error
+      }). Falling back to offline matcher.`
+    );
+    const fallback = findOfflineFuzzyMatch(rawInput, candidateAnswers);
+    return {
+      isMatched: fallback.isMatched,
+      matchedIndex: fallback.matchedIndex,
+      matchedAnswer: fallback.matchedAnswer,
+      reasoning: fallback.reasoning,
+      tier: 'TIER_2_FALLBACK',
+    };
   }
 }
