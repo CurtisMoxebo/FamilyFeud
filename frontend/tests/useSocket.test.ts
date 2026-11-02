@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSocket } from '../src/hooks/useSocket';
 import { io } from 'socket.io-client';
-import { RoomStateUpdate, RoomErrorPayload } from '../src/types';
+import { RoomStateUpdate, RoomErrorPayload, GameStartedPayload } from '../src/types';
 
 vi.mock('socket.io-client', () => {
   return {
@@ -170,5 +170,45 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
     expect(mockSocket.emit).toHaveBeenCalledWith('leave_room');
     expect(result.current.roomState).toBeNull();
     expect(result.current.roomError).toBeNull();
+    expect(result.current.gameStarted).toBeNull();
+  });
+
+  it('emits start_game when startGame is called', () => {
+    const { result } = renderHook(() => useSocket({ roomCode: 'FEUD-7777' }));
+
+    act(() => {
+      result.current.startGame();
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith('start_game', { roomCode: 'FEUD-7777' });
+
+    act(() => {
+      result.current.startGame('FEUD-9999');
+    });
+    expect(mockSocket.emit).toHaveBeenCalledWith('start_game', { roomCode: 'FEUD-9999' });
+  });
+
+  it('updates gameStarted when game_started event fires', () => {
+    const { result } = renderHook(() => useSocket());
+
+    const mockGameStarted: GameStartedPayload = {
+      gameId: 'game-123',
+      roomCode: 'FEUD-7777',
+      gameMode: 'FAST_MONEY',
+      language: 'FR',
+      currentRound: 1,
+      status: 'IN_PROGRESS',
+      questionCount: 5,
+      firstQuestion: {
+        id: 'q-1',
+        questionText: 'Nommez un aliment dans le frigo',
+        answerCount: 6,
+      },
+    };
+
+    act(() => {
+      eventHandlers['game_started'](mockGameStarted);
+    });
+
+    expect(result.current.gameStarted).toEqual(mockGameStarted);
   });
 });

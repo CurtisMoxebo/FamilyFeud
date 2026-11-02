@@ -19,6 +19,19 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     createdAt: new Date().toISOString(),
   };
 
+  const defaultSocketMock = {
+    socket: null,
+    isConnected: true,
+    socketId: 'host-socket',
+    roomState: null,
+    roomError: null,
+    gameStarted: null,
+    joinRoom: vi.fn(),
+    leaveRoom: vi.fn(),
+    clearError: vi.fn(),
+    startGame: vi.fn(),
+  };
+
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {
     return render(
       <LanguageProvider>
@@ -193,15 +206,11 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
       ],
     };
 
+    const startGameMock = vi.fn();
     vi.spyOn(socketHook, 'useSocket').mockReturnValue({
-      socket: null,
-      isConnected: true,
-      socketId: 'host-socket',
+      ...defaultSocketMock,
       roomState: mockState,
-      roomError: null,
-      joinRoom: vi.fn(),
-      leaveRoom: vi.fn(),
-      clearError: vi.fn(),
+      startGame: startGameMock,
     });
 
     renderWithProviders(
@@ -218,8 +227,9 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     expect(startBtn).toBeEnabled();
     expect(startBtn).toHaveTextContent(/lancer la partie \(2 joueurs\)/i);
 
-    // Clicking fires onStartGame
+    // Clicking fires onStartGame and startGame socket emitter
     await user.click(startBtn);
+    expect(startGameMock).toHaveBeenCalledWith('FEUD-7890');
     expect(onStartGameMock).toHaveBeenCalledTimes(1);
   });
 
@@ -247,14 +257,8 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     };
 
     vi.spyOn(socketHook, 'useSocket').mockReturnValue({
-      socket: null,
-      isConnected: true,
-      socketId: 'host-socket',
+      ...defaultSocketMock,
       roomState: mockState,
-      roomError: null,
-      joinRoom: vi.fn(),
-      leaveRoom: vi.fn(),
-      clearError: vi.fn(),
     });
 
     renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mainGameRoom} />);
@@ -286,14 +290,8 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     };
 
     vi.spyOn(socketHook, 'useSocket').mockReturnValue({
-      socket: null,
-      isConnected: true,
-      socketId: 'host-socket',
+      ...defaultSocketMock,
       roomState: mockState,
-      roomError: null,
-      joinRoom: vi.fn(),
-      leaveRoom: vi.fn(),
-      clearError: vi.fn(),
     });
 
     renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);

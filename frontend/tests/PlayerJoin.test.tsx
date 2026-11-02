@@ -25,9 +25,11 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     socketId: 'mock-player-socket',
     roomState: null,
     roomError: null,
+    gameStarted: null,
     joinRoom: vi.fn(),
     leaveRoom: vi.fn(),
     clearError: vi.fn(),
+    startGame: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {
@@ -196,14 +198,10 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     };
 
     vi.spyOn(socketHook, 'useSocket').mockReturnValue({
-      socket: null,
-      isConnected: true,
+      ...defaultSocketMock,
       socketId: 'player-socket-1',
       roomState: mockState,
-      roomError: null,
       joinRoom: joinRoomMock,
-      leaveRoom: vi.fn(),
-      clearError: vi.fn(),
     });
 
     renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
@@ -233,17 +231,12 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     const user = userEvent.setup();
 
     vi.spyOn(socketHook, 'useSocket').mockReturnValue({
-      socket: null,
-      isConnected: true,
+      ...defaultSocketMock,
       socketId: 'player-socket-3',
-      roomState: null,
       roomError: {
         code: 'ROOM_FULL',
         message: 'This Fast Money room is already full (2/2 players).',
       },
-      joinRoom: vi.fn(),
-      leaveRoom: vi.fn(),
-      clearError: vi.fn(),
     });
 
     renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
@@ -260,17 +253,12 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
 
   it('satisfies US-04 Scenario 2: displays localized fallback when ROOM_FULL has no server message', () => {
     vi.spyOn(socketHook, 'useSocket').mockReturnValue({
-      socket: null,
-      isConnected: true,
+      ...defaultSocketMock,
       socketId: 'player-socket-3',
-      roomState: null,
       roomError: {
         code: 'ROOM_FULL',
         message: '',
       },
-      joinRoom: vi.fn(),
-      leaveRoom: vi.fn(),
-      clearError: vi.fn(),
     });
 
     renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
@@ -285,14 +273,8 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     const user = userEvent.setup();
 
     vi.spyOn(socketHook, 'useSocket').mockReturnValue({
-      socket: null,
-      isConnected: true,
+      ...defaultSocketMock,
       socketId: 'player-socket-1',
-      roomState: null,
-      roomError: null,
-      joinRoom: vi.fn(),
-      leaveRoom: vi.fn(),
-      clearError: vi.fn(),
     });
 
     renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);

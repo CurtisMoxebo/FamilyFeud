@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { RoomStateUpdate, RoomErrorPayload } from '../types';
+import { RoomStateUpdate, RoomErrorPayload, GameStartedPayload } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -16,6 +16,7 @@ export function useSocket(options?: UseSocketOptions) {
   const [socketId, setSocketId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<RoomStateUpdate | null>(null);
   const [roomError, setRoomError] = useState<RoomErrorPayload | null>(null);
+  const [gameStarted, setGameStarted] = useState<GameStartedPayload | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   const joinRoom = useCallback(
@@ -28,12 +29,23 @@ export function useSocket(options?: UseSocketOptions) {
     []
   );
 
+  const startGame = useCallback(
+    (code?: string) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('start_game', { roomCode: code || options?.roomCode });
+      }
+    },
+    [options?.roomCode]
+  );
+
   const leaveRoom = useCallback(() => {
     if (socketRef.current) {
       socketRef.current.emit('leave_room');
     }
     setRoomState(null);
     setRoomError(null);
+    setGameStarted(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -81,6 +93,10 @@ export function useSocket(options?: UseSocketOptions) {
       setRoomError(err);
     });
 
+    socket.on('game_started', (payload: GameStartedPayload) => {
+      setGameStarted(payload);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -92,7 +108,9 @@ export function useSocket(options?: UseSocketOptions) {
     socketId,
     roomState,
     roomError,
+    gameStarted,
     joinRoom,
+    startGame,
     leaveRoom,
     clearError,
   };

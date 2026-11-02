@@ -42,8 +42,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Live real-time socket connection for host display (US-04)
-  const { roomState } = useSocket({
+  // Live real-time socket connection for host display (US-04 & US-05)
+  const { roomState, startGame } = useSocket({
     roomCode,
     isHost: true,
     autoJoin: true,
@@ -98,6 +98,15 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       navigator.clipboard.writeText(joinUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleStartGame = () => {
+    if (startGame) {
+      startGame(roomCode);
+    }
+    if (onStartGame) {
+      onStartGame();
     }
   };
 
@@ -353,7 +362,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             type="button"
             data-testid="host-start-game-btn"
             disabled={!canStart}
-            onClick={onStartGame}
+            onClick={handleStartGame}
             className={`w-full sm:w-auto min-w-[280px] flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-extrabold text-lg uppercase tracking-wider transition-all duration-200 ${
               canStart
                 ? 'bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.5)] hover:scale-105 cursor-pointer animate-pulse'
