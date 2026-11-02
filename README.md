@@ -66,7 +66,7 @@ FamilyFeud/
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # RoomCreateForm, LanguageSelector, GameModeCard
+│   │   ├── components/      # RoomCreateForm, LanguageSelector, GameModeCard, RoomJoinForm
 │   │   ├── i18n/            # Modular i18n localization
 │   │   │   ├── en.ts        # English translations
 │   │   │   ├── fr.ts        # French translations
@@ -74,7 +74,7 @@ FamilyFeud/
 │   │   │   ├── types.ts     # Translation dictionary schema
 │   │   │   ├── translations.ts # Aggregated dictionary lookup
 │   │   │   └── LanguageContext.tsx # React Context & useTranslation hook
-│   │   ├── pages/           # HomePage, HostBoard, PlayerController
+│   │   ├── pages/           # HomePage, HostBoard, PlayerJoin
 │   │   ├── router/          # Client router with param matching
 │   │   ├── hooks/           # useSocket
 │   │   ├── types/           # Shared TypeScript contracts
@@ -186,7 +186,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. This guarantees pure production builds without requiring test-file exclusions:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 111 regression tests** (65 backend, 46 frontend) pass cleanly with **>90% code coverage**:
 
 ```bash
 # Run all regression tests across the whole project

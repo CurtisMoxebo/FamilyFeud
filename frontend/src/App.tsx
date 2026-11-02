@@ -3,14 +3,16 @@ import { LanguageProvider } from './i18n/LanguageContext';
 import { RouterProvider, useRouter, matchRoute } from './router/router';
 import { HomePage } from './pages/HomePage';
 import { HostBoard } from './pages/HostBoard';
+import { PlayerJoin } from './pages/PlayerJoin';
 import { Room } from './types';
 
 export const AppContent: React.FC = () => {
   const { path } = useRouter();
   const [createdRoom, setCreatedRoom] = useState<Room | null>(null);
 
-  // Match /host/:roomCode
+  // Match routes
   const hostMatch = matchRoute('/host/:roomCode', path);
+  const playMatch = matchRoute('/play/:roomCode', path);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-feud-blue-dark via-feud-blue to-feud-slate text-white flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
@@ -21,6 +23,8 @@ export const AppContent: React.FC = () => {
             createdRoom && createdRoom.roomCode === hostMatch.roomCode ? createdRoom : null
           }
         />
+      ) : playMatch && playMatch.roomCode ? (
+        <PlayerJoin roomCode={playMatch.roomCode} />
       ) : (
         <HomePage onRoomCreated={(room) => setCreatedRoom(room)} />
       )}

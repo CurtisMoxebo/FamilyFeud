@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Room } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
@@ -13,6 +14,7 @@ import {
   Copy,
   Check,
   Sparkles,
+  Smartphone,
 } from 'lucide-react';
 
 export interface HostBoardProps {
@@ -35,6 +37,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(!initialRoom);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+
+  const joinUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/play/${roomCode}`
+      : `/play/${roomCode}`;
 
   useEffect(() => {
     if (initialRoom) {
@@ -77,7 +84,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   const handleCopyLink = () => {
     if (typeof window !== 'undefined') {
-      const joinUrl = `${window.location.origin}/play/${roomCode}`;
       navigator.clipboard.writeText(joinUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -237,21 +243,54 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         </div>
       </div>
 
-      {/* Lobby Waiting Panel */}
-      <div className="w-full bg-feud-slate-card/70 backdrop-blur-md border border-feud-slate-border rounded-3xl p-8 text-center shadow-xl">
+      {/* Lobby Waiting Panel with QR Code Invitation */}
+      <div className="w-full bg-feud-slate-card/70 backdrop-blur-md border border-feud-slate-border rounded-3xl p-8 text-center shadow-xl flex flex-col items-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-semibold mb-4">
           <Sparkles className="w-3.5 h-3.5" />
           <span>{t.app.poweredBy}</span>
         </div>
-        <h3 className="text-xl font-bold text-white mb-2">{t.host.waitingPlayers}</h3>
-        <p className="text-sm text-slate-400 max-w-md mx-auto">
-          Share the room code or copy the link to let contestants join the duel from their mobile
-          devices!
+        <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{t.host.waitingPlayers}</h3>
+        <p className="text-sm text-slate-400 max-w-md mx-auto mb-6">
+          {t.joinRoom.subtitle}
         </p>
+
+        {/* High-Contrast QR Code Card */}
+        <div className="p-4 bg-white rounded-2xl shadow-2xl border-4 border-feud-gold/40 flex flex-col items-center justify-center transition-transform hover:scale-105 duration-200">
+          <QRCodeSVG
+            value={joinUrl}
+            size={180}
+            level="H"
+            includeMargin={false}
+            fgColor="#0f172a"
+            bgColor="#ffffff"
+            data-testid="host-qr-code"
+            className="w-40 h-40 sm:w-44 sm:h-44"
+          />
+        </div>
+
+        {/* Scan to Join Instruction */}
+        <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-feud-gold px-4 py-2 rounded-full bg-feud-gold/10 border border-feud-gold/20">
+          <Smartphone className="w-4 h-4 text-feud-gold" />
+          <span data-testid="host-scan-instruction">{t.joinRoom.scanToJoin}</span>
+        </div>
+
+        {/* Direct Link Share Pill */}
+        <div className="mt-4 flex items-center gap-2 max-w-md w-full justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs font-mono text-slate-300">
+          <span className="truncate">{joinUrl}</span>
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            data-testid="host-direct-link-copy-btn"
+            className="shrink-0 p-1.5 rounded-lg hover:bg-slate-800 text-feud-gold transition-colors cursor-pointer"
+            title={t.host.copyLink}
+            aria-label={t.host.copyLink}
+          >
+            {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
 export default HostBoard;
-

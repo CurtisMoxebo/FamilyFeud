@@ -51,7 +51,22 @@ export const es: TranslationDictionary = {
     gameMode: 'Modo de juego',
     language: 'Idioma',
   },
+  joinRoom: {
+    title: 'Unirse a la sala',
+    subtitle: 'Ingresa el código de sala y tu apodo para unirte al juego',
+    tabHost: 'Crear sala',
+    tabJoin: 'Unirse a una sala',
+    roomCodeLabel: 'Código de sala',
+    roomCodePlaceholder: 'ej. FEUD-8291',
+    nicknameLabel: 'Tu apodo',
+    nicknamePlaceholder: 'ej. Carlos',
+    joinButton: 'Unirse a la sala',
+    joining: 'Uniéndose a la sala...',
+    scanToJoin: 'Escanea con la cámara de tu teléfono para unirte al instante',
+    validationErrorNickname: 'Por favor ingresa un apodo (2-20 caracteres)',
+    validationErrorRoomCode: 'Formato de código inválido (debe ser FEUD-XXXX)',
+    roomNotFound: 'Sala no encontrada o sesión finalizada',
+  },
 };
 
 export default es;
-

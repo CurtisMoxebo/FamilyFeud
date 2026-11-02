@@ -1,19 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Room } from '../types';
 import { useRouter } from '../router/router';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useSocket } from '../hooks/useSocket';
 import { RoomCreateForm } from '../components/RoomCreateForm';
-import { Sparkles } from 'lucide-react';
+import { RoomJoinForm } from '../components/RoomJoinForm';
+import { Sparkles, Tv, LogIn } from 'lucide-react';
 
 export interface HomePageProps {
   onRoomCreated?: (room: Room) => void;
+  defaultTab?: 'host' | 'join';
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onRoomCreated }) => {
+export const HomePage: React.FC<HomePageProps> = ({ onRoomCreated, defaultTab = 'host' }) => {
   const { navigate } = useRouter();
   const { t } = useTranslation();
   const { isConnected } = useSocket();
+  const [activeTab, setActiveTab] = useState<'host' | 'join'>(defaultTab);
 
   const handleRoomCreated = (room: Room) => {
     if (onRoomCreated) {
@@ -25,7 +28,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onRoomCreated }) => {
   return (
     <div className="w-full flex flex-col items-center">
       {/* Header Bar */}
-      <header className="text-center mb-8">
+      <header className="text-center mb-6">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-feud-gold/20 border border-feud-gold/40 text-feud-gold text-sm font-semibold tracking-wide uppercase mb-4 animate-pulse">
           <Sparkles className="w-4 h-4" />
           {t.app.poweredBy}
@@ -57,9 +60,43 @@ export const HomePage: React.FC<HomePageProps> = ({ onRoomCreated }) => {
         </div>
       </header>
 
-      {/* Main Room Creation Form Card */}
+      {/* Mode Selector Tabs (Host a Game vs. Join a Game) */}
+      <div className="flex items-center gap-1.5 p-1.5 bg-slate-900/80 border border-slate-700/80 rounded-2xl mb-8 shadow-lg">
+        <button
+          type="button"
+          data-testid="tab-host-btn"
+          onClick={() => setActiveTab('host')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm tracking-wide transition-all cursor-pointer ${
+            activeTab === 'host'
+              ? 'bg-feud-gold text-slate-950 shadow-md shadow-feud-gold/20'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Tv className="w-4 h-4" />
+          <span>{t.joinRoom.tabHost}</span>
+        </button>
+        <button
+          type="button"
+          data-testid="tab-join-btn"
+          onClick={() => setActiveTab('join')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm tracking-wide transition-all cursor-pointer ${
+            activeTab === 'join'
+              ? 'bg-feud-gold text-slate-950 shadow-md shadow-feud-gold/20'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <LogIn className="w-4 h-4" />
+          <span>{t.joinRoom.tabJoin}</span>
+        </button>
+      </div>
+
+      {/* Main Form Display */}
       <main className="w-full flex justify-center">
-        <RoomCreateForm onRoomCreated={handleRoomCreated} />
+        {activeTab === 'host' ? (
+          <RoomCreateForm onRoomCreated={handleRoomCreated} />
+        ) : (
+          <RoomJoinForm />
+        )}
       </main>
     </div>
   );
