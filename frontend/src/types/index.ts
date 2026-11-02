@@ -164,6 +164,7 @@ export interface Player2IsolationSnapshot {
 }
 
 export interface TimerTickPayload {
+  roomCode?: string;
   secondsRemaining: number;
   endsAt: number;
 }
@@ -246,3 +247,122 @@ export interface TeamsAssignedPayload {
   team2: AssignedTeamPlayer[];
 }
 
+
+export type FaceOffPhase =
+  | 'AWAITING_READY'
+  | 'BUZZER_ACTIVE'
+  | 'ANSWERING'
+  | 'DEADLOCK_RESET'
+  | 'RESOLVED';
+
+export interface FaceOffQuestionAnswer {
+  id: string;
+  answerText: string;
+  points: number;
+  rankOrder: number;
+}
+
+export interface FaceOffQuestion {
+  id: string;
+  questionText: string;
+  orderIndex?: number;
+  roundNumber?: number;
+  answers: FaceOffQuestionAnswer[];
+}
+
+export interface FaceOffPlayer {
+  id: string;
+  nickname: string;
+  team: 'TEAM_1' | 'TEAM_2';
+  battingOrder: number;
+}
+
+export interface FaceOffContender extends FaceOffPlayer {
+  isReady: boolean;
+}
+
+export interface FaceOffSessionState {
+  roomCode: string;
+  gameId: string;
+  roundNumber: number;
+  language: string;
+  phase: FaceOffPhase;
+  question: FaceOffQuestion;
+  team1Players: FaceOffPlayer[];
+  team2Players: FaceOffPlayer[];
+  team1Contender: FaceOffContender;
+  team2Contender: FaceOffContender;
+  buzzerLocked: boolean;
+  buzzedPlayerId: string | null;
+  buzzedPlayerNickname: string | null;
+  buzzedPlayerTeam: 'TEAM_1' | 'TEAM_2' | null;
+  buzzedAtTimestamp: number | null;
+  activeRespondentId: string | null;
+  attemptedPlayerIds: string[];
+  initialBuzzerWinnerId: string | null;
+  timerDurationSeconds: number;
+  remainingSeconds: number;
+  endsAt: number | null;
+  isTimerRunning: boolean;
+  submittedAnswer?: string | null;
+}
+
+export interface BuzzerLockedPayload {
+  roomCode: string;
+  winnerPlayerId: string;
+  winnerNickname: string;
+  winnerTeam: 'TEAM_1' | 'TEAM_2';
+  endsAt: number;
+  duration: number;
+}
+
+export interface BuzzerRejectedPayload {
+  roomCode: string;
+  playerId: string;
+  reason: string;
+}
+
+export interface FaceOffTimeoutPayload {
+  roomCode: string;
+  type: 'HAND_OFF' | 'DEADLOCK_RESET';
+  timedOutPlayerId: string;
+  timedOutPlayerNickname: string;
+  timedOutPlayerTeam: 'TEAM_1' | 'TEAM_2';
+  nextPlayerId?: string;
+  nextPlayerNickname?: string;
+  nextPlayerTeam?: 'TEAM_1' | 'TEAM_2';
+  endsAt?: number;
+  duration?: number;
+  message?: string;
+}
+
+export interface FaceOffResetPayload {
+  roomCode: string;
+  newQuestion: {
+    id: string;
+    questionText: string;
+  };
+}
+
+export interface ContenderReadyPayload {
+  roomCode: string;
+  playerId: string;
+  bothReady: boolean;
+  waitingForPlayerId?: string;
+  waitingForNickname?: string;
+}
+
+export interface BuzzerActivePayload {
+  roomCode: string;
+  question: {
+    id: string;
+    questionText: string;
+  };
+}
+
+export interface FaceOffAnswerSubmittedPayload {
+  roomCode: string;
+  playerId: string;
+  questionId: string;
+  rawAnswer: string;
+}

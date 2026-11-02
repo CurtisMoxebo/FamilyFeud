@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Room, TeamsAssignedPayload } from '../types';
+import { Room, TeamsAssignedPayload, FaceOffSessionState } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
 import { FastMoneyHostBoard } from '../components/FastMoneyHostBoard';
 import { MainGameTeamsStage } from '../components/MainGameTeamsStage';
+import { MainGameFaceOffBoard } from '../components/MainGameFaceOffBoard';
 import {
   Tv,
   Users,
@@ -25,6 +26,7 @@ export interface HostBoardProps {
   roomCode: string;
   initialRoom?: Room | null;
   initialTeamsAssigned?: TeamsAssignedPayload | null;
+  initialFaceOffState?: FaceOffSessionState | null;
   apiBaseUrl?: string;
   onStartGame?: () => void;
 }
@@ -33,6 +35,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   roomCode,
   initialRoom = null,
   initialTeamsAssigned = null,
+  initialFaceOffState = null,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -51,6 +54,9 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     roomState,
     startGame,
     teamsAssigned: socketTeamsAssigned,
+    faceOffState: socketFaceOffState,
+    buzzerLocked,
+    faceOffTimeout,
     fastMoneyHostState,
     timerTick,
     duplicateWarning,
@@ -69,6 +75,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   });
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
+  const faceOffState = initialFaceOffState ?? socketFaceOffState;
 
   const joinUrl =
     typeof window !== 'undefined'
@@ -216,6 +223,22 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             })),
         }
       : null);
+
+  // Main Game Face-Off Stage (US-12)
+  if (!isFastMoney && faceOffState) {
+    return (
+      <MainGameFaceOffBoard
+        snapshot={faceOffState}
+        timerTick={timerTick}
+        buzzerLocked={buzzerLocked}
+        timeoutResult={faceOffTimeout}
+        language={room.language}
+        roomName={room.roomName}
+        roomCode={room.roomCode}
+        onLeave={() => navigate('/')}
+      />
+    );
+  }
 
   if (!isFastMoney && activeTeams) {
     return (

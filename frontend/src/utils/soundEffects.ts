@@ -296,7 +296,41 @@ export function playDefeatSound(): void {
   }
 }
 
+
+/**
+ * US-12 Scenario 2: Classic Game Show Face-Off Podium Buzzer
+ * Plays an instantaneous, harsh, punchy buzzer cue upon successful buzzer press.
+ * Fundamental 220Hz dropping to 180Hz sawtooth with aggressive 0.35s envelope.
+ */
+export function playFaceOffBuzzer(): void {
+  if (isSoundMuted) return;
+
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.setValueAtTime(180, now + 0.15);
+
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.35);
+  } catch (err) {
+    console.warn('[SFX:WARN] Failed to synthesize Face-Off Buzzer sound:', err);
+  }
+}
 export const sfx = {
+  playFaceOffBuzzer,
   playDing,
   playPointsChime,
   playBuzzerBlip,
