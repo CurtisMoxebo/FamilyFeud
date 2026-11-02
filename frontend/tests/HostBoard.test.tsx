@@ -38,6 +38,11 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     submitFastMoneyAnswer: vi.fn(),
     passFastMoneyQuestion: vi.fn(),
     startGame: vi.fn(),
+    boardReveal: null,
+    p1RevealCompleted: null,
+    startFastMoneyRevealPhase: vi.fn(),
+    revealFastMoneyAnswer: vi.fn(),
+    revealFastMoneyPoints: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {
