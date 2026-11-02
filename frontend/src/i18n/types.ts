@@ -98,5 +98,13 @@ export interface TranslationDictionary {
     answeredCount: string;
     player2IsolationTitle: string;
     player2IsolationSubtitle: string;
+    revealPhaseTitle: string;
+    revealAnswerBtn: string;
+    revealPointsBtn: string;
+    totalScore: string;
+    noAnswer: string;
+    revealComplete: string;
+    autoPacing: string;
+    manualPacing: string;
   };
 }

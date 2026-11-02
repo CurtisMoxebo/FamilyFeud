@@ -100,6 +100,14 @@ export const fr: TranslationDictionary = {
     answeredCount: '{count} sur {total} questions répondues',
     player2IsolationTitle: '🎧 Le joueur 1 est en train de jouer !',
     player2IsolationSubtitle: 'Veuillez détourner les yeux de l’écran principal et attendre votre tour.',
+    revealPhaseTitle: 'Dévoilement du Tableau',
+    revealAnswerBtn: 'Révéler Réponse #{num}',
+    revealPointsBtn: 'Révéler Points #{num}',
+    totalScore: 'Score Total',
+    noAnswer: 'PAS DE RÉPONSE',
+    revealComplete: 'Révélation du Joueur 1 Terminée !',
+    autoPacing: 'Rythme Automatique',
+    manualPacing: 'Contrôle Manuel',
   },
 };
 
