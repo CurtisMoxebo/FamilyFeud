@@ -1,6 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { RoomStateUpdate, RoomErrorPayload, GameStartedPayload } from '../types';
+import {
+  RoomStateUpdate,
+  RoomErrorPayload,
+  GameStartedPayload,
+  Player1StateSnapshot,
+  Player2IsolationSnapshot,
+  TimerTickPayload,
+  TurnEndedPayload,
+} from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -17,6 +25,13 @@ export function useSocket(options?: UseSocketOptions) {
   const [roomState, setRoomState] = useState<RoomStateUpdate | null>(null);
   const [roomError, setRoomError] = useState<RoomErrorPayload | null>(null);
   const [gameStarted, setGameStarted] = useState<GameStartedPayload | null>(null);
+
+  // Fast Money Speed Round States (US-07)
+  const [fastMoneyP1State, setFastMoneyP1State] = useState<Player1StateSnapshot | null>(null);
+  const [fastMoneyP2State, setFastMoneyP2State] = useState<Player2IsolationSnapshot | null>(null);
+  const [timerTick, setTimerTick] = useState<TimerTickPayload | null>(null);
+  const [turnEnded, setTurnEnded] = useState<TurnEndedPayload | null>(null);
+
   const socketRef = useRef<Socket | null>(null);
 
   const joinRoom = useCallback(
@@ -39,6 +54,42 @@ export function useSocket(options?: UseSocketOptions) {
     [options?.roomCode]
   );
 
+  const sendPlayerReady = useCallback((roomCode: string, playerId: string) => {
+    setRoomError(null);
+    if (socketRef.current) {
+      socketRef.current.emit('player_ready', { roomCode, playerId });
+    }
+  }, []);
+
+  const submitFastMoneyAnswer = useCallback(
+    (roomCode: string, playerId: string, questionId: string, rawAnswer: string) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('submit_answer', {
+          roomCode,
+          playerId,
+          questionId,
+          rawAnswer,
+        });
+      }
+    },
+    []
+  );
+
+  const passFastMoneyQuestion = useCallback(
+    (roomCode: string, playerId: string, questionId: string) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('pass_question', {
+          roomCode,
+          playerId,
+          questionId,
+        });
+      }
+    },
+    []
+  );
+
   const leaveRoom = useCallback(() => {
     if (socketRef.current) {
       socketRef.current.emit('leave_room');
@@ -46,6 +97,10 @@ export function useSocket(options?: UseSocketOptions) {
     setRoomState(null);
     setRoomError(null);
     setGameStarted(null);
+    setFastMoneyP1State(null);
+    setFastMoneyP2State(null);
+    setTimerTick(null);
+    setTurnEnded(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -97,6 +152,23 @@ export function useSocket(options?: UseSocketOptions) {
       setGameStarted(payload);
     });
 
+    // Fast Money Socket Listeners
+    socket.on('fast_money_p1_state', (state: Player1StateSnapshot) => {
+      setFastMoneyP1State(state);
+    });
+
+    socket.on('fast_money_p2_state', (state: Player2IsolationSnapshot) => {
+      setFastMoneyP2State(state);
+    });
+
+    socket.on('timer_tick', (tick: TimerTickPayload) => {
+      setTimerTick(tick);
+    });
+
+    socket.on('p1_turn_ended', (payload: TurnEndedPayload) => {
+      setTurnEnded(payload);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -109,8 +181,15 @@ export function useSocket(options?: UseSocketOptions) {
     roomState,
     roomError,
     gameStarted,
+    fastMoneyP1State,
+    fastMoneyP2State,
+    timerTick,
+    turnEnded,
     joinRoom,
     startGame,
+    sendPlayerReady,
+    submitFastMoneyAnswer,
+    passFastMoneyQuestion,
     leaveRoom,
     clearError,
   };

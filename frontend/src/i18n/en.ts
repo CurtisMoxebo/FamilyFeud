@@ -86,6 +86,21 @@ export const en: TranslationDictionary = {
     statusDisconnected: 'Disconnected',
     backHome: 'Back to Home',
   },
+  fastMoney: {
+    p1ReadyTitle: 'Fast Money - Player 1',
+    p1ReadySubtitle: "Press 'I\\'m Ready!' to begin your 60-second speed round.",
+    imReady: "I'm Ready!",
+    questionProgress: 'Question {current} of {total}',
+    answerPlaceholder: 'Type your answer here...',
+    passButton: 'Pass',
+    submitButton: 'Submit',
+    secondsLeft: 's',
+    turnCompleteTitle: "Time's Up! Turn Complete",
+    turnCompleteSubtitle: 'Great job! Look up at the host TV screen for the reveal.',
+    answeredCount: '{count} of {total} questions answered',
+    player2IsolationTitle: '🎧 Player 1 is currently playing!',
+    player2IsolationSubtitle: 'Please look away from the host TV screen and wait for your turn.',
+  },
 };
 
 export default en;

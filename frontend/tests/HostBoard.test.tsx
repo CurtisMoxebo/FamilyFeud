@@ -29,6 +29,13 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     joinRoom: vi.fn(),
     leaveRoom: vi.fn(),
     clearError: vi.fn(),
+    fastMoneyP1State: null,
+    fastMoneyP2State: null,
+    timerTick: null,
+    turnEnded: null,
+    sendPlayerReady: vi.fn(),
+    submitFastMoneyAnswer: vi.fn(),
+    passFastMoneyQuestion: vi.fn(),
     startGame: vi.fn(),
   };
 

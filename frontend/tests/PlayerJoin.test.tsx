@@ -29,6 +29,13 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     joinRoom: vi.fn(),
     leaveRoom: vi.fn(),
     clearError: vi.fn(),
+    fastMoneyP1State: null,
+    fastMoneyP2State: null,
+    timerTick: null,
+    turnEnded: null,
+    sendPlayerReady: vi.fn(),
+    submitFastMoneyAnswer: vi.fn(),
+    passFastMoneyQuestion: vi.fn(),
     startGame: vi.fn(),
   };
 
@@ -290,5 +297,59 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     const backHomeBtn = screen.getByRole('button', { name: /retour/i });
     expect(backHomeBtn).toBeInTheDocument();
     await user.click(backHomeBtn);
+  });
+
+  it('satisfies US-07: transitions Player 1 from waiting lobby to FastMoneyController upon fastMoneyP1State', async () => {
+    const user = userEvent.setup();
+
+    const mockP1Snapshot = {
+      phase: 'P1_READY',
+      currentQuestion: {
+        id: 'q-1',
+        questionText: 'Nommez quelque chose que vous mangez avec une cuillère',
+        questionNumber: 1,
+        totalQuestions: 5,
+      },
+      answeredCount: 0,
+      passedCount: 0,
+      totalQuestions: 5,
+      remainingSeconds: 60,
+      isTimerRunning: false,
+      canSubmit: false,
+      canPass: false,
+    };
+
+    const sendPlayerReady = vi.fn();
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      socketId: 'player-socket-1',
+      roomState: {
+        roomCode: 'FEUD-8291',
+        status: 'PLAYING',
+        playerCount: 2,
+        maxPlayers: 2,
+        players: [
+          { id: 'p1', nickname: 'Sophie', isConnected: true, isReady: true },
+          { id: 'p2', nickname: 'Marc', isConnected: true, isReady: true },
+        ],
+      },
+      fastMoneyP1State: mockP1Snapshot,
+      sendPlayerReady,
+    } as any);
+
+    renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+    const input = screen.getByTestId('player-nickname-input');
+    await user.type(input, 'Sophie');
+    await user.click(screen.getByTestId('player-join-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('p1-ready-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('p1-ready-btn')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('p1-ready-btn'));
+    expect(sendPlayerReady).toHaveBeenCalledWith('FEUD-8291', 'p1');
   });
 });
