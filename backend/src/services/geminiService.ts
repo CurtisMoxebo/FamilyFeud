@@ -201,7 +201,7 @@ export async function generateQuestions(
     if (!Array.isArray(parsed)) {
       if (Array.isArray(parsed.questions)) {
         parsed = parsed.questions;
-      } else if (parsed.questionText && parsed.answers) {
+      } else if ((parsed.questionText || parsed.question) && parsed.answers) {
         parsed = [parsed];
       } else {
         throw new Error('Unexpected JSON format from Gemini API');
