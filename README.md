@@ -66,7 +66,7 @@ FamilyFeud/
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # RoomCreateForm, LanguageSelector, GameModeCard, RoomJoinForm
+│   │   ├── components/      # FastMoneyController, FastMoneyHostBoard, FastMoneyIsolation, forms
 │   │   ├── i18n/            # Modular i18n localization
 │   │   │   ├── en.ts        # English translations
 │   │   │   ├── fr.ts        # French translations
@@ -78,6 +78,7 @@ FamilyFeud/
 │   │   ├── router/          # Client router with param matching
 │   │   ├── hooks/           # useSocket
 │   │   ├── types/           # Shared TypeScript contracts
+│   │   ├── utils/           # Web Speech API TTS engine (tts.ts)
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   ├── tests/               # Symmetrical frontend regression & component suites

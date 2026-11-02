@@ -4,6 +4,7 @@ import { Room } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
+import { FastMoneyHostBoard } from '../components/FastMoneyHostBoard';
 import {
   Tv,
   Users,
@@ -43,7 +44,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
 
   // Live real-time socket connection for host display (US-04 & US-05)
-  const { roomState, startGame } = useSocket({
+  const { roomState, startGame, fastMoneyHostState, timerTick } = useSocket({
     roomCode,
     isHost: true,
     autoJoin: true,
@@ -140,6 +141,19 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   }
 
   const isFastMoney = room.gameMode === 'FAST_MONEY';
+
+  // Fast Money Host Board Screen (US-07 Scenario 1, 2, 4)
+  if (isFastMoney && fastMoneyHostState) {
+    return (
+      <FastMoneyHostBoard
+        snapshot={fastMoneyHostState}
+        timerTick={timerTick}
+        language={room.language}
+        roomName={room.roomName}
+        roomCode={room.roomCode}
+      />
+    );
+  }
 
   // Live roster and capacity state calculation (US-04)
   const players = roomState?.players ?? room.players ?? [];

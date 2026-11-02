@@ -3,6 +3,8 @@ import { Room } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
+import { FastMoneyController } from '../components/FastMoneyController';
+import { FastMoneyIsolation } from '../components/FastMoneyIsolation';
 import {
   User,
   ArrowRight,
@@ -43,7 +45,17 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   const [isJoined, setIsJoined] = useState<boolean>(false);
 
   // Live real-time socket connection for mobile player (US-04)
-  const { roomState, roomError, joinRoom } = useSocket();
+  const {
+    roomState,
+    roomError,
+    fastMoneyP1State,
+    fastMoneyP2State,
+    timerTick,
+    joinRoom,
+    sendPlayerReady,
+    submitFastMoneyAnswer,
+    passFastMoneyQuestion,
+  } = useSocket();
 
   useEffect(() => {
     if (initialRoom) {
@@ -180,6 +192,47 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   // Scenario 1: Waiting Lobby Screen once admitted
   if (isJoined && !roomError) {
     const playersList = roomState?.players ?? [];
+    const currentPlayer = playersList.find(
+      (p) => p.nickname.toLowerCase() === nickname.trim().toLowerCase()
+    );
+    const isPlayer1 =
+      playersList[0]?.id === currentPlayer?.id ||
+      playersList[0]?.nickname.toLowerCase() === nickname.trim().toLowerCase() ||
+      playersList.length <= 1;
+
+    // Fast Money Player 1 Speed Round Screen (US-07)
+    if (isFastMoney && fastMoneyP1State && isPlayer1) {
+      const activePlayerId = currentPlayer?.id || 'player-1';
+      return (
+        <FastMoneyController
+          snapshot={fastMoneyP1State}
+          timerTick={timerTick}
+          onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
+          onSubmitAnswer={(qId, ans) =>
+            submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
+          }
+          onPass={(qId) =>
+            passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
+          }
+          onLeave={() => navigate('/')}
+        />
+      );
+    }
+
+    const isPlayer2 =
+      playersList[1]?.id === currentPlayer?.id ||
+      playersList[1]?.nickname.toLowerCase() === nickname.trim().toLowerCase();
+
+    // Fast Money Player 2 Offstage Isolation Screen (US-07 Scenario 5)
+    if (isFastMoney && (fastMoneyP2State || (fastMoneyP1State && isPlayer2))) {
+      return (
+        <FastMoneyIsolation
+          snapshot={fastMoneyP2State}
+          timerTick={timerTick}
+          onLeave={() => navigate('/')}
+        />
+      );
+    }
     return (
       <div
         data-testid="player-waiting-lobby"

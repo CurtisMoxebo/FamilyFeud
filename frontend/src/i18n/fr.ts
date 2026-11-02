@@ -86,6 +86,21 @@ export const fr: TranslationDictionary = {
     statusDisconnected: 'Déconnecté',
     backHome: 'Retour à l’accueil',
   },
+  fastMoney: {
+    p1ReadyTitle: 'Face-à-Face Rapide - Joueur 1',
+    p1ReadySubtitle: "Appuyez sur 'Je suis prêt !' pour lancer votre chrono de 60 secondes.",
+    imReady: 'Je suis prêt !',
+    questionProgress: 'Question {current} sur {total}',
+    answerPlaceholder: 'Tapez votre réponse ici...',
+    passButton: 'Passer',
+    submitButton: 'Valider',
+    secondsLeft: 's',
+    turnCompleteTitle: 'Temps écoulé ! Manche terminée',
+    turnCompleteSubtitle: 'Bravo ! Regardez l’écran de l’animateur pour le dévoilement.',
+    answeredCount: '{count} sur {total} questions répondues',
+    player2IsolationTitle: '🎧 Le joueur 1 est en train de jouer !',
+    player2IsolationSubtitle: 'Veuillez détourner les yeux de l’écran principal et attendre votre tour.',
+  },
 };
 
 export default fr;

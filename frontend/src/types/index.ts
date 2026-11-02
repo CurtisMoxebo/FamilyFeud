@@ -74,6 +74,68 @@ export interface AnswerItem {
   isRevealed?: boolean;
 }
 
+export type FastMoneyPhase =
+  | 'P1_READY'
+  | 'P1_PLAYING'
+  | 'P1_FINISHED'
+  | 'P2_READY'
+  | 'P2_PLAYING'
+  | 'P2_FINISHED'
+  | 'P1_REVEAL'
+  | 'P2_REVEAL';
+
+export interface Player1StateSnapshot {
+  phase: FastMoneyPhase;
+  currentQuestion: {
+    id: string;
+    questionText: string;
+    questionNumber: number;
+    totalQuestions: number;
+  } | null;
+  answeredCount: number;
+  passedCount: number;
+  totalQuestions: number;
+  remainingSeconds: number;
+  isTimerRunning: boolean;
+  canSubmit: boolean;
+  canPass: boolean;
+}
+
+export interface Player2IsolationSnapshot {
+  phase: string;
+  isOffstage: boolean;
+  isolationMessage: string;
+  remainingSeconds: number;
+  isTimerRunning: boolean;
+}
+
+export interface TimerTickPayload {
+  secondsRemaining: number;
+  endsAt: number;
+}
+
+export interface TurnEndedPayload {
+  roomCode: string;
+  reason: 'TIME_EXPIRED' | 'ALL_ANSWERED';
+  answeredCount: number;
+  totalQuestions: number;
+}
+
+
+export interface HostStateSnapshot {
+  phase: FastMoneyPhase;
+  activeQuestionNumber: number | null;
+  totalQuestions: number;
+  answeredCount: number;
+  remainingSeconds: number;
+  isTimerRunning: boolean;
+  currentQuestionText: string | null;
+  slots: Array<{
+    slotNumber: number;
+    isFilled: boolean;
+  }>;
+}
+
 export interface QuestionData {
   id: string;
   questionText: string;

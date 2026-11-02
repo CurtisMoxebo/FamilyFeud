@@ -84,4 +84,19 @@ export interface TranslationDictionary {
     statusDisconnected: string;
     backHome: string;
   };
+  fastMoney: {
+    p1ReadyTitle: string;
+    p1ReadySubtitle: string;
+    imReady: string;
+    questionProgress: string;
+    answerPlaceholder: string;
+    passButton: string;
+    submitButton: string;
+    secondsLeft: string;
+    turnCompleteTitle: string;
+    turnCompleteSubtitle: string;
+    answeredCount: string;
+    player2IsolationTitle: string;
+    player2IsolationSubtitle: string;
+  };
 }
