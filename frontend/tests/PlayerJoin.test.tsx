@@ -26,6 +26,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     roomState: null,
     roomError: null,
     gameStarted: null,
+    teamsAssigned: null,
     joinRoom: vi.fn(),
     leaveRoom: vi.fn(),
     clearError: vi.fn(),

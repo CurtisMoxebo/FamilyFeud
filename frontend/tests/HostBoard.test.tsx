@@ -5,7 +5,7 @@ import React from 'react';
 import { HostBoard } from '../src/pages/HostBoard';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
-import { Room, RoomStateUpdate } from '../src/types';
+import { Room, RoomStateUpdate, TeamsAssignedPayload } from '../src/types';
 import * as socketHook from '../src/hooks/useSocket';
 
 describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US-04)', () => {
@@ -26,6 +26,7 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     roomState: null,
     roomError: null,
     gameStarted: null,
+    teamsAssigned: null,
     joinRoom: vi.fn(),
     leaveRoom: vi.fn(),
     clearError: vi.fn(),
@@ -290,9 +291,9 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const startBtn = screen.getByTestId('host-start-game-btn');
     expect(startBtn).toBeDisabled();
 
-    // Helper message explains odd count restriction
+    // Helper message explains odd count restriction (US-11 Scenario 2)
     expect(screen.getByTestId('host-start-disabled-reason')).toHaveTextContent(
-      /en attente d’un nombre pair de joueurs \(actuel : 3\)/i
+      /impossible de commencer avec un nombre impair de joueurs \(3\)/i
     );
   });
 
@@ -406,5 +407,118 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     expect(startP2Btn).toBeInTheDocument();
     fireEvent.click(startP2Btn);
     expect(startP2RevealSpy).toHaveBeenCalledWith('FEUD-7890');
+  });
+
+  /* -------------------------------------------------------------
+   * US-11 Main Game Team Partitioning & Even-Player Validation Tests
+   * ------------------------------------------------------------- */
+  it('satisfies US-11 Scenario 2: disables Start Game button with exact odd-player warning when 5 players connected', () => {
+    const mainGameRoomEN: Room = {
+      id: 'room-us11',
+      roomCode: 'FEUD-5555',
+      roomName: 'Family Game Night',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'LOBBY',
+      createdAt: new Date().toISOString(),
+    };
+
+    const mockState5Players: RoomStateUpdate = {
+      roomCode: 'FEUD-5555',
+      roomName: 'Family Game Night',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'LOBBY',
+      playerCount: 5,
+      maxPlayers: 10,
+      canStart: false,
+      startDisabledReason: 'Cannot start with an odd number of players (5). Connect 1 more player to reach 6.',
+      players: [
+        { id: 'p1', nickname: 'Alice', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p2', nickname: 'Bob', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p3', nickname: 'Charlie', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p4', nickname: 'David', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p5', nickname: 'Emma', team: 'NONE', isReady: true, isConnected: true },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      roomState: mockState5Players,
+    });
+
+    renderWithProviders(<HostBoard roomCode="FEUD-5555" initialRoom={mainGameRoomEN} />, '/host/FEUD-5555');
+
+    // Count is 5 / 10
+    expect(screen.getByTestId('host-roster-count')).toHaveTextContent('5 / 10 Players');
+
+    // Button is disabled
+    const startBtn = screen.getByTestId('host-start-game-btn');
+    expect(startBtn).toBeDisabled();
+
+    // Exact warning message
+    expect(screen.getByTestId('host-start-disabled-reason')).toHaveTextContent(
+      'Cannot start with an odd number of players (5). Connect 1 more player to reach 6.'
+    );
+  });
+
+  it('satisfies US-11 Scenario 1: displays dual-column team rosters with batting order numbers upon teams_assigned', () => {
+    const mainGameRoomEN: Room = {
+      id: 'room-us11',
+      roomCode: 'FEUD-4444',
+      roomName: 'Family Game Night',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'LOBBY',
+      createdAt: new Date().toISOString(),
+    };
+
+    const mockTeamsPayload: TeamsAssignedPayload = {
+      roomCode: 'FEUD-4444',
+      team1: [
+        { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+        { id: 'p4', nickname: 'David', team: 'TEAM_1', battingOrder: 2 },
+      ],
+      team2: [
+        { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 },
+        { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 2 },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      teamsAssigned: mockTeamsPayload,
+    });
+
+    renderWithProviders(<HostBoard roomCode="FEUD-4444" initialRoom={mainGameRoomEN} />, '/host/FEUD-4444');
+
+    // Team partitioning stage is displayed
+    expect(screen.getByTestId('main-game-teams-stage')).toBeInTheDocument();
+    expect(screen.getByTestId('teams-assigned-title')).toHaveTextContent('Teams Assigned!');
+    expect(screen.getByTestId('teams-assigned-subtitle')).toHaveTextContent(
+      'Players have been randomly split into two balanced teams.'
+    );
+
+    // Dual columns: Team 1 (Blue) and Team 2 (Rose)
+    expect(screen.getByTestId('team-1-column')).toBeInTheDocument();
+    expect(screen.getByTestId('team-1-title')).toHaveTextContent('Team 1');
+    expect(screen.getByTestId('team-1-player-p1')).toHaveTextContent('Player #1');
+    expect(screen.getByTestId('team-1-player-p1')).toHaveTextContent('Alice');
+    expect(screen.getByTestId('team-1-player-p4')).toHaveTextContent('Player #2');
+    expect(screen.getByTestId('team-1-player-p4')).toHaveTextContent('David');
+
+    // VS emblem
+    expect(screen.getByTestId('versus-emblem')).toHaveTextContent('VS');
+
+    // Team 2
+    expect(screen.getByTestId('team-2-column')).toBeInTheDocument();
+    expect(screen.getByTestId('team-2-title')).toHaveTextContent('Team 2');
+    expect(screen.getByTestId('team-2-player-p2')).toHaveTextContent('Player #1');
+    expect(screen.getByTestId('team-2-player-p2')).toHaveTextContent('Bob');
+    expect(screen.getByTestId('team-2-player-p3')).toHaveTextContent('Player #2');
+    expect(screen.getByTestId('team-2-player-p3')).toHaveTextContent('Charlie');
+
+    // Footer banner
+    expect(screen.getByTestId('face-off-banner')).toHaveTextContent('Get ready for the Face-Off!');
   });
 });
