@@ -1,0 +1,469 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  FaceOffSessionState,
+  TimerTickPayload,
+  BuzzerLockedPayload,
+  BuzzerRejectedPayload,
+  FaceOffTimeoutPayload,
+} from '../types';
+import { useTranslation } from '../i18n/LanguageContext';
+import {
+  Zap,
+  Lock,
+  CheckCircle2,
+  Award,
+  Users,
+  Send,
+  ArrowLeft,
+} from 'lucide-react';
+
+export interface MainGameFaceOffControllerProps {
+  snapshot: FaceOffSessionState;
+  timerTick?: TimerTickPayload | null;
+  buzzerLocked?: BuzzerLockedPayload | null;
+  buzzerRejected?: BuzzerRejectedPayload | null;
+  timeoutResult?: FaceOffTimeoutPayload | null;
+  currentNickname: string;
+  currentPlayerId?: string;
+  roomCode: string;
+  roomName: string;
+  onReady?: () => void;
+  onBuzz?: () => void;
+  onSubmitAnswer?: (rawAnswer: string) => void;
+  onLeave?: () => void;
+}
+
+export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps> = ({
+  snapshot,
+  timerTick,
+  buzzerLocked,
+  buzzerRejected,
+  timeoutResult,
+  currentNickname,
+  currentPlayerId,
+  roomCode,
+  roomName,
+  onReady,
+  onBuzz,
+  onSubmitAnswer,
+  onLeave,
+}) => {
+  const { t } = useTranslation();
+  const [answerInput, setAnswerInput] = useState<string>('');
+  const [hasSubmitted, setHasSubmitted] = useState<boolean>(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Authoritative countdown seconds
+  const currentSeconds =
+    timerTick && timerTick.secondsRemaining !== undefined
+      ? timerTick.secondsRemaining
+      : snapshot.remainingSeconds;
+
+  const trimmedNick = currentNickname.trim().toLowerCase();
+
+  // Contender identification
+  const c1 = snapshot.team1Contender;
+  const c2 = snapshot.team2Contender;
+
+  const isC1 =
+    (currentPlayerId && c1?.id === currentPlayerId) ||
+    c1?.nickname?.toLowerCase() === trimmedNick;
+
+  const isC2 =
+    (currentPlayerId && c2?.id === currentPlayerId) ||
+    c2?.nickname?.toLowerCase() === trimmedNick;
+
+  const isContender = isC1 || isC2;
+  const isSpectator = !isContender;
+  const myContender = isC1 ? c1 : isC2 ? c2 : null;
+  const opponentContender = isC1 ? c2 : isC2 ? c1 : null;
+
+  // Buzzer lockout arbiter
+  const isBuzzerLocked = snapshot.buzzerLocked || Boolean(buzzerLocked);
+  const activeWinnerId =
+    buzzerLocked?.winnerPlayerId || snapshot.buzzedPlayerId || snapshot.activeRespondentId;
+  const activeWinnerName =
+    buzzerLocked?.winnerNickname || snapshot.buzzedPlayerNickname || 'Contender';
+
+  // Active respondent check (may be initial buzzer winner or cascaded opponent/teammate)
+  const isActiveRespondent =
+    (currentPlayerId && snapshot.activeRespondentId === currentPlayerId) ||
+    (activeWinnerId && currentPlayerId && currentPlayerId === activeWinnerId) ||
+    (activeWinnerName && activeWinnerName.toLowerCase() === trimmedNick);
+
+  const isLockedOut = isBuzzerLocked && !isActiveRespondent && !isSpectator;
+
+  // Auto-focus input when floor becomes active for current player
+  useEffect(() => {
+    if (isActiveRespondent && snapshot.phase === 'ANSWERING') {
+      inputRef.current?.focus();
+    }
+  }, [isActiveRespondent, snapshot.phase]);
+
+  // Reset local submission state when phase changes or deadlock resets
+  useEffect(() => {
+    if (snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE') {
+      setHasSubmitted(false);
+      setAnswerInput('');
+    }
+  }, [snapshot.phase, snapshot.question?.id]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!answerInput.trim() || hasSubmitted) return;
+
+    setHasSubmitted(true);
+    if (onSubmitAnswer) {
+      onSubmitAnswer(answerInput.trim());
+    }
+  };
+
+  return (
+    <div
+      data-testid="main-game-face-off-controller"
+      className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl animate-fadeIn flex flex-col items-center gap-6 text-center"
+    >
+      {/* Header Info */}
+      <div className="w-full flex items-center justify-between border-b border-feud-slate-border/80 pb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-feud-gold px-2.5 py-0.5 rounded-full bg-feud-gold/10 border border-feud-gold/20">
+            {t.mainGame.faceOffTitle}
+          </span>
+          <span
+            data-testid="controller-round-badge"
+            className="text-xs font-extrabold uppercase tracking-wider text-yellow-300 px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30"
+          >
+            {t.mainGame.roundNumber.replace('{round}', String(snapshot.roundNumber || 1))}
+          </span>
+          <span
+            data-testid="controller-room-code"
+            className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 py-0.5 rounded bg-slate-800"
+          >
+            {roomCode}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="hidden sm:inline text-xs text-slate-400 truncate max-w-[100px]">
+            {roomName}
+          </span>
+          {onLeave && (
+            <button
+              type="button"
+              onClick={onLeave}
+              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Leave</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Role & Status Pill */}
+      <div className="w-full flex items-center justify-between text-xs">
+        <span className="font-semibold text-slate-300">
+          Player: <span className="font-bold text-white">{currentNickname}</span>
+        </span>
+        {isContender ? (
+          <span
+            data-testid="role-contender-badge"
+            className="font-extrabold text-feud-gold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-feud-gold/15 border border-feud-gold/30"
+          >
+            Contender
+          </span>
+        ) : (
+          <span
+            data-testid="role-spectator-badge"
+            className="font-extrabold text-blue-400 uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30"
+          >
+            Spectator
+          </span>
+        )}
+      </div>
+
+      {/* Question Card (Visible once buzzers active or answering) */}
+      {snapshot.phase !== 'AWAITING_READY' && snapshot.question && (
+        <div
+          data-testid="controller-question-card"
+          className="w-full p-4 rounded-2xl bg-slate-900/90 border border-feud-gold/40 text-left"
+        >
+          <span className="text-[10px] font-black uppercase tracking-widest text-feud-gold block mb-1">
+            Question
+          </span>
+          <p
+            data-testid="controller-question-text"
+            className="text-base sm:text-lg font-extrabold text-white leading-snug"
+          >
+            &ldquo;{snapshot.question.questionText}&rdquo;
+          </p>
+        </div>
+      )}
+
+      {/* Timeout / Hand-off Alerts */}
+      {timeoutResult && (
+        <div
+          data-testid="controller-timeout-alert"
+          className={`w-full p-3 rounded-xl text-xs sm:text-sm font-bold border animate-bounce ${
+            timeoutResult.type === 'DEADLOCK_RESET'
+              ? 'bg-red-950/80 border-red-500 text-red-200'
+              : 'bg-amber-950/80 border-amber-500 text-amber-200'
+          }`}
+        >
+          {timeoutResult.type === 'DEADLOCK_RESET' ? (
+            <span>{t.mainGame.deadlockReset}</span>
+          ) : (
+            <span>
+              {t.mainGame.timeUpHandOff.replace(
+                '{next}',
+                timeoutResult.nextPlayerNickname || 'Opponent'
+              )}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Buzzer Rejection Warning */}
+      {buzzerRejected && (
+        <div
+          data-testid="buzzer-rejected-alert"
+          className="w-full p-2.5 rounded-xl bg-red-950/80 border border-red-500/80 text-xs font-bold text-red-300 animate-shake"
+        >
+          {buzzerRejected.reason === 'BUZZER_LOCKED'
+            ? 'Buzzer locked! Opponent buzz arrived first.'
+            : buzzerRejected.reason === 'NOT_A_CONTENDER'
+            ? 'You are a spectator for this round.'
+            : 'Buzzer rejected.'}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* PHASE 1: AWAITING READY */}
+      {/* ===================================================================== */}
+      {snapshot.phase === 'AWAITING_READY' && (
+        <div className="w-full flex flex-col items-center gap-4">
+          {isContender ? (
+            myContender?.isReady ? (
+              /* Contender Already Ready */
+              <div
+                data-testid="face-off-waiting-badge"
+                className="w-full p-6 rounded-2xl bg-slate-900/90 border border-green-500/40 flex flex-col items-center gap-3 animate-pulse"
+              >
+                <div className="w-12 h-12 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-extrabold text-white">
+                  {t.mainGame.imReady}
+                </h3>
+                <p className="text-xs text-slate-300">
+                  {t.mainGame.waitingForOpponent.replace(
+                    '{opponent}',
+                    opponentContender?.nickname || 'opponent'
+                  )}
+                </p>
+              </div>
+            ) : (
+              /* Contender Needs to Click "I'm Ready!" */
+              <div className="w-full flex flex-col items-center gap-3">
+                <p className="text-sm text-slate-300">
+                  You are the designated contender for this round!
+                </p>
+                <button
+                  type="button"
+                  data-testid="face-off-ready-btn"
+                  onClick={onReady}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-feud-gold via-yellow-400 to-feud-gold-light text-slate-950 font-black text-lg uppercase tracking-wider shadow-[0_0_25px_rgba(234,179,8,0.4)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  {t.mainGame.imReady}
+                </button>
+              </div>
+            )
+          ) : (
+            /* Spectator View during Awaiting Ready */
+            <div
+              data-testid="face-off-spectator-badge"
+              className="w-full p-6 rounded-2xl bg-slate-900/80 border border-slate-700/80 flex flex-col items-center gap-2"
+            >
+              <Users className="w-8 h-8 text-blue-400 mb-1" />
+              <h3 className="text-sm font-bold text-slate-200">
+                {t.mainGame.spectatorCheer}
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Contenders: <span className="font-bold text-white">{c1?.nickname}</span> ({t.mainGame.team1}) vs{' '}
+                <span className="font-bold text-white">{c2?.nickname}</span> ({t.mainGame.team2})
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* PHASE 2: BUZZER ACTIVE */}
+      {/* ===================================================================== */}
+      {snapshot.phase === 'BUZZER_ACTIVE' && (
+        <div className="w-full flex flex-col items-center gap-4">
+          {isContender ? (
+            /* Giant Mobile Tactile Buzzer Button (Scenario 2) */
+            <div className="flex flex-col items-center gap-3 my-2">
+              <button
+                type="button"
+                data-testid="face-off-buzzer-btn"
+                onClick={onBuzz}
+                className="w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-gradient-to-b from-red-500 via-feud-red to-red-800 border-8 border-yellow-400 shadow-[0_0_50px_rgba(239,68,68,0.6)] text-white font-black text-3xl sm:text-4xl uppercase tracking-widest flex flex-col items-center justify-center gap-2 transform active:scale-90 hover:brightness-110 transition-all cursor-pointer select-none animate-pulse"
+              >
+                <Zap className="w-12 h-12 text-yellow-300" />
+                <span>{t.mainGame.buzzerBtn}</span>
+              </button>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                Tap to Buzz In First!
+              </span>
+            </div>
+          ) : (
+            /* Spectator View while Buzzers Active */
+            <div
+              data-testid="face-off-spectator-view"
+              className="w-full p-6 rounded-2xl bg-slate-900/80 border border-blue-500/30 flex flex-col items-center gap-2"
+            >
+              <Zap className="w-8 h-8 text-yellow-400 animate-bounce mb-1" />
+              <h3 className="text-sm font-bold text-white">
+                Buzzers are active!
+              </h3>
+              <p className="text-xs text-slate-400">
+                Cheer on your contender as they duel on the buzzer!
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* PHASE 3: ANSWERING / BUZZER LOCKED */}
+      {/* ===================================================================== */}
+      {(snapshot.phase === 'ANSWERING' || isBuzzerLocked) && (
+        <div className="w-full flex flex-col items-center gap-4">
+          {/* Winner Banner */}
+          <div
+            data-testid="controller-winner-banner"
+            className="w-full p-3 rounded-2xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/30 to-yellow-500/20 border border-feud-gold/50 flex items-center justify-center gap-2 text-sm font-black text-feud-gold uppercase tracking-wider"
+          >
+            <Award className="w-5 h-5 text-feud-gold" />
+            <span>{t.mainGame.buzzerWinner.replace('{name}', activeWinnerName)}</span>
+          </div>
+
+          {/* Active 15-Second Authoritative Countdown Ring */}
+          <div
+            data-testid="controller-timer-ring"
+            className={`w-24 h-24 rounded-full flex flex-col items-center justify-center border-4 shadow-xl ${
+              currentSeconds <= 5
+                ? 'border-red-500 bg-red-950/40 text-red-400 animate-pulse'
+                : 'border-feud-gold bg-slate-900/90 text-feud-gold'
+            }`}
+          >
+            <span
+              data-testid="controller-seconds-remaining"
+              className="text-3xl font-black"
+            >
+              {currentSeconds}
+            </span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Seconds
+            </span>
+          </div>
+
+          {/* ACTIVE RESPONDENT: Answer Input Field Form */}
+          {isActiveRespondent ? (
+            hasSubmitted ? (
+              /* Already Submitted Answer */
+              <div
+                data-testid="controller-submitted-card"
+                className="w-full p-4 rounded-2xl bg-green-950/80 border border-green-500 text-center animate-fadeIn"
+              >
+                <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-1" />
+                <span className="text-xs font-bold uppercase tracking-wider text-green-300">
+                  Answer Submitted
+                </span>
+                <p className="text-xl font-extrabold text-white mt-1 uppercase">
+                  &ldquo;{answerInput}&rdquo;
+                </p>
+              </div>
+            ) : (
+              /* Input Form with 15s Timer */
+              <form
+                onSubmit={handleSubmit}
+                data-testid="face-off-answer-form"
+                className="w-full flex flex-col gap-3"
+              >
+                <label
+                  htmlFor="face-off-answer-input"
+                  className="text-xs font-bold text-feud-gold uppercase tracking-wider text-left block"
+                >
+                  {t.mainGame.answeringTurn.replace('{name}', activeWinnerName)}
+                </label>
+                <input
+                  id="face-off-answer-input"
+                  ref={inputRef}
+                  type="text"
+                  data-testid="face-off-answer-input"
+                  value={answerInput}
+                  onChange={(e) => setAnswerInput(e.target.value)}
+                  placeholder={t.mainGame.faceOffInputPlaceholder}
+                  maxLength={60}
+                  autoComplete="off"
+                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-feud-gold/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-feud-gold"
+                />
+                <button
+                  type="submit"
+                  data-testid="face-off-submit-btn"
+                  disabled={!answerInput.trim()}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-feud-gold to-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{t.mainGame.submitAnswer}</span>
+                </button>
+              </form>
+            )
+          ) : isLockedOut ? (
+            /* OPPONENT LOCKED OUT */
+            <div
+              data-testid="face-off-lockout-card"
+              className="w-full p-6 rounded-2xl bg-red-950/60 border border-red-500/60 flex flex-col items-center gap-2 text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center">
+                <Lock className="w-6 h-6" />
+              </div>
+              <span className="text-sm font-black text-red-400 uppercase tracking-wider">
+                {t.mainGame.buzzerLocked}
+              </span>
+              <p className="text-xs text-slate-300 max-w-xs mt-1">
+                {t.mainGame.answeringTurn.replace('{name}', activeWinnerName)}. If they time out, floor cascades to you!
+              </p>
+            </div>
+          ) : (
+            /* SPECTATOR VIEW DURING ANSWERING */
+            <div className="w-full p-4 rounded-2xl bg-slate-900/80 border border-slate-700 text-center text-xs text-slate-300">
+              <span className="font-bold text-white">{activeWinnerName}</span> has the floor to answer ({currentSeconds}s remaining).
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* PHASE 4: RESOLVED */}
+      {/* ===================================================================== */}
+      {snapshot.phase === 'RESOLVED' && (
+        <div
+          data-testid="controller-resolved-card"
+          className="w-full p-5 rounded-2xl bg-slate-900/90 border border-feud-gold text-center animate-fadeIn"
+        >
+          <CheckCircle2 className="w-8 h-8 text-feud-gold mx-auto mb-2" />
+          <h3 className="text-base font-extrabold text-white">
+            Face-Off Turn Complete
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Host is verifying the answer on the survey board...
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
