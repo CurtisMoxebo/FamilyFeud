@@ -243,13 +243,14 @@ export function registerFastMoneyHandlers(
         );
 
         if (callback) callback({ success: true });
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('[FAST_MONEY:ERROR] Error in player_ready handler', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to start Fast Money round';
         socket.emit('room_error', {
           code: 'SERVER_ERROR',
-          message: error?.message || 'Failed to start Fast Money round',
+          message: errMsg,
         });
-        if (callback) callback({ success: false, error: error?.message });
+        if (callback) callback({ success: false, error: errMsg });
       }
     }
   );
@@ -335,13 +336,14 @@ export function registerFastMoneyHandlers(
             err
           );
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('[FAST_MONEY:ERROR] Error in submit_answer handler', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to submit answer';
         socket.emit('room_error', {
           code: 'SERVER_ERROR',
-          message: error?.message || 'Failed to submit answer',
+          message: errMsg,
         });
-        if (callback) callback({ success: false, error: error?.message });
+        if (callback) callback({ success: false, error: errMsg });
       }
     }
   );
@@ -399,13 +401,14 @@ export function registerFastMoneyHandlers(
             passedCount: session.getPassedCount(),
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('[FAST_MONEY:ERROR] Error in pass_question handler', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to pass question';
         socket.emit('room_error', {
           code: 'SERVER_ERROR',
-          message: error?.message || 'Failed to pass question',
+          message: errMsg,
         });
-        if (callback) callback({ success: false, error: error?.message });
+        if (callback) callback({ success: false, error: errMsg });
       }
     }
   );
