@@ -4,6 +4,12 @@ import { prisma as defaultPrisma } from '../services/db';
 import { normalizeRoomCode } from '../utils/roomCode';
 import { logger, getSocketIp } from '../utils/logger';
 import { generateAndSaveGameQuestions } from '../services/questionService';
+import {
+  initFastMoneySession,
+  broadcastFastMoneyState,
+  registerFastMoneyHandlers,
+} from './fastMoneyHandler';
+import { FastMoneyQuestionItem } from '../services/fastMoneySession';
 
 export interface JoinRoomPayload {
   roomCode: string;
@@ -394,6 +400,34 @@ export function registerLobbyHandlers(
           `[GAME:START] Started game ${game.id} for room ${normalizedCode} (${questions.length} questions generated)`
         );
 
+        // 6. Initialize Fast Money session if mode is FAST_MONEY (US-07)
+        if (room.gameMode === 'FAST_MONEY') {
+          const connectedPlayers = updatedRoom.players.filter((p) => p.isConnected);
+          if (connectedPlayers.length >= 2) {
+            const fmQuestions: FastMoneyQuestionItem[] = questions.map((q) => ({
+              id: q.id,
+              questionText: q.questionText,
+              orderIndex: q.orderIndex,
+              answers: q.answers.map((a) => ({
+                id: a.id,
+                answerText: a.answerText,
+                points: a.points,
+                rankOrder: a.rankOrder,
+              })),
+            }));
+
+            const session = initFastMoneySession(normalizedCode, {
+              gameId: game.id,
+              player1Id: connectedPlayers[0].id,
+              player2Id: connectedPlayers[1].id,
+              questions: fmQuestions,
+              timerDurationSeconds: 60,
+            });
+
+            broadcastFastMoneyState(io, session);
+          }
+        }
+
         if (callback) callback({ success: true, game: gameStartedPayload });
       } catch (error) {
         logger.error('Error handling start_game socket event', error);
@@ -445,6 +479,7 @@ export function setupSocketServer(io: SocketIOServer, db: PrismaClient = default
     logger.socket('CONNECT', socket.id, clientIp, `Transport: ${transport}`);
 
     registerLobbyHandlers(io, socket, db);
+    registerFastMoneyHandlers(io, socket, db);
 
     socket.on('disconnect', (reason) => {
       logger.socket('DISCONNECT', socket.id, clientIp, `Reason: ${reason}`);
