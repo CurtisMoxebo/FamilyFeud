@@ -9,6 +9,7 @@ import {
   HostStateSnapshot,
   TimerTickPayload,
   TurnEndedPayload,
+  BoardRevealPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -33,6 +34,14 @@ export function useSocket(options?: UseSocketOptions) {
   const [fastMoneyHostState, setFastMoneyHostState] = useState<HostStateSnapshot | null>(null);
   const [timerTick, setTimerTick] = useState<TimerTickPayload | null>(null);
   const [turnEnded, setTurnEnded] = useState<TurnEndedPayload | null>(null);
+
+  // Fast Money Reveal Sequence States (US-08)
+  const [boardReveal, setBoardReveal] = useState<BoardRevealPayload | null>(null);
+  const [p1RevealCompleted, setP1RevealCompleted] = useState<{
+    roomCode: string;
+    totalScore: number;
+    phase: string;
+  } | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -92,6 +101,28 @@ export function useSocket(options?: UseSocketOptions) {
     []
   );
 
+  // Fast Money Reveal Triggers (US-08)
+  const startFastMoneyRevealPhase = useCallback((roomCode: string) => {
+    setRoomError(null);
+    if (socketRef.current) {
+      socketRef.current.emit('start_reveal_phase', { roomCode, isHost: true });
+    }
+  }, []);
+
+  const revealFastMoneyAnswer = useCallback((roomCode: string, slotNumber: number) => {
+    setRoomError(null);
+    if (socketRef.current) {
+      socketRef.current.emit('reveal_answer', { roomCode, slotNumber, isHost: true });
+    }
+  }, []);
+
+  const revealFastMoneyPoints = useCallback((roomCode: string, slotNumber: number) => {
+    setRoomError(null);
+    if (socketRef.current) {
+      socketRef.current.emit('reveal_points', { roomCode, slotNumber, isHost: true });
+    }
+  }, []);
+
   const leaveRoom = useCallback(() => {
     if (socketRef.current) {
       socketRef.current.emit('leave_room');
@@ -104,6 +135,8 @@ export function useSocket(options?: UseSocketOptions) {
     setFastMoneyHostState(null);
     setTimerTick(null);
     setTurnEnded(null);
+    setBoardReveal(null);
+    setP1RevealCompleted(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -155,7 +188,7 @@ export function useSocket(options?: UseSocketOptions) {
       setGameStarted(payload);
     });
 
-    // Fast Money Socket Listeners
+    // Fast Money Speed Round Listeners (US-07)
     socket.on('fast_money_p1_state', (state: Player1StateSnapshot) => {
       setFastMoneyP1State(state);
     });
@@ -176,6 +209,18 @@ export function useSocket(options?: UseSocketOptions) {
       setTurnEnded(payload);
     });
 
+    // Fast Money Reveal Sequence Listeners (US-08)
+    socket.on('board_reveal', (payload: BoardRevealPayload) => {
+      setBoardReveal(payload);
+    });
+
+    socket.on(
+      'p1_reveal_completed',
+      (payload: { roomCode: string; totalScore: number; phase: string }) => {
+        setP1RevealCompleted(payload);
+      }
+    );
+
     return () => {
       socket.disconnect();
     };
@@ -193,11 +238,16 @@ export function useSocket(options?: UseSocketOptions) {
     fastMoneyHostState,
     timerTick,
     turnEnded,
+    boardReveal,
+    p1RevealCompleted,
     joinRoom,
     startGame,
     sendPlayerReady,
     submitFastMoneyAnswer,
     passFastMoneyQuestion,
+    startFastMoneyRevealPhase,
+    revealFastMoneyAnswer,
+    revealFastMoneyPoints,
     leaveRoom,
     clearError,
   };

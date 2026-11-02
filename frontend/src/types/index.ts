@@ -163,3 +163,13 @@ export interface QuestionData {
   language: string;
   answers: AnswerItem[];
 }
+
+export interface BoardRevealPayload {
+  roomCode: string;
+  type: 'ANSWER' | 'POINTS';
+  slotNumber: number;
+  slot: FastMoneyRevealSlot;
+  totalScore: number;
+  isAllRevealed: boolean;
+  nextActiveSlotNumber: number | null;
+}
