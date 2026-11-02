@@ -66,7 +66,7 @@ FamilyFeud/
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # FastMoneyController, FastMoneyHostBoard, FastMoneyIsolation, forms
+│   │   ├── components/      # FastMoneyController, FastMoneyHostBoard, FastMoneyIsolation, MainGameTeamsStage, MainGamePlayerView, forms
 │   │   ├── i18n/            # Modular i18n localization
 │   │   │   ├── en.ts        # English translations
 │   │   │   ├── fr.ts        # French translations
@@ -187,7 +187,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 477 regression tests** (315 backend, 162 frontend) pass cleanly with **>90% code coverage** across 38 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 503 regression tests** (336 backend, 167 frontend) pass cleanly with **>90% code coverage** across 40 suites:
 
 ```bash
 # Run all regression tests across the whole project
