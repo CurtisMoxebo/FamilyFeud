@@ -51,6 +51,8 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     fastMoneyP1State,
     fastMoneyP2State,
     timerTick,
+    duplicateWarning,
+    clearDuplicateWarning,
     joinRoom,
     sendPlayerReady,
     submitFastMoneyAnswer,
@@ -222,6 +224,33 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     const isPlayer2 =
       playersList[1]?.id === currentPlayer?.id ||
       playersList[1]?.nickname.toLowerCase() === nickname.trim().toLowerCase();
+
+    // Fast Money Player 2 Active Speed Round (US-09)
+    if (
+      isFastMoney &&
+      isPlayer2 &&
+      fastMoneyP2State &&
+      (fastMoneyP2State.phase === 'P2_PLAYING' || fastMoneyP2State.phase === 'P2_FINISHED')
+    ) {
+      const activePlayerId = currentPlayer?.id || 'player-2';
+      return (
+        <FastMoneyController
+          snapshot={fastMoneyP2State as any}
+          timerTick={timerTick}
+          duplicateWarning={duplicateWarning}
+          onClearDuplicateWarning={clearDuplicateWarning}
+          playerNumber={2}
+          onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
+          onSubmitAnswer={(qId, ans) =>
+            submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
+          }
+          onPass={(qId) =>
+            passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
+          }
+          onLeave={() => navigate('/')}
+        />
+      );
+    }
 
     // Fast Money Player 2 Offstage Isolation Screen (US-07 Scenario 5)
     if (isFastMoney && (fastMoneyP2State || (fastMoneyP1State && isPlayer2))) {

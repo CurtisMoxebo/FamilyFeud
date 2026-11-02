@@ -453,4 +453,153 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
       expect(screen.getByText(/Player 1 Reveal Complete!/i)).toBeInTheDocument();
     });
   });
+  describe('US-09: Player 2 Speed Round, Duplicate Warning & Haptic Feedback', () => {
+    const p2PlayingSnapshot: any = {
+      phase: 'P2_PLAYING',
+      currentQuestion: {
+        id: 'q-1',
+        questionText: 'Name a caffeinated beverage',
+        questionNumber: 1,
+        totalQuestions: 5,
+      },
+      answeredCount: 0,
+      passedCount: 0,
+      totalQuestions: 5,
+      remainingSeconds: 75,
+      isTimerRunning: true,
+      canSubmit: true,
+      canPass: true,
+    };
+
+    it('satisfies Scenario 1: mounts FastMoneyController for Player 2 with 75-second countdown', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={p2PlayingSnapshot}
+          playerNumber={2}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('fast-money-playing-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('fast-money-timer')).toHaveTextContent('75s');
+      expect(screen.getByTestId('fast-money-question-text')).toHaveTextContent(
+        'Name a caffeinated beverage'
+      );
+      expect(screen.getByText(/Player 2 • Question #1/i)).toBeInTheDocument();
+    });
+
+    it('satisfies Scenario 2: clears input, triggers shake animation and haptic feedback on duplicate answer warning', () => {
+      const vibrateMock = vi.fn();
+      Object.defineProperty(navigator, 'vibrate', {
+        value: vibrateMock,
+        writable: true,
+        configurable: true,
+      });
+
+      const duplicateWarning = {
+        roomCode: 'FEUD-P201',
+        rawInput: 'coffee',
+        message: 'Duplicate answer! Enter another answer.',
+        questionId: 'q-1',
+        duplicateWithAnswer: 'Coffee',
+        reason: 'EXACT_RAW' as const,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={p2PlayingSnapshot}
+          duplicateWarning={duplicateWarning}
+          playerNumber={2}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      // Warning Banner
+      const banner = screen.getByTestId('duplicate-warning-banner');
+      expect(banner).toBeInTheDocument();
+      expect(banner).toHaveTextContent('Duplicate answer! Enter another answer.');
+      expect(banner).toHaveTextContent('Player 1 answered: "Coffee"');
+
+      // Input cleared
+      const input = screen.getByTestId('fast-money-input') as HTMLInputElement;
+      expect(input.value).toBe('');
+
+      // Haptic feedback invoked
+      expect(vibrateMock).toHaveBeenCalledWith([100, 50, 100]);
+    });
+
+    it('satisfies Scenario 3: typing alternative answer clears duplicate warning and submits successfully', async () => {
+      const user = userEvent.setup();
+      const onSubmitAnswer = vi.fn();
+      const onClearDuplicateWarning = vi.fn();
+
+      const duplicateWarning = {
+        roomCode: 'FEUD-P201',
+        rawInput: 'coffee',
+        message: 'Duplicate answer! Enter another answer.',
+        questionId: 'q-1',
+        duplicateWithAnswer: 'Coffee',
+        reason: 'EXACT_RAW' as const,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={p2PlayingSnapshot}
+          duplicateWarning={duplicateWarning}
+          onClearDuplicateWarning={onClearDuplicateWarning}
+          playerNumber={2}
+          onReady={vi.fn()}
+          onSubmitAnswer={onSubmitAnswer}
+          onPass={vi.fn()}
+        />
+      );
+
+      const input = screen.getByTestId('fast-money-input');
+      await user.type(input, 'Tea');
+
+      expect(onClearDuplicateWarning).toHaveBeenCalled();
+
+      const submitBtn = screen.getByTestId('fast-money-submit-btn');
+      await user.click(submitBtn);
+
+      expect(onSubmitAnswer).toHaveBeenCalledWith('q-1', 'Tea');
+    });
+
+    it('satisfies Scenario 4: clicking Pass advances question and clears duplicate warning', async () => {
+      const user = userEvent.setup();
+      const onPass = vi.fn();
+      const onClearDuplicateWarning = vi.fn();
+
+      const duplicateWarning = {
+        roomCode: 'FEUD-P201',
+        rawInput: 'coffee',
+        message: 'Duplicate answer! Enter another answer.',
+        questionId: 'q-1',
+        duplicateWithAnswer: 'Coffee',
+        reason: 'EXACT_RAW' as const,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={p2PlayingSnapshot}
+          duplicateWarning={duplicateWarning}
+          onClearDuplicateWarning={onClearDuplicateWarning}
+          playerNumber={2}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={onPass}
+        />
+      );
+
+      const passBtn = screen.getByTestId('fast-money-pass-btn');
+      await user.click(passBtn);
+
+      expect(onPass).toHaveBeenCalledWith('q-1');
+      expect(onClearDuplicateWarning).toHaveBeenCalled();
+    });
+  });
 });

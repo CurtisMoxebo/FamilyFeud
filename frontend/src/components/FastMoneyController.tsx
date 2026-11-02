@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Player1StateSnapshot, TimerTickPayload } from '../types';
+import {
+  Player1StateSnapshot,
+  Player2IsolationSnapshot,
+  TimerTickPayload,
+  DuplicateAnswerWarningPayload,
+} from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
   Timer,
@@ -9,11 +14,15 @@ import {
   SkipForward,
   Sparkles,
   Lock,
+  AlertCircle,
 } from 'lucide-react';
 
 export interface FastMoneyControllerProps {
-  snapshot: Player1StateSnapshot;
+  snapshot: Player1StateSnapshot | Player2IsolationSnapshot;
   timerTick?: TimerTickPayload | null;
+  duplicateWarning?: DuplicateAnswerWarningPayload | null;
+  onClearDuplicateWarning?: () => void;
+  playerNumber?: 1 | 2;
   onReady: () => void;
   onSubmitAnswer: (questionId: string, answer: string) => void;
   onPass: (questionId: string) => void;
@@ -23,13 +32,22 @@ export interface FastMoneyControllerProps {
 export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   snapshot,
   timerTick = null,
+  duplicateWarning = null,
+  onClearDuplicateWarning,
+  playerNumber,
   onReady,
   onSubmitAnswer,
   onPass,
 }) => {
   const { t } = useTranslation();
   const [answerText, setAnswerText] = useState<string>('');
+  const [isShaking, setIsShaking] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isPlayer2 =
+    playerNumber === 2 ||
+    (playerNumber !== 1 && snapshot.phase.startsWith('P2') && !('revealSlots' in snapshot && snapshot.revealSlots));
+  const isPlaying = snapshot.phase === 'P1_PLAYING' || snapshot.phase === 'P2_PLAYING';
 
   // Synchronized countdown timer value (authoritative timer tick takes priority)
   const remainingSeconds =
@@ -39,7 +57,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
   // Auto-focus input and reset value on each new question (DoD Requirement)
   useEffect(() => {
-    if (snapshot.phase === 'P1_PLAYING' && snapshot.currentQuestion) {
+    if (isPlaying && snapshot.currentQuestion) {
       setAnswerText('');
       // Small timeout ensures DOM focus after question re-render on mobile
       const timer = setTimeout(() => {
@@ -47,21 +65,67 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [snapshot.currentQuestion?.id, snapshot.phase]);
+  }, [snapshot.currentQuestion?.id, isPlaying]);
+
+  // US-09 Scenario 2: Duplicate Answer Detection Shake, Haptic & Clear
+  useEffect(() => {
+    if (duplicateWarning) {
+      // Clear input field (DoD Requirement)
+      setAnswerText('');
+
+      // Trigger mobile haptic feedback if supported (DoD Requirement)
+      if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([100, 50, 100]);
+        } catch {
+          // Ignore if vibration is restricted or unsupported
+        }
+      }
+
+      // Trigger shake animation (DoD Requirement)
+      setIsShaking(true);
+      const shakeTimer = setTimeout(() => {
+        setIsShaking(false);
+      }, 600);
+
+      // Re-focus input field immediately (DoD Requirement)
+      const focusTimer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+
+      return () => {
+        clearTimeout(shakeTimer);
+        clearTimeout(focusTimer);
+      };
+    }
+  }, [duplicateWarning]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAnswerText(e.target.value);
+    if (duplicateWarning && onClearDuplicateWarning) {
+      onClearDuplicateWarning();
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = answerText.trim();
-    if (!trimmed || !snapshot.currentQuestion || !snapshot.canSubmit) {
+    if (!trimmed || !snapshot.currentQuestion || snapshot.canSubmit === false) {
       return;
+    }
+    if (onClearDuplicateWarning) {
+      onClearDuplicateWarning();
     }
     onSubmitAnswer(snapshot.currentQuestion.id, trimmed);
     setAnswerText('');
   };
 
   const handlePass = () => {
-    if (!snapshot.currentQuestion || !snapshot.canPass) {
+    if (!snapshot.currentQuestion || snapshot.canPass === false) {
       return;
+    }
+    if (onClearDuplicateWarning) {
+      onClearDuplicateWarning();
     }
     onPass(snapshot.currentQuestion.id);
     setAnswerText('');
@@ -75,10 +139,13 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   };
 
   // 1. Scenario 1: Ready Button State
-  if (snapshot.phase === 'P1_READY') {
+  if (
+    snapshot.phase === 'P1_READY' ||
+    (snapshot.phase === 'P2_READY' && (!('revealSlots' in snapshot) || !snapshot.revealSlots))
+  ) {
     return (
       <div
-        data-testid="p1-ready-screen"
+        data-testid={isPlayer2 ? 'p2-ready-screen' : 'p1-ready-screen'}
         className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500/20 to-yellow-400/30 text-feud-gold mx-auto flex items-center justify-center mb-5 ring-4 ring-feud-gold/30 shadow-lg shadow-feud-gold/20">
@@ -87,27 +154,29 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
         <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-feud-gold/15 border border-feud-gold/30 text-feud-gold text-xs font-bold uppercase tracking-widest mb-3">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Fast Money Round 1</span>
+          <span>{isPlayer2 ? 'Fast Money Round 2' : 'Fast Money Round 1'}</span>
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-2">
-          {t.fastMoney.p1ReadyTitle}
+          {isPlayer2 ? t.fastMoney.p2ReadyTitle : t.fastMoney.p1ReadyTitle}
         </h1>
         <p className="text-slate-300 text-sm mb-8 leading-relaxed">
-          {t.fastMoney.p1ReadySubtitle}
+          {isPlayer2
+            ? t.fastMoney.p2ReadySubtitle.replace('{score}', String(snapshot.totalScore ?? 0))
+            : t.fastMoney.p1ReadySubtitle}
         </p>
 
-        {/* 60 Seconds Timer Badge */}
+        {/* 60s (P1) or 75s (P2) Timer Badge */}
         <div className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-slate-900/80 border border-slate-700/80 text-sm font-semibold text-slate-300 mb-8">
           <Timer className="w-5 h-5 text-feud-gold" />
-          <span>60 Seconds on the Clock</span>
+          <span>{isPlayer2 ? '75 Seconds on the Clock' : '60 Seconds on the Clock'}</span>
         </div>
 
         {/* "I'm Ready!" Start Button */}
         <button
           type="button"
           onClick={onReady}
-          data-testid="p1-ready-btn"
+          data-testid={isPlayer2 ? 'p2-ready-btn' : 'p1-ready-btn'}
           className="w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
         >
           <Zap className="w-6 h-6 fill-slate-950" />
@@ -117,8 +186,9 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     );
   }
 
-  // 2. US-08: Reveal Sequence View & Round 2 Ready Transition
+  // 2. US-08: Reveal Sequence View & Round 2 Ready Transition (Player 1)
   if (
+    !isPlayer2 &&
     (snapshot.phase === 'P1_REVEAL' || snapshot.phase === 'P2_READY') &&
     snapshot.revealSlots &&
     snapshot.revealSlots.length > 0
@@ -242,8 +312,12 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   }
 
   // 3. Scenario 4: Turn Expiration / Turn Complete State
-  if (snapshot.phase === 'P1_FINISHED' || snapshot.phase === 'P1_REVEAL') {
-    const answeredCount = snapshot.answeredCount;
+  if (
+    snapshot.phase === 'P1_FINISHED' ||
+    snapshot.phase === 'P2_FINISHED' ||
+    (snapshot.phase === 'P1_REVEAL' && isPlayer2)
+  ) {
+    const answeredCount = snapshot.answeredCount ?? 0;
     const totalQuestions = snapshot.totalQuestions || 5;
 
     return (
@@ -291,12 +365,27 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
   // 4. Scenario 2 & 3: Active Speed Round Playing State
   const currentQ = snapshot.currentQuestion;
+  const answeredCount = snapshot.answeredCount ?? 0;
+  const passedCount = snapshot.passedCount ?? 0;
+  const totalQuestions = snapshot.totalQuestions || 5;
 
   return (
     <div
       data-testid="fast-money-playing-screen"
       className="max-w-md w-full flex flex-col gap-4 animate-fade-in"
     >
+      {/* Inline styles for shake animation */}
+      <style>{`
+        @keyframes controller-shake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-8px); }
+          40%, 80% { transform: translateX(8px); }
+        }
+        .animate-shake {
+          animation: controller-shake 0.5s ease-in-out;
+        }
+      `}</style>
+
       {/* Top Header: Authoritative Countdown Timer & Question Counter */}
       <div className="flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-slate-800 shadow-lg">
         {/* Synchronized Timer Display */}
@@ -320,15 +409,15 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
             {currentQ
               ? t.fastMoney.questionProgress
                   .replace('{current}', String(currentQ.questionNumber))
-                  .replace('{total}', String(snapshot.totalQuestions || 5))
+                  .replace('{total}', String(totalQuestions))
               : 'Question'}
           </span>
-          {snapshot.passedCount > 0 && (
+          {passedCount > 0 && (
             <span
               data-testid="fast-money-passed-counter"
               className="text-[11px] font-semibold text-amber-400"
             >
-              (Passed: {snapshot.passedCount})
+              (Passed: {passedCount})
             </span>
           )}
         </div>
@@ -337,25 +426,47 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
       {/* Question Card */}
       <div className="bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-7 shadow-2xl text-center">
         <div className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-feud-gold/20 text-feud-gold text-[11px] font-extrabold uppercase tracking-widest mb-3">
-          Question #{currentQ?.questionNumber ?? 1}
+          <span>
+            {isPlayer2 ? 'Player 2' : 'Player 1'} • Question #{currentQ?.questionNumber ?? 1}
+          </span>
         </div>
 
         <h2
           data-testid="fast-money-question-text"
-          className="text-xl sm:text-2xl font-black text-white leading-snug mb-6 min-h-[3.5rem] flex items-center justify-center"
+          className="text-xl sm:text-2xl font-black text-white leading-snug mb-5 min-h-[3.5rem] flex items-center justify-center"
         >
           {currentQ?.questionText || 'Loading question...'}
         </h2>
 
+        {/* US-09 Scenario 2: Duplicate Answer Error Banner */}
+        {duplicateWarning && (
+          <div
+            data-testid="duplicate-warning-banner"
+            className="mb-4 p-3.5 rounded-2xl bg-red-950/80 border-2 border-red-500/80 text-red-200 text-sm font-bold flex items-center gap-2.5 shadow-lg shadow-red-950/50 animate-shake"
+          >
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+            <div className="flex-1 text-left">
+              <div className="text-white font-extrabold text-sm">
+                {duplicateWarning.message || t.fastMoney.duplicateWarningPlayer}
+              </div>
+              {duplicateWarning.duplicateWithAnswer && (
+                <div className="text-xs text-red-300 font-normal mt-0.5">
+                  Player 1 answered: &quot;{duplicateWarning.duplicateWithAnswer}&quot;
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Answer Submission Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <div className="relative">
+          <div className={`relative transition-transform ${isShaking ? 'animate-shake' : ''}`}>
             <input
               ref={inputRef}
               type="text"
               data-testid="fast-money-input"
               value={answerText}
-              onChange={(e) => setAnswerText(e.target.value)}
+              onChange={handleInputChange}
               placeholder={t.fastMoney.answerPlaceholder}
               autoFocus
               autoComplete="off"
@@ -363,18 +474,22 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               spellCheck="false"
               enterKeyHint="send"
               maxLength={50}
-              disabled={!snapshot.canSubmit}
-              className="w-full px-4 py-3.5 rounded-2xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-500 font-bold text-lg text-center focus:outline-none focus:ring-2 focus:ring-feud-gold/50 focus:border-feud-gold transition-all disabled:opacity-50"
+              disabled={snapshot.canSubmit === false}
+              className={`w-full px-4 py-3.5 rounded-2xl bg-slate-900/90 text-white placeholder-slate-500 font-bold text-lg text-center focus:outline-none transition-all disabled:opacity-50 border ${
+                isShaking
+                  ? 'border-red-500 ring-2 ring-red-500/50 bg-red-950/30'
+                  : 'border-slate-700 focus:ring-2 focus:ring-feud-gold/50 focus:border-feud-gold'
+              }`}
             />
           </div>
 
-          {/* Action Buttons: Submit (Green/Gold) and Pass (Yellow) */}
+          {/* Action Buttons: Submit and Pass */}
           <div className="grid grid-cols-2 gap-3 mt-1">
             {/* Yellow Pass Button */}
             <button
               type="button"
               onClick={handlePass}
-              disabled={!snapshot.canPass}
+              disabled={snapshot.canPass === false}
               data-testid="fast-money-pass-btn"
               className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -385,7 +500,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={!answerText.trim() || !snapshot.canSubmit}
+              disabled={!answerText.trim() || snapshot.canSubmit === false}
               data-testid="fast-money-submit-btn"
               className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -398,8 +513,8 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
       {/* Progress Footer: Answered Count */}
       <div className="flex items-center justify-between text-xs font-semibold text-slate-400 px-2">
-        <span>Answered: {snapshot.answeredCount} / {snapshot.totalQuestions || 5}</span>
-        <span>Remaining: {snapshot.totalQuestions - snapshot.answeredCount}</span>
+        <span>Answered: {answeredCount} / {totalQuestions}</span>
+        <span>Remaining: {totalQuestions - answeredCount}</span>
       </div>
     </div>
   );
