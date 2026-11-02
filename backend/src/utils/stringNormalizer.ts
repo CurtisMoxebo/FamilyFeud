@@ -264,9 +264,9 @@ export function findOfflineFuzzyMatch<T extends CandidateAnswer = CandidateAnswe
     const distance = calculateLevenshteinDistance(normalizedInput, normalizedTarget);
 
     let isTypo = false;
-    if (targetLen >= 7 && distance <= 2 && similarity >= 0.75) {
+    if (targetLen >= 7 && distance <= 2 && similarity >= 0.70) {
       isTypo = true;
-    } else if (targetLen >= 4 && targetLen < 7 && distance <= 1 && similarity >= 0.75) {
+    } else if (targetLen >= 4 && targetLen < 7 && distance <= 1 && similarity >= 0.70) {
       isTypo = true;
     }
 
