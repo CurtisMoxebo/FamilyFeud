@@ -138,5 +138,22 @@ export interface TranslationDictionary {
     versus: string;
     teamRoster: string;
     readyForFaceOff: string;
+    faceOffTitle: string;
+    roundNumber: string;
+    faceOffContenders: string;
+    imReady: string;
+    waitingForOpponent: string;
+    bothReady: string;
+    buzzerBtn: string;
+    buzzerLocked: string;
+    buzzerWinner: string;
+    spectatorCheer: string;
+    faceOffTimeRemaining: string;
+    faceOffInputPlaceholder: string;
+    submitAnswer: string;
+    answeringTurn: string;
+    timeUpHandOff: string;
+    timeUpTeammate: string;
+    deadlockReset: string;
   };
 }
