@@ -117,7 +117,131 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     );
   }
 
-  // 2. Scenario 4: Turn Expiration / Turn Complete State
+  // 2. US-08: Reveal Sequence View & Round 2 Ready Transition
+  if (
+    (snapshot.phase === 'P1_REVEAL' || snapshot.phase === 'P2_READY') &&
+    snapshot.revealSlots &&
+    snapshot.revealSlots.length > 0
+  ) {
+    const isReady = snapshot.phase === 'P2_READY';
+    const totalScore = snapshot.totalScore ?? 0;
+    const slots = snapshot.revealSlots;
+
+    return (
+      <div
+        data-testid="p1-reveal-screen"
+        className="max-w-md w-full flex flex-col gap-4 animate-fade-in"
+      >
+        {/* Header: Synchronized Cumulative Total Score */}
+        <div className="flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-feud-gold/30 shadow-lg">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-feud-gold/20 text-feud-gold text-[11px] font-extrabold uppercase tracking-widest mb-1">
+              <Sparkles className="w-3 h-3" />
+              <span>{t.fastMoney.revealPhaseTitle}</span>
+            </div>
+            <h2 className="text-lg font-black text-white">Player 1 Reveal</h2>
+          </div>
+
+          <div className="flex flex-col items-end">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              {t.fastMoney.totalScore}
+            </span>
+            <div
+              data-testid="p1-reveal-total-score"
+              className="text-3xl font-black font-game text-feud-gold px-3 py-0.5 rounded-xl bg-slate-950/80 border border-feud-gold/40 shadow-inner"
+            >
+              {totalScore}
+            </div>
+          </div>
+        </div>
+
+        {/* Phase Complete Banner if P2_READY */}
+        {isReady && (
+          <div
+            data-testid="p1-reveal-complete-banner"
+            className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 shadow-lg animate-fade-in"
+          >
+            <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+            <div>
+              <div className="font-extrabold text-sm text-white">
+                {t.fastMoney.revealComplete}
+              </div>
+              <div className="text-xs text-emerald-200/80">
+                Waiting for Player 2 to start Round 2...
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Synchronized 5 Reveal Cards */}
+        <div className="flex flex-col gap-2.5">
+          {slots.map((slot) => {
+            const isActive = slot.slotNumber === snapshot.activeRevealSlotNumber;
+            const pointsColor =
+              slot.pointsAwarded && slot.pointsAwarded > 0
+                ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/50'
+                : 'text-feud-red bg-red-950/50 border-red-500/40';
+
+            return (
+              <div
+                key={slot.slotNumber}
+                data-testid={`p1-reveal-slot-${slot.slotNumber}`}
+                className={`p-3.5 rounded-2xl border transition-all ${
+                  isActive
+                    ? 'bg-slate-800/95 border-feud-gold/70 ring-2 ring-feud-gold/40 shadow-lg'
+                    : 'bg-slate-900/80 border-slate-800'
+                }`}
+              >
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 line-clamp-1">
+                  Q{slot.slotNumber}: {slot.questionText}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 font-black text-sm uppercase tracking-wide truncate">
+                    {slot.isAnswerRevealed ? (
+                      <span
+                        data-testid={`p1-reveal-answer-${slot.slotNumber}`}
+                        className="text-white"
+                      >
+                        {slot.rawAnswer || t.fastMoney.noAnswer}
+                      </span>
+                    ) : (
+                      <span
+                        data-testid={`p1-concealed-answer-${slot.slotNumber}`}
+                        className="text-slate-500 tracking-widest font-mono"
+                      >
+                        ••••••••
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    data-testid={`p1-reveal-points-${slot.slotNumber}`}
+                    className={`min-w-[3rem] px-2.5 py-1 text-center font-black font-game rounded-xl border text-sm ${
+                      slot.isPointsRevealed
+                        ? pointsColor
+                        : 'text-slate-600 bg-slate-950/60 border-slate-800'
+                    }`}
+                  >
+                    {slot.isPointsRevealed ? slot.pointsAwarded : '--'}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Input Locked Notice */}
+        <div
+          data-testid="fast-money-locked-notice"
+          className="flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60"
+        >
+          <Lock className="w-4 h-4 text-slate-400" />
+          <span>Input locked for reveal phase</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Scenario 4: Turn Expiration / Turn Complete State
   if (snapshot.phase === 'P1_FINISHED' || snapshot.phase === 'P1_REVEAL') {
     const answeredCount = snapshot.answeredCount;
     const totalQuestions = snapshot.totalQuestions || 5;
@@ -165,7 +289,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     );
   }
 
-  // 3. Scenario 2 & 3: Active Speed Round Playing State
+  // 4. Scenario 2 & 3: Active Speed Round Playing State
   const currentQ = snapshot.currentQuestion;
 
   return (
@@ -282,4 +406,3 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 };
 
 export default FastMoneyController;
-

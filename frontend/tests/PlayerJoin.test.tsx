@@ -400,4 +400,50 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     // Confidentiality check
     expect(screen.queryByTestId('fast-money-input')).not.toBeInTheDocument();
   });
+
+  it('satisfies US-08 Scenario 4: transitions Player 2 to ready screen and allows clicking "I\'m Ready!" when phase is P2_READY', async () => {
+    const user = userEvent.setup();
+    const sendPlayerReady = vi.fn();
+
+    const mockP2Ready = {
+      phase: 'P2_READY',
+      isOffstage: false,
+      isolationMessage: "Player 1's reveal is complete! Get ready for your turn",
+      remainingSeconds: 0,
+      isTimerRunning: false,
+      totalScore: 110,
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      socketId: 'player-socket-2',
+      roomState: {
+        roomCode: 'FEUD-8291',
+        status: 'PLAYING',
+        playerCount: 2,
+        maxPlayers: 2,
+        players: [
+          { id: 'p1', nickname: 'Sophie', isConnected: true, isReady: true },
+          { id: 'p2', nickname: 'Marc', isConnected: true, isReady: true },
+        ],
+      },
+      fastMoneyP2State: mockP2Ready,
+      sendPlayerReady,
+    } as any);
+
+    renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+    const input = screen.getByTestId('player-nickname-input');
+    await user.type(input, 'Marc');
+    await user.click(screen.getByTestId('player-join-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('player2-ready-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('p2-round1-total')).toHaveTextContent('110');
+      expect(screen.getByTestId('p2-ready-btn')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('p2-ready-btn'));
+    expect(sendPlayerReady).toHaveBeenCalledWith('FEUD-8291', 'p2');
+  });
 });

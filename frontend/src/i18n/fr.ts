@@ -108,6 +108,10 @@ export const fr: TranslationDictionary = {
     revealComplete: 'Révélation du Joueur 1 Terminée !',
     autoPacing: 'Rythme Automatique',
     manualPacing: 'Contrôle Manuel',
+    p2ReadyTitle: 'Joueur 2, à vous !',
+    p2ReadySubtitle: 'Le joueur 1 a marqué {score} points. Appuyez sur prêt lorsque vous êtes prêt !',
+    watchingReveal: 'Séquence de révélation du joueur 1 en cours...',
+
   },
 };
 

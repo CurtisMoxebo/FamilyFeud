@@ -229,6 +229,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
         <FastMoneyIsolation
           snapshot={fastMoneyP2State}
           timerTick={timerTick}
+          onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
           onLeave={() => navigate('/')}
         />
       );

@@ -106,5 +106,8 @@ export interface TranslationDictionary {
     revealComplete: string;
     autoPacing: string;
     manualPacing: string;
+    p2ReadyTitle: string;
+    p2ReadySubtitle: string;
+    watchingReveal: string;
   };
 }
