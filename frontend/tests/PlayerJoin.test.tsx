@@ -5,7 +5,7 @@ import React from 'react';
 import { PlayerJoin } from '../src/pages/PlayerJoin';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
-import { Room, RoomStateUpdate } from '../src/types';
+import { Room, RoomStateUpdate, TeamsAssignedPayload } from '../src/types';
 import * as socketHook from '../src/hooks/useSocket';
 
 describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
@@ -664,5 +664,165 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         expect(screen.getByTestId('player2-isolation-screen')).toBeInTheDocument();
         expect(screen.getByText(/Offstage Isolation Shield/i)).toBeInTheDocument();
       });
+    });
+
+    /* -------------------------------------------------------------
+     * US-11 Main Game Team Partitioning & Mobile Roster Tests
+     * ------------------------------------------------------------- */
+    it('satisfies US-11 Scenario 1: renders Team 1 badge, batting order, and teammate roster for Team 1 player', async () => {
+      const user = userEvent.setup();
+      const mainGameRoomEN: Room = {
+        id: 'room-main-11',
+        roomCode: 'FEUD-1111',
+        roomName: 'Family Feud Night',
+        language: 'EN',
+        gameMode: 'MAIN_GAME',
+        status: 'LOBBY',
+        createdAt: new Date().toISOString(),
+      };
+
+      const mockTeamsPayload: TeamsAssignedPayload = {
+        roomCode: 'FEUD-1111',
+        team1: [
+          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+          { id: 'p4', nickname: 'David', team: 'TEAM_1', battingOrder: 2 },
+        ],
+        team2: [
+          { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 },
+          { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 2 },
+        ],
+      };
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        socketId: 'player-socket-alice',
+        roomState: {
+          roomCode: 'FEUD-1111',
+          roomName: 'Family Feud Night',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'ACTIVE',
+          playerCount: 4,
+          maxPlayers: 10,
+          canStart: true,
+          players: [
+            { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isReady: true, isConnected: true },
+            { id: 'p2', nickname: 'Bob', team: 'TEAM_2', isReady: true, isConnected: true },
+            { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', isReady: true, isConnected: true },
+            { id: 'p4', nickname: 'David', team: 'TEAM_1', isReady: true, isConnected: true },
+          ],
+        },
+        teamsAssigned: mockTeamsPayload,
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-1111" initialRoom={mainGameRoomEN} />);
+
+      // Join as Alice
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Alice');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      // Transitions to Main Game mobile team screen
+      await waitFor(() => {
+        expect(screen.getByTestId('player-main-game-team-screen')).toBeInTheDocument();
+      });
+
+      // Team 1 Badge & Batting Order
+      expect(screen.getByTestId('player-team-badge')).toHaveTextContent('You are on Team 1!');
+      expect(screen.getByTestId('player-batting-order')).toHaveTextContent('Player #1');
+
+      // Teammates Roster (Alice & David)
+      expect(screen.getByTestId('teammates-header')).toHaveTextContent('Your Teammates');
+      expect(screen.getByTestId('teammates-roster')).toBeInTheDocument();
+      expect(screen.getByTestId('teammate-item-p1')).toHaveTextContent('Player #1');
+      expect(screen.getByTestId('teammate-item-p1')).toHaveTextContent('Alice');
+      expect(screen.getByTestId('teammate-item-p1')).toHaveTextContent('You');
+      expect(screen.getByTestId('teammate-item-p4')).toHaveTextContent('Player #2');
+      expect(screen.getByTestId('teammate-item-p4')).toHaveTextContent('David');
+
+      // Opponents Roster (Bob & Charlie)
+      expect(screen.getByTestId('opponents-roster')).toBeInTheDocument();
+      expect(screen.getByTestId('opponent-item-p2')).toHaveTextContent('Bob');
+      expect(screen.getByTestId('opponent-item-p3')).toHaveTextContent('Charlie');
+
+      // Face-Off Announcement
+      expect(screen.getByTestId('player-face-off-banner')).toHaveTextContent('Get ready for the Face-Off!');
+    });
+
+    it('satisfies US-11 Scenario 1: renders Team 2 badge and batting order for Team 2 player', async () => {
+      const user = userEvent.setup();
+      const mainGameRoomEN: Room = {
+        id: 'room-main-11',
+        roomCode: 'FEUD-1111',
+        roomName: 'Family Feud Night',
+        language: 'EN',
+        gameMode: 'MAIN_GAME',
+        status: 'LOBBY',
+        createdAt: new Date().toISOString(),
+      };
+
+      const mockTeamsPayload: TeamsAssignedPayload = {
+        roomCode: 'FEUD-1111',
+        team1: [
+          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+          { id: 'p4', nickname: 'David', team: 'TEAM_1', battingOrder: 2 },
+        ],
+        team2: [
+          { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 },
+          { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 2 },
+        ],
+      };
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        socketId: 'player-socket-charlie',
+        roomState: {
+          roomCode: 'FEUD-1111',
+          roomName: 'Family Feud Night',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'ACTIVE',
+          playerCount: 4,
+          maxPlayers: 10,
+          canStart: true,
+          players: [
+            { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isReady: true, isConnected: true },
+            { id: 'p2', nickname: 'Bob', team: 'TEAM_2', isReady: true, isConnected: true },
+            { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', isReady: true, isConnected: true },
+            { id: 'p4', nickname: 'David', team: 'TEAM_1', isReady: true, isConnected: true },
+          ],
+        },
+        teamsAssigned: mockTeamsPayload,
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-1111" initialRoom={mainGameRoomEN} />);
+
+      // Join as Charlie
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Charlie');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      // Transitions to Main Game mobile team screen
+      await waitFor(() => {
+        expect(screen.getByTestId('player-main-game-team-screen')).toBeInTheDocument();
+      });
+
+      // Team 2 Badge & Batting Order
+      expect(screen.getByTestId('player-team-badge')).toHaveTextContent('You are on Team 2!');
+      expect(screen.getByTestId('player-batting-order')).toHaveTextContent('Player #2');
+
+      // Teammate is Bob
+      expect(screen.getByTestId('teammate-item-p2')).toHaveTextContent('Bob');
+      expect(screen.getByTestId('teammate-item-p3')).toHaveTextContent('Charlie');
+      expect(screen.getByTestId('teammate-item-p3')).toHaveTextContent('You');
+
+      // Opponents are Team 1 (Alice & David)
+      expect(screen.getByTestId('opponent-item-p1')).toHaveTextContent('Alice');
+      expect(screen.getByTestId('opponent-item-p4')).toHaveTextContent('David');
+
+      // Back button allows leaving
+      const leaveBtn = screen.getByTestId('player-leave-btn');
+      expect(leaveBtn).toBeInTheDocument();
+      await user.click(leaveBtn);
     });
   });
