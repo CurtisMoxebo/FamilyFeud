@@ -288,5 +288,69 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
       expect(result.current.boardReveal).toBeNull();
       expect(result.current.p1RevealCompleted).toBeNull();
     });
+    it('handles Player 2 speed round and duplicate answer events (US-09)', () => {
+      const { result } = renderHook(() => useSocket());
+
+      // 1. p2_turn_started event
+      const p2Started = {
+        roomCode: 'FEUD-P201',
+        endsAt: Date.now() + 75000,
+        duration: 75,
+        currentQuestionNumber: 1,
+        questionText: 'Name a breakfast food',
+      };
+      act(() => {
+        eventHandlers['p2_turn_started'](p2Started);
+      });
+      expect(result.current.p2TurnStarted).toEqual(p2Started);
+
+      // 2. duplicate_answer_warning event
+      const duplicateWarning = {
+        roomCode: 'FEUD-P201',
+        rawInput: 'Coffee',
+        message: 'Answer already given by Player 1! Try again.',
+        questionId: 'q-1',
+        duplicateWithAnswer: 'Coffee',
+        reason: 'EXACT_RAW' as const,
+      };
+      act(() => {
+        eventHandlers['duplicate_answer_warning'](duplicateWarning);
+      });
+      expect(result.current.duplicateWarning).toEqual(duplicateWarning);
+
+      // 3. clearDuplicateWarning
+      act(() => {
+        result.current.clearDuplicateWarning();
+      });
+      expect(result.current.duplicateWarning).toBeNull();
+
+      // 4. p2_turn_ended event
+      const p2Ended = {
+        roomCode: 'FEUD-P201',
+        reason: 'ALL_ANSWERED' as const,
+        answeredCount: 5,
+        totalQuestions: 5,
+      };
+      act(() => {
+        eventHandlers['p2_turn_ended'](p2Ended);
+      });
+      expect(result.current.p2TurnEnded).toEqual(p2Ended);
+      expect(result.current.turnEnded).toEqual(p2Ended);
+
+      // 5. leaveRoom resets all Player 2 states
+      act(() => {
+        eventHandlers['duplicate_answer_warning'](duplicateWarning);
+        eventHandlers['p2_turn_started'](p2Started);
+      });
+      expect(result.current.duplicateWarning).not.toBeNull();
+      expect(result.current.p2TurnStarted).not.toBeNull();
+
+      act(() => {
+        result.current.leaveRoom();
+      });
+      expect(result.current.duplicateWarning).toBeNull();
+      expect(result.current.p2TurnStarted).toBeNull();
+      expect(result.current.p2TurnEnded).toBeNull();
+    });
   });
 });

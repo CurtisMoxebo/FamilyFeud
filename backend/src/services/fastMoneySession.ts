@@ -842,14 +842,19 @@ export class FastMoneySession {
     return this.submissions.size >= this.questions.length;
   }
 
-  public isTurnFinished(): boolean {
-    return (
-      this.phase === 'P1_FINISHED' ||
-      this.phase === 'P1_REVEAL' ||
-      this.phase === 'P2_READY' ||
+  public isTurnFinished(playerId?: string): boolean {
+    if (
+      playerId === this.player2Id ||
       this.phase === 'P2_PLAYING' ||
       this.phase === 'P2_FINISHED' ||
       this.phase === 'P2_REVEAL'
+    ) {
+      return this.phase === 'P2_FINISHED' || this.phase === 'P2_REVEAL';
+    }
+    return (
+      this.phase === 'P1_FINISHED' ||
+      this.phase === 'P1_REVEAL' ||
+      this.phase === 'P2_READY'
     );
   }
 
