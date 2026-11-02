@@ -43,7 +43,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Live real-time socket connection for host display (US-04 & US-05)
+  // Live real-time socket connection for host display (US-04, US-05, US-08 & US-10)
   const {
     roomState,
     startGame,
@@ -53,6 +53,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     revealFastMoneyAnswer,
     revealFastMoneyPoints,
     startFastMoneyRevealPhase,
+    gameOver,
+    startP2FastMoneyRevealPhase,
+    revealP2FastMoneyAnswer,
+    revealP2FastMoneyPoints,
+    requestReplay,
   } = useSocket({
     roomCode,
     isHost: true,
@@ -151,19 +156,24 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   const isFastMoney = room.gameMode === 'FAST_MONEY';
 
-  // Fast Money Host Board Screen (US-07 & US-08 Reveal)
+  // Fast Money Host Board Screen (US-07, US-08, US-09 & US-10)
   if (isFastMoney && fastMoneyHostState) {
     return (
       <FastMoneyHostBoard
         snapshot={fastMoneyHostState}
         timerTick={timerTick}
         duplicateWarning={duplicateWarning}
+        gameOver={gameOver}
         language={room.language}
         roomName={room.roomName}
         roomCode={room.roomCode}
         onRevealAnswer={(slotNum) => revealFastMoneyAnswer(room.roomCode, slotNum)}
         onRevealPoints={(slotNum) => revealFastMoneyPoints(room.roomCode, slotNum)}
         onStartReveal={() => startFastMoneyRevealPhase(room.roomCode)}
+        onStartP2Reveal={() => startP2FastMoneyRevealPhase(room.roomCode)}
+        onRevealP2Answer={(slotNum) => revealP2FastMoneyAnswer(room.roomCode, slotNum)}
+        onRevealP2Points={(slotNum) => revealP2FastMoneyPoints(room.roomCode, slotNum)}
+        onReplay={() => requestReplay(room.roomCode)}
       />
     );
   }
