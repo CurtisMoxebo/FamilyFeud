@@ -31,6 +31,7 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     clearError: vi.fn(),
     fastMoneyP1State: null,
     fastMoneyP2State: null,
+    fastMoneyHostState: null,
     timerTick: null,
     turnEnded: null,
     sendPlayerReady: vi.fn(),
@@ -312,5 +313,45 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     // Start button is disabled
     expect(screen.getByTestId('host-start-game-btn')).toBeDisabled();
+  });
+
+  it('satisfies US-07 Scenario 1 & 2: transitions from lobby to FastMoneyHostBoard upon receiving fastMoneyHostState', () => {
+    const mockHostSnapshot = {
+      phase: 'P1_PLAYING',
+      activeQuestionNumber: 1,
+      totalQuestions: 5,
+      answeredCount: 0,
+      remainingSeconds: 60,
+      isTimerRunning: true,
+      currentQuestionText: 'Nommez un aliment pour le petit déjeuner',
+      slots: [
+        { slotNumber: 1, isFilled: false },
+        { slotNumber: 2, isFilled: false },
+        { slotNumber: 3, isFilled: false },
+        { slotNumber: 4, isFilled: false },
+        { slotNumber: 5, isFilled: false },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      roomState: {
+        roomCode: 'FEUD-7890',
+        status: 'PLAYING',
+        playerCount: 2,
+        maxPlayers: 2,
+        players: [],
+      },
+      fastMoneyHostState: mockHostSnapshot,
+    } as any);
+
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    expect(screen.getByTestId('fast-money-host-board')).toBeInTheDocument();
+    expect(screen.getByTestId('fast-money-host-timer')).toHaveTextContent('60s');
+    expect(screen.getByTestId('fast-money-host-question')).toHaveTextContent(
+      'Nommez un aliment pour le petit déjeuner'
+    );
+    expect(screen.getByTestId('fast-money-slot-1')).toBeInTheDocument();
   });
 });

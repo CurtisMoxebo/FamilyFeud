@@ -31,6 +31,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     clearError: vi.fn(),
     fastMoneyP1State: null,
     fastMoneyP2State: null,
+    fastMoneyHostState: null,
     timerTick: null,
     turnEnded: null,
     sendPlayerReady: vi.fn(),
@@ -351,5 +352,47 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
 
     await user.click(screen.getByTestId('p1-ready-btn'));
     expect(sendPlayerReady).toHaveBeenCalledWith('FEUD-8291', 'p1');
+  });
+
+  it('satisfies US-07 Scenario 5: transitions Player 2 to FastMoneyIsolation shield when Player 1 is playing', async () => {
+    const user = userEvent.setup();
+
+    const mockP2Isolation = {
+      phase: 'P1_PLAYING',
+      isOffstage: true,
+      isolationMessage: 'Player 1 is playing',
+      remainingSeconds: 52,
+      isTimerRunning: true,
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      socketId: 'player-socket-2',
+      roomState: {
+        roomCode: 'FEUD-8291',
+        status: 'PLAYING',
+        playerCount: 2,
+        maxPlayers: 2,
+        players: [
+          { id: 'p1', nickname: 'Sophie', isConnected: true, isReady: true },
+          { id: 'p2', nickname: 'Marc', isConnected: true, isReady: true },
+        ],
+      },
+      fastMoneyP2State: mockP2Isolation,
+    } as any);
+
+    renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+    const input = screen.getByTestId('player-nickname-input');
+    await user.type(input, 'Marc');
+    await user.click(screen.getByTestId('player-join-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('player2-isolation-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('player2-isolation-timer')).toHaveTextContent('52');
+    });
+
+    // Confidentiality check
+    expect(screen.queryByTestId('fast-money-input')).not.toBeInTheDocument();
   });
 });

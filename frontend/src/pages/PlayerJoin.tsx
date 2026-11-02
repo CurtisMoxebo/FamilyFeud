@@ -4,6 +4,7 @@ import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
 import { FastMoneyController } from '../components/FastMoneyController';
+import { FastMoneyIsolation } from '../components/FastMoneyIsolation';
 import {
   User,
   ArrowRight,
@@ -48,6 +49,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     roomState,
     roomError,
     fastMoneyP1State,
+    fastMoneyP2State,
     timerTick,
     joinRoom,
     sendPlayerReady,
@@ -212,6 +214,21 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           onPass={(qId) =>
             passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
           }
+          onLeave={() => navigate('/')}
+        />
+      );
+    }
+
+    const isPlayer2 =
+      playersList[1]?.id === currentPlayer?.id ||
+      playersList[1]?.nickname.toLowerCase() === nickname.trim().toLowerCase();
+
+    // Fast Money Player 2 Offstage Isolation Screen (US-07 Scenario 5)
+    if (isFastMoney && (fastMoneyP2State || (fastMoneyP1State && isPlayer2))) {
+      return (
+        <FastMoneyIsolation
+          snapshot={fastMoneyP2State}
+          timerTick={timerTick}
           onLeave={() => navigate('/')}
         />
       );

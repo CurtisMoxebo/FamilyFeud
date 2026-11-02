@@ -121,6 +121,21 @@ export interface TurnEndedPayload {
   totalQuestions: number;
 }
 
+
+export interface HostStateSnapshot {
+  phase: FastMoneyPhase;
+  activeQuestionNumber: number | null;
+  totalQuestions: number;
+  answeredCount: number;
+  remainingSeconds: number;
+  isTimerRunning: boolean;
+  currentQuestionText: string | null;
+  slots: Array<{
+    slotNumber: number;
+    isFilled: boolean;
+  }>;
+}
+
 export interface QuestionData {
   id: string;
   questionText: string;

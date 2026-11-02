@@ -6,6 +6,7 @@ import {
   GameStartedPayload,
   Player1StateSnapshot,
   Player2IsolationSnapshot,
+  HostStateSnapshot,
   TimerTickPayload,
   TurnEndedPayload,
 } from '../types';
@@ -29,6 +30,7 @@ export function useSocket(options?: UseSocketOptions) {
   // Fast Money Speed Round States (US-07)
   const [fastMoneyP1State, setFastMoneyP1State] = useState<Player1StateSnapshot | null>(null);
   const [fastMoneyP2State, setFastMoneyP2State] = useState<Player2IsolationSnapshot | null>(null);
+  const [fastMoneyHostState, setFastMoneyHostState] = useState<HostStateSnapshot | null>(null);
   const [timerTick, setTimerTick] = useState<TimerTickPayload | null>(null);
   const [turnEnded, setTurnEnded] = useState<TurnEndedPayload | null>(null);
 
@@ -99,6 +101,7 @@ export function useSocket(options?: UseSocketOptions) {
     setGameStarted(null);
     setFastMoneyP1State(null);
     setFastMoneyP2State(null);
+    setFastMoneyHostState(null);
     setTimerTick(null);
     setTurnEnded(null);
   }, []);
@@ -161,6 +164,10 @@ export function useSocket(options?: UseSocketOptions) {
       setFastMoneyP2State(state);
     });
 
+    socket.on('fast_money_host_state', (state: HostStateSnapshot) => {
+      setFastMoneyHostState(state);
+    });
+
     socket.on('timer_tick', (tick: TimerTickPayload) => {
       setTimerTick(tick);
     });
@@ -183,6 +190,7 @@ export function useSocket(options?: UseSocketOptions) {
     gameStarted,
     fastMoneyP1State,
     fastMoneyP2State,
+    fastMoneyHostState,
     timerTick,
     turnEnded,
     joinRoom,
