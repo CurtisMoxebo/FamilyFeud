@@ -82,7 +82,17 @@ export type FastMoneyPhase =
   | 'P2_PLAYING'
   | 'P2_FINISHED'
   | 'P1_REVEAL'
-  | 'P2_REVEAL';
+  | 'P2_REVEAL'
+  | 'GAME_OVER';
+
+export interface GameOverPayload {
+  roomCode: string;
+  isVictory: boolean;
+  p1TotalScore: number;
+  p2TotalScore: number;
+  grandTotal: number;
+  targetScore: number;
+}
 
 export interface FastMoneyRevealSlot {
   slotNumber: number;
@@ -111,8 +121,16 @@ export interface Player1StateSnapshot {
   canSubmit: boolean;
   canPass: boolean;
   totalScore?: number;
+  p1TotalScore?: number;
+  p2TotalScore?: number;
+  grandTotal?: number;
   revealSlots?: FastMoneyRevealSlot[];
+  p1RevealSlots?: FastMoneyRevealSlot[];
+  p2RevealSlots?: FastMoneyRevealSlot[];
   activeRevealSlotNumber?: number | null;
+  activeP2RevealSlotNumber?: number | null;
+  isVictory?: boolean;
+  targetScore?: number;
 }
 
 export interface Player2IsolationSnapshot {
@@ -122,8 +140,16 @@ export interface Player2IsolationSnapshot {
   remainingSeconds: number;
   isTimerRunning: boolean;
   totalScore?: number;
+  p1TotalScore?: number;
+  p2TotalScore?: number;
+  grandTotal?: number;
   revealSlots?: FastMoneyRevealSlot[];
+  p1RevealSlots?: FastMoneyRevealSlot[];
+  p2RevealSlots?: FastMoneyRevealSlot[];
   activeRevealSlotNumber?: number | null;
+  activeP2RevealSlotNumber?: number | null;
+  isVictory?: boolean;
+  targetScore?: number;
   currentQuestion?: {
     id: string;
     questionText: string;
@@ -162,11 +188,18 @@ export interface HostStateSnapshot {
     isFilled: boolean;
   }>;
   totalScore?: number;
+  p1TotalScore?: number;
+  p2TotalScore?: number;
+  grandTotal?: number;
   revealSlots?: FastMoneyRevealSlot[];
+  p1RevealSlots?: FastMoneyRevealSlot[];
+  p2RevealSlots?: FastMoneyRevealSlot[];
   activeRevealSlotNumber?: number | null;
+  activeP2RevealSlotNumber?: number | null;
   p1Slots?: FastMoneyRevealSlot[];
   p2Slots?: FastMoneyRevealSlot[];
-  p1TotalScore?: number;
+  isVictory?: boolean;
+  targetScore?: number;
 }
 
 export interface QuestionData {

@@ -8,7 +8,16 @@ export type FastMoneyPhase =
   | 'P2_PLAYING'
   | 'P2_FINISHED'
   | 'P1_REVEAL'
-  | 'P2_REVEAL';
+  | 'P2_REVEAL'
+  | 'GAME_OVER';
+
+export interface GameOverSummary {
+  isVictory: boolean;
+  p1TotalScore: number;
+  p2TotalScore: number;
+  grandTotal: number;
+  targetScore: number;
+}
 
 export interface FastMoneyQuestionAnswer {
   id: string;
@@ -107,8 +116,16 @@ export interface Player1StateSnapshot {
   canSubmit: boolean;
   canPass: boolean;
   totalScore?: number;
+  p1TotalScore?: number;
+  p2TotalScore?: number;
+  grandTotal?: number;
   revealSlots?: FastMoneyRevealSlot[];
+  p1RevealSlots?: FastMoneyRevealSlot[];
+  p2RevealSlots?: FastMoneyRevealSlot[];
   activeRevealSlotNumber?: number | null;
+  activeP2RevealSlotNumber?: number | null;
+  isVictory?: boolean;
+  targetScore?: number;
 }
 
 export interface Player2IsolationSnapshot {
@@ -118,8 +135,16 @@ export interface Player2IsolationSnapshot {
   remainingSeconds: number;
   isTimerRunning: boolean;
   totalScore?: number;
+  p1TotalScore?: number;
+  p2TotalScore?: number;
+  grandTotal?: number;
   revealSlots?: FastMoneyRevealSlot[];
+  p1RevealSlots?: FastMoneyRevealSlot[];
+  p2RevealSlots?: FastMoneyRevealSlot[];
   activeRevealSlotNumber?: number | null;
+  activeP2RevealSlotNumber?: number | null;
+  isVictory?: boolean;
+  targetScore?: number;
   // Speed Round Active Playing Properties (US-09)
   currentQuestion?: {
     id: string;
@@ -156,8 +181,15 @@ export interface HostStateSnapshot {
   }[];
   totalScore?: number;
   p1TotalScore?: number;
+  p2TotalScore?: number;
+  grandTotal?: number;
   revealSlots?: FastMoneyRevealSlot[];
+  p1RevealSlots?: FastMoneyRevealSlot[];
+  p2RevealSlots?: FastMoneyRevealSlot[];
   activeRevealSlotNumber?: number | null;
+  activeP2RevealSlotNumber?: number | null;
+  isVictory?: boolean;
+  targetScore?: number;
 }
 
 /**
@@ -165,7 +197,7 @@ export interface HostStateSnapshot {
  * sequential reveal sequencing, and duplicate answer checking (US-07, US-08, US-09).
  */
 export class FastMoneySession {
-  public readonly gameId: string;
+  public gameId: string;
   public readonly roomCode: string;
   public readonly player1Id: string;
   public readonly player2Id: string;
@@ -195,8 +227,10 @@ export class FastMoneySession {
   private p2TimerEndsAt: number | null = null;
   private p2AttemptCounter = 0;
 
-  // Reveal States (US-08)
+  // Reveal States (US-08 & US-10)
   private revealStates: Map<number, { isAnswerRevealed: boolean; isPointsRevealed: boolean }> =
+    new Map();
+  private p2RevealStates: Map<number, { isAnswerRevealed: boolean; isPointsRevealed: boolean }> =
     new Map();
 
   private phase: FastMoneyPhase = 'P1_READY';
@@ -219,9 +253,10 @@ export class FastMoneySession {
     this.unattemptedQueue = [...this.questions];
     this.passedQueue = [];
 
-    // Initialize reveal slot states (slots 1 to 5)
+    // Initialize reveal slot states (slots 1 to 5) for Player 1 and Player 2
     for (let i = 1; i <= this.questions.length; i++) {
       this.revealStates.set(i, { isAnswerRevealed: false, isPointsRevealed: false });
+      this.p2RevealStates.set(i, { isAnswerRevealed: false, isPointsRevealed: false });
     }
   }
 
@@ -757,6 +792,217 @@ export class FastMoneySession {
     return null;
   }
 
+
+  // --- Authoritative Player 2 Reveal Sequence & Victory (US-10) ---
+
+  public startP2RevealPhase(): void {
+    this.phase = 'P2_REVEAL';
+    this.p2CurrentQuestion = null;
+    for (let i = 1; i <= this.questions.length; i++) {
+      this.p2RevealStates.set(i, { isAnswerRevealed: false, isPointsRevealed: false });
+    }
+  }
+
+  public revealP2Answer(slotNumber: number): FastMoneyRevealSlot {
+    if (this.phase !== 'P2_REVEAL') {
+      throw new Error(
+        `Cannot reveal Player 2 answer outside of P2_REVEAL phase (current phase: ${this.phase})`
+      );
+    }
+
+    if (slotNumber < 1 || slotNumber > this.questions.length) {
+      throw new Error(
+        `Invalid slotNumber ${slotNumber}. Must be between 1 and ${this.questions.length}`
+      );
+    }
+
+    if (slotNumber > 1) {
+      const prevSlotState = this.p2RevealStates.get(slotNumber - 1);
+      if (!prevSlotState || !prevSlotState.isPointsRevealed) {
+        throw new Error(
+          `Cannot reveal Player 2 answer for slot ${slotNumber} before completing reveal for slot ${
+            slotNumber - 1
+          }`
+        );
+      }
+    }
+
+    const state = this.p2RevealStates.get(slotNumber)!;
+    state.isAnswerRevealed = true;
+
+    return this.getP2RevealSlot(slotNumber);
+  }
+
+  public revealP2Points(slotNumber: number): {
+    slot: FastMoneyRevealSlot;
+    isVictory: boolean;
+    grandTotal: number;
+    isGameOver: boolean;
+  } {
+    if (this.phase !== 'P2_REVEAL') {
+      throw new Error(
+        `Cannot reveal Player 2 points outside of P2_REVEAL phase (current phase: ${this.phase})`
+      );
+    }
+
+    if (slotNumber < 1 || slotNumber > this.questions.length) {
+      throw new Error(
+        `Invalid slotNumber ${slotNumber}. Must be between 1 and ${this.questions.length}`
+      );
+    }
+
+    const state = this.p2RevealStates.get(slotNumber)!;
+    if (!state.isAnswerRevealed) {
+      throw new Error(
+        `Cannot reveal Player 2 points for slot ${slotNumber} before revealing answer`
+      );
+    }
+
+    state.isPointsRevealed = true;
+
+    const grandTotal = this.getGrandTotalScore();
+    const isVictory = grandTotal >= 200;
+    const isAllRevealed = this.isAllP2Revealed();
+    const isGameOver = isVictory || isAllRevealed;
+
+    if (isGameOver) {
+      this.phase = 'GAME_OVER';
+    }
+
+    return {
+      slot: this.getP2RevealSlot(slotNumber),
+      isVictory,
+      grandTotal,
+      isGameOver,
+    };
+  }
+
+  public getP2RevealSlot(slotNumber: number, sanitized: boolean = false): FastMoneyRevealSlot {
+    if (slotNumber < 1 || slotNumber > this.questions.length) {
+      throw new Error(`Invalid slotNumber ${slotNumber}`);
+    }
+
+    const question = this.questions[slotNumber - 1];
+    const submission = this.p2Submissions.get(question.id);
+    const evaluation = this.p2Evaluations.get(question.id) ?? {
+      pointsAwarded: 0,
+      isMatched: false,
+    };
+    const state = this.p2RevealStates.get(slotNumber) ?? {
+      isAnswerRevealed: false,
+      isPointsRevealed: false,
+    };
+
+    const rawAnswer = submission ? submission.rawAnswer : '';
+
+    return {
+      slotNumber,
+      questionId: question.id,
+      questionText: question.questionText,
+      rawAnswer: sanitized && !state.isAnswerRevealed ? '' : rawAnswer,
+      pointsAwarded: sanitized && !state.isPointsRevealed ? 0 : evaluation.pointsAwarded,
+      isAnswerRevealed: state.isAnswerRevealed,
+      isPointsRevealed: state.isPointsRevealed,
+      isMatched: state.isPointsRevealed ? evaluation.isMatched : false,
+    };
+  }
+
+  public getP2RevealSlots(sanitized: boolean = false): FastMoneyRevealSlot[] {
+    return this.questions.map((_, idx) => this.getP2RevealSlot(idx + 1, sanitized));
+  }
+
+  public getP1TotalScore(): number {
+    return this.getRoundTotalScore();
+  }
+
+  public getP2TotalScore(): number {
+    return this.questions.reduce((sum, _, idx) => {
+      const state = this.p2RevealStates.get(idx + 1);
+      if (state && state.isPointsRevealed) {
+        const question = this.questions[idx];
+        const evalData = this.p2Evaluations.get(question.id);
+        return sum + (evalData?.pointsAwarded ?? 0);
+      }
+      return sum;
+    }, 0);
+  }
+
+  public getGrandTotalScore(): number {
+    return this.getP1TotalScore() + this.getP2TotalScore();
+  }
+
+  public isAllP2Revealed(): boolean {
+    return this.questions.every((_, idx) => {
+      const state = this.p2RevealStates.get(idx + 1);
+      return state?.isAnswerRevealed && state?.isPointsRevealed;
+    });
+  }
+
+  public getActiveP2RevealSlotNumber(): number | null {
+    if (this.phase !== 'P2_REVEAL') {
+      return null;
+    }
+    for (let i = 1; i <= this.questions.length; i++) {
+      const state = this.p2RevealStates.get(i);
+      if (!state || !state.isAnswerRevealed || !state.isPointsRevealed) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  public isVictory(): boolean {
+    return this.getGrandTotalScore() >= 200;
+  }
+
+  public getGameOverSummary(): GameOverSummary {
+    return {
+      isVictory: this.isVictory(),
+      p1TotalScore: this.getP1TotalScore(),
+      p2TotalScore: this.getP2TotalScore(),
+      grandTotal: this.getGrandTotalScore(),
+      targetScore: 200,
+    };
+  }
+
+  public resetForReplay(newGameId: string, newQuestions: FastMoneyQuestionItem[]): void {
+    if (!newQuestions || newQuestions.length === 0) {
+      throw new Error('resetForReplay requires at least 1 survey question');
+    }
+
+    this.gameId = newGameId;
+    this.questions.length = 0;
+    const sorted = [...newQuestions].sort((a, b) => a.orderIndex - b.orderIndex);
+    this.questions.push(...sorted);
+
+    this.unattemptedQueue = [...this.questions];
+    this.passedQueue = [];
+    this.currentQuestion = null;
+    this.submissions.clear();
+    this.evaluations.clear();
+    this.timerStartedAt = null;
+    this.timerEndsAt = null;
+    this.attemptCounter = 0;
+
+    this.p2UnattemptedQueue = [];
+    this.p2PassedQueue = [];
+    this.p2CurrentQuestion = null;
+    this.p2Submissions.clear();
+    this.p2Evaluations.clear();
+    this.p2TimerStartedAt = null;
+    this.p2TimerEndsAt = null;
+    this.p2AttemptCounter = 0;
+
+    this.revealStates.clear();
+    this.p2RevealStates.clear();
+    for (let i = 1; i <= this.questions.length; i++) {
+      this.revealStates.set(i, { isAnswerRevealed: false, isPointsRevealed: false });
+      this.p2RevealStates.set(i, { isAnswerRevealed: false, isPointsRevealed: false });
+    }
+
+    this.phase = 'P1_READY';
+  }
+
   // --- Getters & Queries ---
 
   public getPhase(): FastMoneyPhase {
@@ -843,13 +1089,19 @@ export class FastMoneySession {
   }
 
   public isTurnFinished(playerId?: string): boolean {
+    if (this.phase === 'GAME_OVER') {
+      return true;
+    }
     if (
       playerId === this.player2Id ||
       this.phase === 'P2_PLAYING' ||
       this.phase === 'P2_FINISHED' ||
       this.phase === 'P2_REVEAL'
     ) {
-      return this.phase === 'P2_FINISHED' || this.phase === 'P2_REVEAL';
+      return (
+        this.phase === 'P2_FINISHED' ||
+        this.phase === 'P2_REVEAL'
+      );
     }
     return (
       this.phase === 'P1_FINISHED' ||
@@ -901,14 +1153,25 @@ export class FastMoneySession {
       questionNumber = originalIdx >= 0 ? originalIdx + 1 : 1;
     }
 
+    const isP2RevealOrGameOver = this.phase === 'P2_REVEAL' || this.phase === 'GAME_OVER';
     const isRevealOrReady =
       this.phase === 'P1_REVEAL' ||
       this.phase === 'P2_READY' ||
       this.phase === 'P2_PLAYING' ||
-      this.phase === 'P2_FINISHED';
-    const totalScore = this.getRoundTotalScore();
-    const revealSlots = isRevealOrReady ? this.getRevealSlots(true) : undefined;
+      this.phase === 'P2_FINISHED' ||
+      isP2RevealOrGameOver;
+    const p1TotalScore = this.getP1TotalScore();
+    const p2TotalScore = this.getP2TotalScore();
+    const grandTotal = this.getGrandTotalScore();
+    const revealSlots = isRevealOrReady
+      ? this.getRevealSlots(this.phase === 'P1_REVEAL')
+      : undefined;
+    const p1RevealSlots = isRevealOrReady
+      ? this.getRevealSlots(this.phase === 'P1_REVEAL')
+      : undefined;
+    const p2RevealSlots = isP2RevealOrGameOver ? this.getP2RevealSlots(true) : undefined;
     const activeRevealSlotNumber = this.getActiveRevealSlotNumber();
+    const activeP2RevealSlotNumber = this.getActiveP2RevealSlotNumber();
 
     return {
       phase: this.phase,
@@ -927,9 +1190,17 @@ export class FastMoneySession {
       isTimerRunning: isPlaying,
       canSubmit: isPlaying && currentQ !== null,
       canPass: isPlaying && currentQ !== null,
-      totalScore,
+      totalScore: isP2RevealOrGameOver ? grandTotal : p1TotalScore,
+      p1TotalScore,
+      p2TotalScore,
+      grandTotal,
       revealSlots,
+      p1RevealSlots,
+      p2RevealSlots,
       activeRevealSlotNumber,
+      activeP2RevealSlotNumber,
+      isVictory: this.isVictory(),
+      targetScore: 200,
     };
   }
 
@@ -941,10 +1212,18 @@ export class FastMoneySession {
     const isReady = this.phase === 'P2_READY';
     const isPlaying = this.phase === 'P2_PLAYING';
     const isFinished = this.phase === 'P2_FINISHED';
-    const totalScore = this.getRoundTotalScore();
-    const revealSlots =
-      isReveal || isReady || isPlaying || isFinished ? this.getRevealSlots(true) : undefined;
+    const isP2Reveal = this.phase === 'P2_REVEAL';
+    const isGameOver = this.phase === 'GAME_OVER';
+    const p1TotalScore = this.getP1TotalScore();
+    const p2TotalScore = this.getP2TotalScore();
+    const grandTotal = this.getGrandTotalScore();
+    const p1RevealSlots =
+      isReveal || isReady || isPlaying || isFinished || isP2Reveal || isGameOver
+        ? this.getRevealSlots(this.phase === 'P1_REVEAL')
+        : undefined;
+    const p2RevealSlots = isP2Reveal || isGameOver ? this.getP2RevealSlots(true) : undefined;
     const activeRevealSlotNumber = this.getActiveRevealSlotNumber();
+    const activeP2RevealSlotNumber = this.getActiveP2RevealSlotNumber();
 
     const remaining = this.getRemainingSeconds();
 
@@ -965,12 +1244,26 @@ export class FastMoneySession {
         ? "Round 2 in progress!"
         : isFinished
         ? "Round 2 Complete! Look up at the host TV screen."
+        : isP2Reveal
+        ? "Round 2 reveal in progress! Look at the host TV screen."
+        : isGameOver
+        ? this.isVictory()
+          ? "🎉 VICTORY! 200 Points Reached! 🎉"
+          : `GAME OVER! Final Score: ${grandTotal} / 200`
         : '🎧 Player 1 is currently playing! Look away from the host screen',
       remainingSeconds: remaining,
       isTimerRunning: isPlaying && remaining > 0,
-      totalScore,
-      revealSlots,
+      totalScore: isP2Reveal || isGameOver ? grandTotal : p1TotalScore,
+      p1TotalScore,
+      p2TotalScore,
+      grandTotal,
+      revealSlots: p1RevealSlots,
+      p1RevealSlots,
+      p2RevealSlots,
       activeRevealSlotNumber,
+      activeP2RevealSlotNumber,
+      isVictory: this.isVictory(),
+      targetScore: 200,
       // Active Speed Round Controller Properties for Player 2 (US-09)
       currentQuestion: isPlaying && this.p2CurrentQuestion
         ? {
@@ -993,7 +1286,11 @@ export class FastMoneySession {
    */
   public getHostSnapshot(): HostStateSnapshot {
     const isP2Turn =
-      this.phase === 'P2_READY' || this.phase === 'P2_PLAYING' || this.phase === 'P2_FINISHED';
+      this.phase === 'P2_READY' ||
+      this.phase === 'P2_PLAYING' ||
+      this.phase === 'P2_FINISHED' ||
+      this.phase === 'P2_REVEAL' ||
+      this.phase === 'GAME_OVER';
 
     const p1Slots = this.questions.map((q, idx) => ({
       slotNumber: idx + 1,
@@ -1014,10 +1311,22 @@ export class FastMoneySession {
       activeQuestionNumber = idx >= 0 ? idx + 1 : null;
     }
 
-    const isRevealOrReady = this.phase === 'P1_REVEAL' || this.phase === 'P2_READY';
-    const totalScore = this.getRoundTotalScore();
-    const revealSlots = isRevealOrReady ? this.getRevealSlots(true) : undefined;
+    const isP2RevealOrGameOver = this.phase === 'P2_REVEAL' || this.phase === 'GAME_OVER';
+    const isRevealOrReady =
+      this.phase === 'P1_REVEAL' ||
+      this.phase === 'P2_READY' ||
+      this.phase === 'P2_PLAYING' ||
+      this.phase === 'P2_FINISHED' ||
+      isP2RevealOrGameOver;
+    const p1TotalScore = this.getP1TotalScore();
+    const p2TotalScore = this.getP2TotalScore();
+    const grandTotal = this.getGrandTotalScore();
+    const p1RevealSlots = isRevealOrReady
+      ? this.getRevealSlots(this.phase === 'P1_REVEAL')
+      : undefined;
+    const p2RevealSlots = isP2RevealOrGameOver ? this.getP2RevealSlots(true) : undefined;
     const activeRevealSlotNumber = this.getActiveRevealSlotNumber();
+    const activeP2RevealSlotNumber = this.getActiveP2RevealSlotNumber();
 
     const isTimerRunning =
       (this.phase === 'P1_PLAYING' || this.phase === 'P2_PLAYING') && this.getRemainingSeconds() > 0;
@@ -1033,10 +1342,17 @@ export class FastMoneySession {
       slots,
       p1Slots,
       p2Slots,
-      totalScore,
-      p1TotalScore: totalScore,
-      revealSlots,
+      totalScore: isP2RevealOrGameOver ? grandTotal : p1TotalScore,
+      p1TotalScore,
+      p2TotalScore,
+      grandTotal,
+      revealSlots: p1RevealSlots,
+      p1RevealSlots,
+      p2RevealSlots,
       activeRevealSlotNumber,
+      activeP2RevealSlotNumber,
+      isVictory: this.isVictory(),
+      targetScore: 200,
     };
   }
 }
