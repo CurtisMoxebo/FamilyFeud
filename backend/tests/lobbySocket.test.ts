@@ -9,6 +9,7 @@ import {
   calculateCanStart,
   RoomStateUpdate,
   RoomErrorPayload,
+  GameStartedPayload,
 } from '../src/sockets/lobbyHandler';
 
 describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', () => {
@@ -70,6 +71,20 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
         },
+        {
+          roomCode: 'FEUD-LB04',
+          roomName: 'TEST-Start-FastMoney',
+          language: 'FR',
+          gameMode: 'FAST_MONEY',
+          status: 'LOBBY',
+        },
+        {
+          roomCode: 'FEUD-LB05',
+          roomName: 'TEST-Start-MainGame',
+          language: 'ES',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
       ],
       skipDuplicates: true,
     });
@@ -105,16 +120,24 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
     });
 
     // Cleanup DB records
+    const testCodes = ['FEUD-LB01', 'FEUD-LB02', 'FEUD-LB03', 'FEUD-LB04', 'FEUD-LB05'];
     await prisma.player.deleteMany({
       where: {
         room: {
-          roomCode: { in: ['FEUD-LB01', 'FEUD-LB02', 'FEUD-LB03'] },
+          roomCode: { in: testCodes },
+        },
+      },
+    });
+    await prisma.game.deleteMany({
+      where: {
+        room: {
+          roomCode: { in: testCodes },
         },
       },
     });
     await prisma.room.deleteMany({
       where: {
-        roomCode: { in: ['FEUD-LB01', 'FEUD-LB02', 'FEUD-LB03'] },
+        roomCode: { in: testCodes },
       },
     });
   });
@@ -347,6 +370,179 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
 
       const reconnectedPlayer = state.players.find((p) => p.nickname === 'Michael');
       expect(reconnectedPlayer?.isConnected).toBe(true);
+    });
+  });
+
+  describe('Integration: Start Game & Question Persistence Trigger (US-05 Step 4)', () => {
+    it('rejects start_game when roomCode is missing', async () => {
+      const socket = await connectClient(port);
+      clientSockets.push(socket);
+
+      const errorPromise = waitForEvent<RoomErrorPayload>(socket, 'room_error');
+      socket.emit('start_game');
+
+      const err = await errorPromise;
+      expect(err.code).toBe('INVALID_ROOM');
+      expect(err.message).toBe('No room code provided to start game.');
+    });
+
+    it('rejects start_game when room is not found', async () => {
+      const socket = await connectClient(port);
+      clientSockets.push(socket);
+
+      const errorPromise = waitForEvent<RoomErrorPayload>(socket, 'room_error');
+      socket.emit('start_game', { roomCode: 'FEUD-NONEXISTENT' });
+
+      const err = await errorPromise;
+      expect(err.code).toBe('ROOM_NOT_FOUND');
+    });
+
+    it('rejects start_game when room is already active', async () => {
+      const socket = await connectClient(port);
+      clientSockets.push(socket);
+
+      const errorPromise = waitForEvent<RoomErrorPayload>(socket, 'room_error');
+      socket.emit('start_game', { roomCode: 'FEUD-LB03' });
+
+      const err = await errorPromise;
+      expect(err.code).toBe('ROOM_LOCKED');
+      expect(err.message).toBe('Game has already started in this room.');
+    });
+
+    it('rejects start_game when canStart requirement is not met', async () => {
+      const hostSocket = await connectClient(port);
+      clientSockets.push(hostSocket);
+
+      hostSocket.emit('join_room', { roomCode: 'FEUD-LB04', isHost: true });
+      await waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+
+      // Only 1 player joins FEUD-LB04 (Fast Money requires 2)
+      const p1 = await connectClient(port);
+      clientSockets.push(p1);
+      p1.emit('join_room', { roomCode: 'FEUD-LB04', nickname: 'Julie' });
+      await waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+
+      const errorPromise = waitForEvent<RoomErrorPayload>(hostSocket, 'room_error');
+      hostSocket.emit('start_game', { roomCode: 'FEUD-LB04' });
+
+      const err = await errorPromise;
+      expect(err.code).toBe('CANNOT_START');
+      expect(err.message).toContain('Waiting for 2 players (current: 1/2)');
+    });
+
+    it('successfully starts Fast Money game, generates 5 questions with 100-pt sums, and broadcasts game_started', async () => {
+      const hostSocket = await connectClient(port);
+      clientSockets.push(hostSocket);
+      hostSocket.emit('join_room', { roomCode: 'FEUD-LB04', isHost: true });
+      await waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+
+      // Player 2 joins FEUD-LB04 (now 2 players -> canStart = true)
+      const p2 = await connectClient(port);
+      clientSockets.push(p2);
+      const updatePromise = waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+      p2.emit('join_room', { roomCode: 'FEUD-LB04', nickname: 'Marc' });
+      const readyState = await updatePromise;
+      expect(readyState.canStart).toBe(true);
+
+      // Setup listeners for game_started and room_state_update
+      const hostGameStartedPromise = waitForEvent<GameStartedPayload>(hostSocket, 'game_started');
+      const p2GameStartedPromise = waitForEvent<GameStartedPayload>(p2, 'game_started');
+      const hostActiveStatePromise = waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+
+      // Host triggers start_game
+      hostSocket.emit('start_game', { roomCode: 'FEUD-LB04' });
+
+      const [hostPayload, p2Payload, activeState] = await Promise.all([
+        hostGameStartedPromise,
+        p2GameStartedPromise,
+        hostActiveStatePromise,
+      ]);
+
+      // Assertions on broadcast payload
+      expect(hostPayload.roomCode).toBe('FEUD-LB04');
+      expect(hostPayload.gameMode).toBe('FAST_MONEY');
+      expect(hostPayload.language).toBe('FR');
+      expect(hostPayload.status).toBe('IN_PROGRESS');
+      expect(hostPayload.currentRound).toBe(1);
+      expect(hostPayload.questionCount).toBe(5);
+      expect(hostPayload.firstQuestion).toBeDefined();
+      expect(hostPayload.firstQuestion.questionText).toBeTruthy();
+      expect(hostPayload.firstQuestion.answerCount).toBeGreaterThanOrEqual(4);
+
+      expect(p2Payload.gameId).toBe(hostPayload.gameId);
+      expect(activeState.status).toBe('ACTIVE');
+
+      // Verify MySQL DB records
+      const dbGame = await prisma.game.findUnique({
+        where: { id: hostPayload.gameId },
+        include: {
+          questions: {
+            include: { answers: true },
+            orderBy: { orderIndex: 'asc' },
+          },
+        },
+      });
+
+      expect(dbGame).toBeDefined();
+      expect(dbGame?.status).toBe('IN_PROGRESS');
+      expect(dbGame?.mode).toBe('FAST_MONEY');
+      expect(dbGame?.questions).toHaveLength(5);
+
+      // Verify every question has answers summing to exactly 100 points
+      for (const question of dbGame!.questions) {
+        expect(question.roundNumber).toBe(1);
+        expect(question.language).toBe('FR');
+        const sum = question.answers.reduce((acc, a) => acc + a.points, 0);
+        expect(sum).toBe(100);
+      }
+    });
+
+    it('successfully starts Main Game with single round questions and broadcasts game_started', async () => {
+      const hostSocket = await connectClient(port);
+      clientSockets.push(hostSocket);
+
+      hostSocket.emit('join_room', { roomCode: 'FEUD-LB05', isHost: true });
+      await waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+
+      // 2 players join FEUD-LB05 (Main Game Spanish)
+      const p1 = await connectClient(port);
+      const p2 = await connectClient(port);
+      clientSockets.push(p1, p2);
+
+      p1.emit('join_room', { roomCode: 'FEUD-LB05', nickname: 'Carlos' });
+      await waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+
+      const readyPromise = waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+      p2.emit('join_room', { roomCode: 'FEUD-LB05', nickname: 'Elena' });
+      const readyState = await readyPromise;
+      expect(readyState.canStart).toBe(true);
+
+      const gameStartedPromise = waitForEvent<GameStartedPayload>(hostSocket, 'game_started');
+      hostSocket.emit('start_game', { roomCode: 'FEUD-LB05' });
+
+      const payload = await gameStartedPromise;
+      expect(payload.roomCode).toBe('FEUD-LB05');
+      expect(payload.gameMode).toBe('MAIN_GAME');
+      expect(payload.language).toBe('ES');
+      expect(payload.questionCount).toBe(1);
+
+      // Verify DB record
+      const dbGame = await prisma.game.findUnique({
+        where: { id: payload.gameId },
+        include: {
+          questions: {
+            include: { answers: true },
+          },
+        },
+      });
+
+      expect(dbGame?.questions).toHaveLength(1);
+      const q = dbGame!.questions[0];
+      expect(q.language).toBe('ES');
+      expect(q.answers.length).toBeGreaterThanOrEqual(4);
+      expect(q.answers.length).toBeLessThanOrEqual(8);
+      const sum = q.answers.reduce((acc, a) => acc + a.points, 0);
+      expect(sum).toBe(100);
     });
   });
 });

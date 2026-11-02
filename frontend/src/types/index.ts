@@ -40,6 +40,21 @@ export interface RoomErrorPayload {
   message: string;
 }
 
+export interface GameStartedPayload {
+  gameId: string;
+  roomCode: string;
+  gameMode: GameMode;
+  language: Language;
+  currentRound: number;
+  status: 'IN_PROGRESS';
+  questionCount: number;
+  firstQuestion: {
+    id: string;
+    questionText: string;
+    answerCount: number;
+  };
+}
+
 export interface Room {
   id: string;
   roomCode: string;

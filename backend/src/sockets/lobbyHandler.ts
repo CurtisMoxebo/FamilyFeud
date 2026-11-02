@@ -3,6 +3,7 @@ import { PrismaClient, Room, Player } from '@prisma/client';
 import { prisma as defaultPrisma } from '../services/db';
 import { normalizeRoomCode } from '../utils/roomCode';
 import { logger, getSocketIp } from '../utils/logger';
+import { generateAndSaveGameQuestions } from '../services/questionService';
 
 export interface JoinRoomPayload {
   roomCode: string;
@@ -32,8 +33,30 @@ export interface RoomStateUpdate {
 }
 
 export interface RoomErrorPayload {
-  code: 'ROOM_NOT_FOUND' | 'ROOM_FULL' | 'ROOM_LOCKED' | 'INVALID_ROOM' | 'INVALID_NICKNAME' | 'SERVER_ERROR';
+  code:
+    | 'ROOM_NOT_FOUND'
+    | 'ROOM_FULL'
+    | 'ROOM_LOCKED'
+    | 'INVALID_ROOM'
+    | 'INVALID_NICKNAME'
+    | 'CANNOT_START'
+    | 'SERVER_ERROR';
   message: string;
+}
+
+export interface GameStartedPayload {
+  gameId: string;
+  roomCode: string;
+  gameMode: 'FAST_MONEY' | 'MAIN_GAME';
+  language: 'EN' | 'FR' | 'ES';
+  currentRound: number;
+  status: 'IN_PROGRESS';
+  questionCount: number;
+  firstQuestion: {
+    id: string;
+    questionText: string;
+    answerCount: number;
+  };
 }
 
 /**
@@ -260,6 +283,130 @@ export function registerLobbyHandlers(
     }
   );
 
+  // Handle start_game event (US-05 Step 4)
+  socket.on(
+    'start_game',
+    async (
+      data?: { roomCode?: string },
+      callback?: (res: { success: boolean; error?: string; game?: GameStartedPayload }) => void
+    ) => {
+      try {
+        const rawCode = data?.roomCode || socket.data?.roomCode;
+        if (!rawCode) {
+          const err: RoomErrorPayload = {
+            code: 'INVALID_ROOM',
+            message: 'No room code provided to start game.',
+          };
+          socket.emit('room_error', err);
+          if (callback) callback({ success: false, error: err.message });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(rawCode);
+        const room = await db.room.findUnique({
+          where: { roomCode: normalizedCode },
+          include: { players: true },
+        });
+
+        if (!room) {
+          const err: RoomErrorPayload = {
+            code: 'ROOM_NOT_FOUND',
+            message: 'Room not found or session has ended.',
+          };
+          socket.emit('room_error', err);
+          if (callback) callback({ success: false, error: err.message });
+          return;
+        }
+
+        if (room.status !== 'LOBBY') {
+          const err: RoomErrorPayload = {
+            code: 'ROOM_LOCKED',
+            message: 'Game has already started in this room.',
+          };
+          socket.emit('room_error', err);
+          if (callback) callback({ success: false, error: err.message });
+          return;
+        }
+
+        const connectedCount = room.players.filter((p) => p.isConnected).length;
+        const { canStart, startDisabledReason } = calculateCanStart(room.gameMode, connectedCount);
+
+        if (!canStart) {
+          const err: RoomErrorPayload = {
+            code: 'CANNOT_START',
+            message: startDisabledReason || 'Requirements to start game not met.',
+          };
+          socket.emit('room_error', err);
+          if (callback) callback({ success: false, error: err.message });
+          return;
+        }
+
+        // 1. Create Game record in MySQL
+        const game = await db.game.create({
+          data: {
+            roomId: room.id,
+            mode: room.gameMode,
+            status: 'IN_PROGRESS',
+            currentRound: 1,
+          },
+        });
+
+        // 2. Generate and persist questions in MySQL via questionService
+        const questions = await generateAndSaveGameQuestions({
+          gameId: game.id,
+          gameMode: room.gameMode,
+          language: room.language,
+          roundNumber: 1,
+          count: room.gameMode === 'FAST_MONEY' ? 5 : 1,
+          prismaClient: db,
+        });
+
+        // 3. Transition Room status to ACTIVE
+        const updatedRoom = await db.room.update({
+          where: { id: room.id },
+          data: { status: 'ACTIVE' },
+          include: { players: true },
+        });
+
+        // 4. Construct payload and broadcast to room
+        const gameStartedPayload: GameStartedPayload = {
+          gameId: game.id,
+          roomCode: room.roomCode,
+          gameMode: room.gameMode,
+          language: room.language,
+          currentRound: 1,
+          status: 'IN_PROGRESS',
+          questionCount: questions.length,
+          firstQuestion: {
+            id: questions[0].id,
+            questionText: questions[0].questionText,
+            answerCount: questions[0].answers.length,
+          },
+        };
+
+        io.to(`room:${normalizedCode}`).emit('game_started', gameStartedPayload);
+
+        // 5. Broadcast refreshed room state
+        const state = buildRoomStateUpdate(updatedRoom);
+        io.to(`room:${normalizedCode}`).emit('room_state_update', state);
+
+        logger.info(
+          `[GAME:START] Started game ${game.id} for room ${normalizedCode} (${questions.length} questions generated)`
+        );
+
+        if (callback) callback({ success: true, game: gameStartedPayload });
+      } catch (error) {
+        logger.error('Error handling start_game socket event', error);
+        const err: RoomErrorPayload = {
+          code: 'SERVER_ERROR',
+          message: 'Failed to start game due to an unexpected error.',
+        };
+        socket.emit('room_error', err);
+        if (callback) callback({ success: false, error: err.message });
+      }
+    }
+  );
+
   // Handle player departure or disconnect (US-04 Scenario 4)
   socket.on('disconnect', async () => {
     const { roomCode, playerId } = socket.data || {};
@@ -304,4 +451,3 @@ export function setupSocketServer(io: SocketIOServer, db: PrismaClient = default
     });
   });
 }
-
