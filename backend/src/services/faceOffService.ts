@@ -1,9 +1,14 @@
 import { logger } from '../utils/logger';
+import { evaluatePlayerAnswer } from './answerValidationService';
+import { SupportedLanguage } from './geminiService';
 
 export type FaceOffPhase =
   | 'AWAITING_READY'
   | 'BUZZER_ACTIVE'
   | 'ANSWERING'
+  | 'OPPONENT_GUESS'
+  | 'PASS_OR_PLAY'
+  | 'ROUND_CONTROL_ASSIGNED'
   | 'DEADLOCK_RESET'
   | 'RESOLVED';
 
@@ -12,6 +17,7 @@ export interface FaceOffQuestionAnswer {
   answerText: string;
   points: number;
   rankOrder: number;
+  [key: string]: any;
 }
 
 export interface FaceOffQuestion {
@@ -42,7 +48,7 @@ export interface BuzzerLockedResult {
 }
 
 export interface FaceOffTimeoutResult {
-  type: 'HAND_OFF' | 'DEADLOCK_RESET';
+  type: 'HAND_OFF' | 'DEADLOCK_RESET' | 'TIMEOUT_WINNER';
   timedOutPlayerId: string;
   timedOutPlayerNickname: string;
   timedOutPlayerTeam: 'TEAM_1' | 'TEAM_2';
@@ -52,6 +58,65 @@ export interface FaceOffTimeoutResult {
   endsAt?: number;
   duration?: number;
   message?: string;
+  winnerPlayerId?: string;
+  winnerNickname?: string;
+  winnerTeam?: 'TEAM_1' | 'TEAM_2';
+  phase?: FaceOffPhase;
+}
+
+export interface FaceOffRevealedAnswer {
+  id: string;
+  answerText: string;
+  points: number;
+  rankOrder: number;
+  revealedByPlayerId: string;
+  revealedByNickname?: string;
+  revealedByTeam?: 'TEAM_1' | 'TEAM_2';
+}
+
+export interface FaceOffGuessResult {
+  playerId: string;
+  playerNickname: string;
+  playerTeam: 'TEAM_1' | 'TEAM_2';
+  rawAnswer: string;
+  isMatched: boolean;
+  matchedAnswer?: FaceOffQuestionAnswer;
+  points: number;
+  rankOrder?: number;
+  isNumberOneAnswer: boolean;
+  isDuplicate?: boolean;
+}
+
+export interface FaceOffAnswerEvaluationResult {
+  outcome:
+    | 'NUMBER_ONE_WIN'
+    | 'OPPONENT_TURN'
+    | 'OPPONENT_WON'
+    | 'INITIAL_WINNER_WON'
+    | 'BOTH_MISSED_CASCADE'
+    | 'DEADLOCK_RESET';
+  guessResult: FaceOffGuessResult;
+  revealedAnswer?: FaceOffRevealedAnswer;
+  winnerPlayerId?: string;
+  winnerNickname?: string;
+  winnerTeam?: 'TEAM_1' | 'TEAM_2';
+  nextRespondentId?: string;
+  nextRespondentNickname?: string;
+  nextRespondentTeam?: 'TEAM_1' | 'TEAM_2';
+  endsAt?: number;
+  duration?: number;
+  phase: FaceOffPhase;
+  message?: string;
+}
+
+export interface PlayOrPassResult {
+  success: boolean;
+  decision?: 'play' | 'pass';
+  winnerPlayerId?: string;
+  winnerTeam?: 'TEAM_1' | 'TEAM_2';
+  controllingTeam?: 'TEAM_1' | 'TEAM_2';
+  controllingTeamName?: string;
+  error?: string;
 }
 
 export interface FaceOffSessionConfig {
@@ -89,6 +154,15 @@ export interface FaceOffSessionState {
   remainingSeconds: number;
   endsAt: number | null;
   isTimerRunning: boolean;
+  submittedAnswer?: string | null;
+  revealedAnswers: FaceOffRevealedAnswer[];
+  firstGuessResult?: FaceOffGuessResult | null;
+  secondGuessResult?: FaceOffGuessResult | null;
+  winnerPlayerId: string | null;
+  winnerNickname: string | null;
+  winnerTeam: 'TEAM_1' | 'TEAM_2' | null;
+  controllingTeam: 'TEAM_1' | 'TEAM_2' | null;
+  passOrPlayDecision: 'play' | 'pass' | null;
 }
 
 export class FaceOffSession {
@@ -114,6 +188,17 @@ export class FaceOffSession {
   public remainingSeconds = 15;
   public endsAt: number | null = null;
   public isTimerRunning = false;
+  public submittedAnswer: string | null = null;
+
+  // US-13 Scoring & Pass/Play State
+  public revealedAnswers: FaceOffRevealedAnswer[] = [];
+  public firstGuessResult: FaceOffGuessResult | null = null;
+  public secondGuessResult: FaceOffGuessResult | null = null;
+  public winnerPlayerId: string | null = null;
+  public winnerNickname: string | null = null;
+  public winnerTeam: 'TEAM_1' | 'TEAM_2' | null = null;
+  public controllingTeam: 'TEAM_1' | 'TEAM_2' | null = null;
+  public passOrPlayDecision: 'play' | 'pass' | null = null;
 
   private timerInterval: NodeJS.Timeout | null = null;
   private onTickCallback?: (secondsRemaining: number, endsAt: number) => void;
@@ -342,6 +427,38 @@ export class FaceOffSession {
       `[FACEOFF:TIMEOUT] Room ${this.roomCode} player ${timedOutPlayer.nickname} timed out (15s)`
     );
 
+    // If timeout occurred during OPPONENT_GUESS phase and initial contender had points:
+    if (this.phase === 'OPPONENT_GUESS' && this.firstGuessResult && this.firstGuessResult.points > 0) {
+      this.stopTimer();
+      const initialWinner =
+        this.team1Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
+        this.team2Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
+        timedOutPlayer;
+
+      this.winnerPlayerId = initialWinner.id;
+      this.winnerNickname = initialWinner.nickname;
+      this.winnerTeam = initialWinner.team;
+      this.phase = 'PASS_OR_PLAY';
+
+      const result: FaceOffTimeoutResult = {
+        type: 'TIMEOUT_WINNER',
+        timedOutPlayerId: timedOutPlayer.id,
+        timedOutPlayerNickname: timedOutPlayer.nickname,
+        timedOutPlayerTeam: timedOutPlayer.team,
+        winnerPlayerId: initialWinner.id,
+        winnerNickname: initialWinner.nickname,
+        winnerTeam: initialWinner.team,
+        phase: 'PASS_OR_PLAY',
+        message: `${timedOutPlayer.nickname} timed out. ${initialWinner.nickname} wins the Face-Off!`,
+      };
+
+      if (this.onTimeoutCallback) {
+        this.onTimeoutCallback(result);
+      }
+
+      return result;
+    }
+
     // Determine the next player in the cascade order
     const nextPlayer = this.resolveNextCascadePlayer(timedOutPlayer);
 
@@ -355,6 +472,7 @@ export class FaceOffSession {
         timedOutPlayerId: timedOutPlayer.id,
         timedOutPlayerNickname: timedOutPlayer.nickname,
         timedOutPlayerTeam: timedOutPlayer.team,
+        phase: 'DEADLOCK_RESET',
         message: 'All contenders timed out without an answer. Generating replacement survey question.',
       };
 
@@ -382,6 +500,7 @@ export class FaceOffSession {
       nextPlayerTeam: nextPlayer.team,
       endsAt: this.endsAt!,
       duration: this.timerDurationSeconds,
+      phase: 'ANSWERING',
       message: `Time expired! Floor passed to ${nextPlayer.nickname} (${nextPlayer.team}).`,
     };
 
@@ -418,9 +537,9 @@ export class FaceOffSession {
       return null;
     }
 
-    // Next teammate cascade (Scenario 4):
-    // Determine target team for next attempt (alternates between teams)
-    const targetTeamList = opponentTeamList; // Pass to the opposing team's next unattempted player
+    // Next teammate cascade (Scenario 4 / Scenario 5):
+    // Pass to the opposing team's next unattempted player
+    const targetTeamList = opponentTeamList;
     const unattemptedOpponent = targetTeamList.find(
       (p) => !this.attemptedPlayerIds.includes(p.id)
     );
@@ -441,7 +560,436 @@ export class FaceOffSession {
   }
 
   /**
-   * Records answer submission and halts the timer.
+   * Evaluates a contender's submitted answer with two-tier validation and executes
+   * Face-Off scoring arbiter rules (US-13 Scenarios 1-5).
+   */
+  public async evaluateContenderAnswer(
+    playerId: string,
+    rawAnswer: string,
+    customValidator?: (
+      rawInput: string,
+      candidateAnswers: FaceOffQuestionAnswer[]
+    ) => Promise<{
+      isMatched: boolean;
+      matchedAnswer?: FaceOffQuestionAnswer;
+      points: number;
+      rankOrder?: number;
+    }>
+  ): Promise<FaceOffAnswerEvaluationResult> {
+    if (this.phase !== 'ANSWERING' && this.phase !== 'OPPONENT_GUESS') {
+      throw new Error(`Face-off is not in an answering phase (current: ${this.phase}).`);
+    }
+
+    if (this.activeRespondentId !== playerId) {
+      throw new Error('Only the active respondent may submit an answer.');
+    }
+
+    this.stopTimer();
+    this.submittedAnswer = rawAnswer;
+
+    const player =
+      this.team1Players.find((p) => p.id === playerId) ||
+      this.team2Players.find((p) => p.id === playerId) || {
+        id: playerId,
+        nickname: 'Contender',
+        team: (this.team1Contender.id === playerId ? 'TEAM_1' : 'TEAM_2') as 'TEAM_1' | 'TEAM_2',
+        battingOrder: 1,
+      };
+
+    // Check duplicate against already revealed answers
+    const isAlreadyRevealed = this.revealedAnswers.some((ra) =>
+      ra.answerText.trim().toLowerCase() === rawAnswer.trim().toLowerCase()
+    );
+
+    let matchInfo: {
+      isMatched: boolean;
+      matchedAnswer?: FaceOffQuestionAnswer;
+      points: number;
+      rankOrder?: number;
+      isDuplicate?: boolean;
+    };
+
+    if (isAlreadyRevealed) {
+      matchInfo = {
+        isMatched: false,
+        points: 0,
+        isDuplicate: true,
+      };
+    } else if (customValidator) {
+      const vResult = await customValidator(rawAnswer, this.question.answers);
+      const matchedAlready = vResult.matchedAnswer
+        ? this.revealedAnswers.some((ra) => ra.id === vResult.matchedAnswer!.id)
+        : false;
+
+      if (matchedAlready) {
+        matchInfo = {
+          isMatched: false,
+          points: 0,
+          isDuplicate: true,
+        };
+      } else {
+        matchInfo = {
+          isMatched: vResult.isMatched,
+          matchedAnswer: vResult.matchedAnswer,
+          points: vResult.isMatched ? vResult.points : 0,
+          rankOrder: vResult.isMatched
+            ? (vResult.rankOrder ?? vResult.matchedAnswer?.rankOrder)
+            : undefined,
+          isDuplicate: false,
+        };
+      }
+    } else {
+      const evalOutcome = await evaluatePlayerAnswer<FaceOffQuestionAnswer>({
+        questionId: this.question.id,
+        playerId,
+        questionText: this.question.questionText,
+        candidateAnswers: this.question.answers,
+        rawInput: rawAnswer,
+        language: this.language as SupportedLanguage,
+        persistAudit: false,
+      });
+
+      const matchedAlready = evalOutcome.matchedAnswer
+        ? this.revealedAnswers.some((ra) => ra.id === evalOutcome.matchedAnswer!.id)
+        : false;
+
+      if (matchedAlready) {
+        matchInfo = {
+          isMatched: false,
+          points: 0,
+          isDuplicate: true,
+        };
+      } else {
+        matchInfo = {
+          isMatched: evalOutcome.isMatched,
+          matchedAnswer: evalOutcome.matchedAnswer ?? undefined,
+          points: evalOutcome.isMatched ? evalOutcome.pointsAwarded : 0,
+          rankOrder: evalOutcome.isMatched ? evalOutcome.matchedAnswer?.rankOrder : undefined,
+          isDuplicate: false,
+        };
+      }
+    }
+
+    const isNumberOne = Boolean(matchInfo.isMatched && matchInfo.rankOrder === 1);
+
+    const guessResult: FaceOffGuessResult = {
+      playerId: player.id,
+      playerNickname: player.nickname,
+      playerTeam: player.team,
+      rawAnswer,
+      isMatched: matchInfo.isMatched,
+      matchedAnswer: matchInfo.matchedAnswer,
+      points: matchInfo.points,
+      rankOrder: matchInfo.rankOrder,
+      isNumberOneAnswer: isNumberOne,
+      isDuplicate: matchInfo.isDuplicate,
+    };
+
+    let revealedItem: FaceOffRevealedAnswer | undefined;
+    if (guessResult.isMatched && guessResult.matchedAnswer) {
+      revealedItem = {
+        id: guessResult.matchedAnswer.id,
+        answerText: guessResult.matchedAnswer.answerText,
+        points: guessResult.points,
+        rankOrder: guessResult.matchedAnswer.rankOrder,
+        revealedByPlayerId: player.id,
+        revealedByNickname: player.nickname,
+        revealedByTeam: player.team,
+      };
+      this.revealedAnswers.push(revealedItem);
+      logger.info(
+        `[FACEOFF:CARD_REVEAL] Room ${this.roomCode} card #${revealedItem.rankOrder} revealed: "${revealedItem.answerText}" (${revealedItem.points} pts)`
+      );
+    }
+
+    // Branch A: Contender 1 Initial Guess (Phase === 'ANSWERING' and firstGuessResult is null)
+    if (this.phase === 'ANSWERING' && !this.firstGuessResult) {
+      this.firstGuessResult = guessResult;
+
+      // Scenario 1: Immediate Win with #1 Answer
+      if (guessResult.isNumberOneAnswer) {
+        this.winnerPlayerId = player.id;
+        this.winnerNickname = player.nickname;
+        this.winnerTeam = player.team;
+        this.phase = 'PASS_OR_PLAY';
+
+        logger.info(
+          `[FACEOFF:WIN_#1] Room ${this.roomCode} Contender ${player.nickname} found #1 Answer (${guessResult.points} pts). Bypassing opponent turn.`
+        );
+
+        return {
+          outcome: 'NUMBER_ONE_WIN',
+          guessResult,
+          revealedAnswer: revealedItem,
+          winnerPlayerId: player.id,
+          winnerNickname: player.nickname,
+          winnerTeam: player.team,
+          phase: this.phase,
+          message: `${player.nickname} hit the #1 answer with ${guessResult.points} points!`,
+        };
+      }
+
+      // Scenario 2: Opponent gets chance to beat non-#1 answer
+      // Scenario 4 (Part 1): Contender 1 missed (0 pts), opponent can win with any answer
+      const opponentContender =
+        player.team === 'TEAM_1' ? this.team2Contender : this.team1Contender;
+
+      this.activeRespondentId = opponentContender.id;
+      if (!this.attemptedPlayerIds.includes(opponentContender.id)) {
+        this.attemptedPlayerIds.push(opponentContender.id);
+      }
+      this.phase = 'OPPONENT_GUESS';
+      this.startAuthoritativeTimer();
+
+      logger.info(
+        `[FACEOFF:OPPONENT_TURN] Room ${this.roomCode} Floor passed to ${opponentContender.nickname} to beat ${guessResult.points} pts.`
+      );
+
+      return {
+        outcome: 'OPPONENT_TURN',
+        guessResult,
+        revealedAnswer: revealedItem,
+        nextRespondentId: opponentContender.id,
+        nextRespondentNickname: opponentContender.nickname,
+        nextRespondentTeam: opponentContender.team,
+        endsAt: this.endsAt!,
+        duration: this.timerDurationSeconds,
+        phase: this.phase,
+        message:
+          guessResult.points > 0
+            ? `Can you beat ${guessResult.rawAnswer} (${guessResult.points} pts)?`
+            : `${player.nickname} missed! Any board answer wins!`,
+      };
+    }
+
+    // Branch B: Contender 2 Guess (Phase === 'OPPONENT_GUESS')
+    if (this.phase === 'OPPONENT_GUESS') {
+      this.secondGuessResult = guessResult;
+      const initialPoints = this.firstGuessResult?.points || 0;
+      const initialWinner =
+        this.team1Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
+        this.team2Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
+        (player.team === 'TEAM_1' ? this.team2Contender : this.team1Contender);
+
+      // Scenario 4 (Part 2): Contender 1 had missed (0 pts)
+      if (initialPoints === 0) {
+        if (guessResult.isMatched && guessResult.points > 0) {
+          // Contender 2 capitalizes with any answer
+          this.winnerPlayerId = player.id;
+          this.winnerNickname = player.nickname;
+          this.winnerTeam = player.team;
+          this.phase = 'PASS_OR_PLAY';
+
+          logger.info(
+            `[FACEOFF:OPPONENT_WIN] Room ${this.roomCode} Contender 2 (${player.nickname}) scored ${guessResult.points} pts and won face-off.`
+          );
+
+          return {
+            outcome: 'OPPONENT_WON',
+            guessResult,
+            revealedAnswer: revealedItem,
+            winnerPlayerId: player.id,
+            winnerNickname: player.nickname,
+            winnerTeam: player.team,
+            phase: this.phase,
+            message: `${player.nickname} landed on the board and won the face-off!`,
+          };
+        }
+
+        // Scenario 5: Both Contenders Missed!
+        const nextPlayer = this.resolveNextCascadePlayer(player);
+        if (nextPlayer) {
+          this.activeRespondentId = nextPlayer.id;
+          if (!this.attemptedPlayerIds.includes(nextPlayer.id)) {
+            this.attemptedPlayerIds.push(nextPlayer.id);
+          }
+          this.phase = 'ANSWERING';
+          this.startAuthoritativeTimer();
+
+          logger.info(
+            `[FACEOFF:CASCADE] Room ${this.roomCode} Both contenders missed. Cascading to ${nextPlayer.nickname} (${nextPlayer.team}).`
+          );
+
+          return {
+            outcome: 'BOTH_MISSED_CASCADE',
+            guessResult,
+            nextRespondentId: nextPlayer.id,
+            nextRespondentNickname: nextPlayer.nickname,
+            nextRespondentTeam: nextPlayer.team,
+            endsAt: this.endsAt!,
+            duration: this.timerDurationSeconds,
+            phase: this.phase,
+            message: `Both contenders missed! Floor cascades to ${nextPlayer.nickname} (${nextPlayer.team}).`,
+          };
+        }
+
+        // Deadlock reset (Scenario 5 with exhausted players or 1v1)
+        this.phase = 'DEADLOCK_RESET';
+        this.activeRespondentId = null;
+
+        logger.warn(
+          `[FACEOFF:DEADLOCK] Room ${this.roomCode} All contenders missed without valid answers.`
+        );
+
+        return {
+          outcome: 'DEADLOCK_RESET',
+          guessResult,
+          phase: this.phase,
+          message: 'All contenders missed. Generating replacement survey question.',
+        };
+      }
+
+      // Contender 1 had points (>0). Check if Contender 2 beat them!
+      if (guessResult.isMatched && guessResult.points > initialPoints) {
+        // Scenario 3: Contender 2 beats initial guess!
+        this.winnerPlayerId = player.id;
+        this.winnerNickname = player.nickname;
+        this.winnerTeam = player.team;
+        this.phase = 'PASS_OR_PLAY';
+
+        logger.info(
+          `[FACEOFF:OPPONENT_BEAT] Room ${this.roomCode} Contender 2 (${player.nickname}, ${guessResult.points} pts) beat Contender 1 (${initialPoints} pts).`
+        );
+
+        return {
+          outcome: 'OPPONENT_WON',
+          guessResult,
+          revealedAnswer: revealedItem,
+          winnerPlayerId: player.id,
+          winnerNickname: player.nickname,
+          winnerTeam: player.team,
+          phase: this.phase,
+          message: `${player.nickname} beat ${this.firstGuessResult?.playerNickname}'s guess with ${guessResult.points} points!`,
+        };
+      }
+
+      // Contender 2 did not beat Contender 1 (lower points or miss). Contender 1 wins!
+      this.winnerPlayerId = initialWinner.id;
+      this.winnerNickname = initialWinner.nickname;
+      this.winnerTeam = initialWinner.team;
+      this.phase = 'PASS_OR_PLAY';
+
+      logger.info(
+        `[FACEOFF:INITIAL_WINNER_KEPT] Room ${this.roomCode} Contender 2 failed to beat ${initialPoints} pts. ${initialWinner.nickname} wins.`
+      );
+
+      return {
+        outcome: 'INITIAL_WINNER_WON',
+        guessResult,
+        revealedAnswer: revealedItem,
+        winnerPlayerId: initialWinner.id,
+        winnerNickname: initialWinner.nickname,
+        winnerTeam: initialWinner.team,
+        phase: this.phase,
+        message: `${initialWinner.nickname} wins the Face-Off!`,
+      };
+    }
+
+    // Branch C: Cascaded Teammate Guess (after Scenario 5 both missed)
+    if (guessResult.isMatched && guessResult.points > 0) {
+      // Teammate landed a valid answer!
+      this.winnerPlayerId = player.id;
+      this.winnerNickname = player.nickname;
+      this.winnerTeam = player.team;
+      this.phase = 'PASS_OR_PLAY';
+
+      logger.info(
+        `[FACEOFF:CASCADE_WIN] Room ${this.roomCode} Teammate ${player.nickname} scored ${guessResult.points} pts and won the face-off.`
+      );
+
+      return {
+        outcome: 'INITIAL_WINNER_WON',
+        guessResult,
+        revealedAnswer: revealedItem,
+        winnerPlayerId: player.id,
+        winnerNickname: player.nickname,
+        winnerTeam: player.team,
+        phase: this.phase,
+        message: `${player.nickname} scored ${guessResult.points} pts to win round control for ${player.team}!`,
+      };
+    }
+
+    // Cascaded teammate missed. Continue cascading alternating teams.
+    const nextPlayer = this.resolveNextCascadePlayer(player);
+    if (nextPlayer) {
+      this.activeRespondentId = nextPlayer.id;
+      if (!this.attemptedPlayerIds.includes(nextPlayer.id)) {
+        this.attemptedPlayerIds.push(nextPlayer.id);
+      }
+      this.phase = 'ANSWERING';
+      this.startAuthoritativeTimer();
+
+      return {
+        outcome: 'BOTH_MISSED_CASCADE',
+        guessResult,
+        nextRespondentId: nextPlayer.id,
+        nextRespondentNickname: nextPlayer.nickname,
+        nextRespondentTeam: nextPlayer.team,
+        endsAt: this.endsAt!,
+        duration: this.timerDurationSeconds,
+        phase: this.phase,
+        message: `${player.nickname} missed. Floor passes to ${nextPlayer.nickname} (${nextPlayer.team}).`,
+      };
+    }
+
+    this.phase = 'DEADLOCK_RESET';
+    this.activeRespondentId = null;
+
+    return {
+      outcome: 'DEADLOCK_RESET',
+      guessResult,
+      phase: this.phase,
+      message: 'All contenders missed. Generating replacement survey question.',
+    };
+  }
+
+  /**
+   * Records the winner's "Play" or "Pass" choice and assigns round control (Scenarios 6 & 7).
+   */
+  public choosePlayOrPass(
+    playerId: string,
+    decision: 'play' | 'pass'
+  ): PlayOrPassResult {
+    if (this.phase !== 'PASS_OR_PLAY') {
+      return { success: false, error: 'Face-off is not in pass or play phase.' };
+    }
+
+    if (this.winnerPlayerId !== playerId) {
+      return {
+        success: false,
+        error: 'Only the winning contender may choose to play or pass.',
+      };
+    }
+
+    if (decision !== 'play' && decision !== 'pass') {
+      return { success: false, error: 'Decision must be either "play" or "pass".' };
+    }
+
+    this.passOrPlayDecision = decision;
+    if (decision === 'play') {
+      this.controllingTeam = this.winnerTeam!;
+    } else {
+      this.controllingTeam = this.winnerTeam === 'TEAM_1' ? 'TEAM_2' : 'TEAM_1';
+    }
+
+    this.phase = 'ROUND_CONTROL_ASSIGNED';
+
+    logger.info(
+      `[FACEOFF:DECISION] Winner ${this.winnerNickname} (${this.winnerTeam}) chose to ${decision.toUpperCase()} in room ${this.roomCode}. Controlling team: ${this.controllingTeam}`
+    );
+
+    return {
+      success: true,
+      decision,
+      winnerPlayerId: this.winnerPlayerId,
+      winnerTeam: this.winnerTeam!,
+      controllingTeam: this.controllingTeam,
+      controllingTeamName: this.controllingTeam === 'TEAM_1' ? 'Team 1' : 'Team 2',
+    };
+  }
+
+  /**
+   * Records answer submission and halts the timer (US-12 backward compatibility).
    */
   public submitAnswer(
     playerId: string,
@@ -464,6 +1012,7 @@ export class FaceOffSession {
 
     this.stopTimer();
     this.phase = 'RESOLVED';
+    this.submittedAnswer = rawAnswer;
 
     logger.info(
       `[FACEOFF:ANSWER] Player ${playerId} submitted face-off answer: "${rawAnswer}" in room ${this.roomCode}`
@@ -492,6 +1041,15 @@ export class FaceOffSession {
     this.initialBuzzerWinnerId = null;
     this.remainingSeconds = this.timerDurationSeconds;
     this.endsAt = null;
+    this.submittedAnswer = null;
+    this.revealedAnswers = [];
+    this.firstGuessResult = null;
+    this.secondGuessResult = null;
+    this.winnerPlayerId = null;
+    this.winnerNickname = null;
+    this.winnerTeam = null;
+    this.controllingTeam = null;
+    this.passOrPlayDecision = null;
 
     logger.info(
       `[FACEOFF:RESET] Room ${this.roomCode} reset with new question: "${question.questionText}"`
@@ -525,6 +1083,15 @@ export class FaceOffSession {
       remainingSeconds: this.remainingSeconds,
       endsAt: this.endsAt,
       isTimerRunning: this.isTimerRunning,
+      submittedAnswer: this.submittedAnswer,
+      revealedAnswers: this.revealedAnswers,
+      firstGuessResult: this.firstGuessResult,
+      secondGuessResult: this.secondGuessResult,
+      winnerPlayerId: this.winnerPlayerId,
+      winnerNickname: this.winnerNickname,
+      winnerTeam: this.winnerTeam,
+      controllingTeam: this.controllingTeam,
+      passOrPlayDecision: this.passOrPlayDecision,
     };
   }
 
