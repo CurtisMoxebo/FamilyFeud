@@ -113,5 +113,16 @@ export interface TranslationDictionary {
     duplicateWarningPlayer: string;
     p2SpeedRoundTitle: string;
     p2SpeedRoundSubtitle: string;
+    p2RevealPhaseTitle: string;
+    victoryTitle: string;
+    victorySubtitle: string;
+    defeatTitle: string;
+    defeatSubtitle: string;
+    playAgain: string;
+    p1ColumnTitle: string;
+    p2ColumnTitle: string;
+    grandTotal: string;
+    targetGoal: string;
+    startP2RevealBtn: string;
   };
 }

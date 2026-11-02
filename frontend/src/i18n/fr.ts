@@ -115,6 +115,17 @@ export const fr: TranslationDictionary = {
     duplicateWarningPlayer: 'Réponse déjà donnée ! Entrez une autre réponse.',
     p2SpeedRoundTitle: 'Face-à-Face Rapide - Joueur 2',
     p2SpeedRoundSubtitle: 'Vous avez 75 secondes. Les doublons du Joueur 1 sont interdits !',
+    p2RevealPhaseTitle: 'Face-à-Face Rapide - Révélation Finale',
+    victoryTitle: '🎉 200 POINTS ! VICTOIRE FACE-À-FACE ! 🎉',
+    victorySubtitle: 'Formidable travail d’équipe ! Vous avez franchi le cap des 200 points !',
+    defeatTitle: 'PARTIE TERMINÉE',
+    defeatSubtitle: 'Score final : {score} / 200 - Si près du but !',
+    playAgain: 'Rejouer',
+    p1ColumnTitle: 'Joueur 1',
+    p2ColumnTitle: 'Joueur 2',
+    grandTotal: 'Total Général',
+    targetGoal: 'Objectif : 200 pts',
+    startP2RevealBtn: 'Lancer la révélation Joueur 2',
   },
 };
 

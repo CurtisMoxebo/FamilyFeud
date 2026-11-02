@@ -139,6 +139,33 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
         'Se requiere un número par de jugadores (2, 4, 6, 8, 10) para comenzar'
       );
     });
+
+    it('defines US-10 Fast Money victory, defeat, and replay dictionary keys for all supported languages', () => {
+      for (const lang of supportedLanguages) {
+        const fm = translations[lang].fastMoney;
+        expect(fm.p2RevealPhaseTitle).toBeTruthy();
+        expect(fm.victoryTitle).toBeTruthy();
+        expect(fm.victorySubtitle).toBeTruthy();
+        expect(fm.defeatTitle).toBeTruthy();
+        expect(fm.defeatSubtitle).toBeTruthy();
+        expect(fm.playAgain).toBeTruthy();
+        expect(fm.p1ColumnTitle).toBeTruthy();
+        expect(fm.p2ColumnTitle).toBeTruthy();
+        expect(fm.grandTotal).toBeTruthy();
+        expect(fm.targetGoal).toBeTruthy();
+        expect(fm.startP2RevealBtn).toBeTruthy();
+      }
+
+      // Exact values for Play Again button
+      expect(translations.EN.fastMoney.playAgain).toBe('Play Again');
+      expect(translations.FR.fastMoney.playAgain).toBe('Rejouer');
+      expect(translations.ES.fastMoney.playAgain).toBe('Jugar de nuevo');
+
+      // Exact values for Victory title
+      expect(translations.EN.fastMoney.victoryTitle).toContain('200 POINTS');
+      expect(translations.FR.fastMoney.victoryTitle).toContain('200 POINTS');
+      expect(translations.ES.fastMoney.victoryTitle).toContain('200 PUNTOS');
+    });
   });
 
   describe('useTranslation Hook & LanguageContext', () => {

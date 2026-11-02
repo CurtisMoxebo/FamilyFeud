@@ -115,6 +115,17 @@ export const es: TranslationDictionary = {
     duplicateWarningPlayer: '¡Respuesta duplicada! Ingresa otra respuesta.',
     p2SpeedRoundTitle: 'Dinero Rápido - Jugador 2',
     p2SpeedRoundSubtitle: '¡Tienes 75 segundos. Los duplicados del Jugador 1 no están permitidos!',
+    p2RevealPhaseTitle: 'Dinero Rápido - Revelación Final',
+    victoryTitle: '🎉 ¡200 PUNTOS! ¡VICTORIA EN DINERO RÁPIDO! 🎉',
+    victorySubtitle: '¡Increíble trabajo en equipo! ¡Alcanzaron la meta de 200 puntos!',
+    defeatTitle: 'JUEGO TERMINADO',
+    defeatSubtitle: 'Puntuación final: {score} / 200 - ¡Estuvieron muy cerca!',
+    playAgain: 'Jugar de nuevo',
+    p1ColumnTitle: 'Jugador 1',
+    p2ColumnTitle: 'Jugador 2',
+    grandTotal: 'Total Acumulado',
+    targetGoal: 'Meta: 200 pts',
+    startP2RevealBtn: 'Iniciar revelación Jugador 2',
   },
 };
 

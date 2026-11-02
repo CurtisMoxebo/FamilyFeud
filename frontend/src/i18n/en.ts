@@ -115,6 +115,17 @@ export const en: TranslationDictionary = {
     duplicateWarningPlayer: 'Duplicate answer! Enter another answer.',
     p2SpeedRoundTitle: 'Fast Money - Player 2',
     p2SpeedRoundSubtitle: 'You have 75 seconds. Duplicates of Player 1 are not allowed!',
+    p2RevealPhaseTitle: 'Fast Money - Final Reveal',
+    victoryTitle: '🎉 200 POINTS! YOU WON FAST MONEY! 🎉',
+    victorySubtitle: 'Incredible teamwork! You reached the 200-point threshold!',
+    defeatTitle: 'GAME OVER',
+    defeatSubtitle: 'Final Score: {score} / 200 - So close!',
+    playAgain: 'Play Again',
+    p1ColumnTitle: 'Player 1',
+    p2ColumnTitle: 'Player 2',
+    grandTotal: 'Grand Total',
+    targetGoal: 'Target: 200 pts',
+    startP2RevealBtn: 'Start Player 2 Reveal',
   },
 };
 
