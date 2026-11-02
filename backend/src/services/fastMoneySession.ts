@@ -34,6 +34,17 @@ export interface SubmittedAnswerRecord {
   orderAttempted: number;
 }
 
+export interface FastMoneyRevealSlot {
+  slotNumber: number;
+  questionId: string;
+  questionText: string;
+  rawAnswer: string;
+  pointsAwarded: number;
+  isAnswerRevealed: boolean;
+  isPointsRevealed: boolean;
+  isMatched: boolean;
+}
+
 export interface FastMoneySessionOptions {
   gameId: string;
   roomCode: string;
@@ -59,6 +70,9 @@ export interface Player1StateSnapshot {
   isTimerRunning: boolean;
   canSubmit: boolean;
   canPass: boolean;
+  totalScore?: number;
+  revealSlots?: FastMoneyRevealSlot[];
+  activeRevealSlotNumber?: number | null;
 }
 
 export interface Player2IsolationSnapshot {
@@ -67,6 +81,9 @@ export interface Player2IsolationSnapshot {
   isolationMessage: string;
   remainingSeconds: number;
   isTimerRunning: boolean;
+  totalScore?: number;
+  revealSlots?: FastMoneyRevealSlot[];
+  activeRevealSlotNumber?: number | null;
 }
 
 export interface HostStateSnapshot {
@@ -77,16 +94,19 @@ export interface HostStateSnapshot {
   remainingSeconds: number;
   isTimerRunning: boolean;
   currentQuestionText: string | null;
-  // Raw answers and points are strictly omitted to keep Host TV board concealed until reveal phase
+  // Concealed slot indicators during speed round
   slots: {
     slotNumber: number;
     isFilled: boolean;
   }[];
+  totalScore?: number;
+  revealSlots?: FastMoneyRevealSlot[];
+  activeRevealSlotNumber?: number | null;
 }
 
 /**
- * FastMoneySession: Manages question queues, pass recycling, and server clock
- * for Fast Money rounds (US-07).
+ * FastMoneySession: Manages question queues, pass recycling, server clock,
+ * and authoritative reveal sequencing for Fast Money rounds (US-07 & US-08).
  */
 export class FastMoneySession {
   public readonly gameId: string;
@@ -102,6 +122,10 @@ export class FastMoneySession {
   private currentQuestion: FastMoneyQuestionItem | null = null;
 
   private submissions: Map<string, SubmittedAnswerRecord> = new Map();
+  private evaluations: Map<string, { pointsAwarded: number; isMatched: boolean }> = new Map();
+  private revealStates: Map<number, { isAnswerRevealed: boolean; isPointsRevealed: boolean }> =
+    new Map();
+
   private phase: FastMoneyPhase = 'P1_READY';
 
   private timerStartedAt: number | null = null;
@@ -124,6 +148,11 @@ export class FastMoneySession {
     this.questions = [...options.questions].sort((a, b) => a.orderIndex - b.orderIndex);
     this.unattemptedQueue = [...this.questions];
     this.passedQueue = [];
+
+    // Initialize reveal slot states (slots 1 to 5)
+    for (let i = 1; i <= this.questions.length; i++) {
+      this.revealStates.set(i, { isAnswerRevealed: false, isPointsRevealed: false });
+    }
   }
 
   /**
@@ -179,6 +208,17 @@ export class FastMoneySession {
     };
 
     this.submissions.set(this.currentQuestion.id, record);
+
+    // Seed evaluation if candidate answers contain exact match
+    if (this.currentQuestion.answers && this.currentQuestion.answers.length > 0) {
+      const norm = trimmedAnswer.toLowerCase().trim();
+      const matched = this.currentQuestion.answers.find(
+        (a) => a.answerText.toLowerCase().trim() === norm
+      );
+      if (matched) {
+        this.recordEvaluation(this.currentQuestion.id, matched.points, true);
+      }
+    }
 
     // Remove from passed queue if it was previously passed
     this.passedQueue = this.passedQueue.filter((q) => q.id !== questionId);
@@ -276,6 +316,185 @@ export class FastMoneySession {
     }
   }
 
+  // --- Evaluation Records (US-06 & US-08) ---
+
+  /**
+   * Records or updates the evaluated score for a given survey question.
+   */
+  public recordEvaluation(questionId: string, pointsAwarded: number, isMatched: boolean): void {
+    this.evaluations.set(questionId, {
+      pointsAwarded: Math.max(0, pointsAwarded),
+      isMatched,
+    });
+  }
+
+  public getEvaluation(
+    questionId: string
+  ): { pointsAwarded: number; isMatched: boolean } | undefined {
+    return this.evaluations.get(questionId);
+  }
+
+  // --- Authoritative Reveal Sequence (US-08) ---
+
+  /**
+   * Transitions session into the P1_REVEAL phase.
+   */
+  public startRevealPhase(): void {
+    this.phase = 'P1_REVEAL';
+    this.currentQuestion = null;
+  }
+
+  /**
+   * Scenario 1: Reveal Answer Text on Slot N.
+   * Flips open the contestant's submitted answer text. Points remain concealed.
+   */
+  public revealAnswer(slotNumber: number): FastMoneyRevealSlot {
+    if (this.phase !== 'P1_REVEAL') {
+      throw new Error(
+        `Cannot reveal answer outside of P1_REVEAL phase (current phase: ${this.phase})`
+      );
+    }
+
+    if (slotNumber < 1 || slotNumber > this.questions.length) {
+      throw new Error(
+        `Invalid slotNumber ${slotNumber}. Must be between 1 and ${this.questions.length}`
+      );
+    }
+
+    // Enforce sequential pacing: previous slot points must be revealed before advancing
+    if (slotNumber > 1) {
+      const prevSlotState = this.revealStates.get(slotNumber - 1);
+      if (!prevSlotState || !prevSlotState.isPointsRevealed) {
+        throw new Error(
+          `Cannot reveal answer for slot ${slotNumber} before completing reveal for slot ${
+            slotNumber - 1
+          }`
+        );
+      }
+    }
+
+    const state = this.revealStates.get(slotNumber)!;
+    state.isAnswerRevealed = true;
+
+    return this.getRevealSlot(slotNumber);
+  }
+
+  /**
+   * Scenario 2: Reveal Point Value on Slot N.
+   * Flips open the point box, adds points to total, and checks completion.
+   */
+  public revealPoints(slotNumber: number): FastMoneyRevealSlot {
+    if (this.phase !== 'P1_REVEAL') {
+      throw new Error(
+        `Cannot reveal points outside of P1_REVEAL phase (current phase: ${this.phase})`
+      );
+    }
+
+    if (slotNumber < 1 || slotNumber > this.questions.length) {
+      throw new Error(
+        `Invalid slotNumber ${slotNumber}. Must be between 1 and ${this.questions.length}`
+      );
+    }
+
+    const state = this.revealStates.get(slotNumber)!;
+    if (!state.isAnswerRevealed) {
+      throw new Error(`Cannot reveal points for slot ${slotNumber} before revealing answer`);
+    }
+
+    state.isPointsRevealed = true;
+
+    // Check if all 5 slots are now fully revealed; if so, transition to P2_READY (Scenario 4)
+    if (this.isAllRevealed()) {
+      this.phase = 'P2_READY';
+    }
+
+    return this.getRevealSlot(slotNumber);
+  }
+
+  /**
+   * Retrieves the reveal state for a specific slot number (1-based).
+   * If sanitized=true, hides answer and points if their respective reveal flags are false.
+   */
+  public getRevealSlot(slotNumber: number, sanitized: boolean = false): FastMoneyRevealSlot {
+    if (slotNumber < 1 || slotNumber > this.questions.length) {
+      throw new Error(`Invalid slotNumber ${slotNumber}`);
+    }
+
+    const question = this.questions[slotNumber - 1];
+    const submission = this.submissions.get(question.id);
+    const evaluation = this.evaluations.get(question.id) ?? {
+      pointsAwarded: 0,
+      isMatched: false,
+    };
+    const state = this.revealStates.get(slotNumber) ?? {
+      isAnswerRevealed: false,
+      isPointsRevealed: false,
+    };
+
+    const rawAnswer = submission ? submission.rawAnswer : '';
+
+    return {
+      slotNumber,
+      questionId: question.id,
+      questionText: question.questionText,
+      rawAnswer: sanitized && !state.isAnswerRevealed ? '' : rawAnswer,
+      pointsAwarded: sanitized && !state.isPointsRevealed ? 0 : evaluation.pointsAwarded,
+      isAnswerRevealed: state.isAnswerRevealed,
+      isPointsRevealed: state.isPointsRevealed,
+      isMatched: state.isPointsRevealed ? evaluation.isMatched : false,
+    };
+  }
+
+  /**
+   * Returns array of all 5 reveal slots.
+   */
+  public getRevealSlots(sanitized: boolean = false): FastMoneyRevealSlot[] {
+    return this.questions.map((_, idx) => this.getRevealSlot(idx + 1, sanitized));
+  }
+
+  /**
+   * Computes the cumulative round total score.
+   * Only sums points for slots whose point values have been revealed.
+   */
+  public getRoundTotalScore(): number {
+    return this.questions.reduce((sum, _, idx) => {
+      const state = this.revealStates.get(idx + 1);
+      if (state && state.isPointsRevealed) {
+        const question = this.questions[idx];
+        const evalData = this.evaluations.get(question.id);
+        return sum + (evalData?.pointsAwarded ?? 0);
+      }
+      return sum;
+    }, 0);
+  }
+
+  /**
+   * Checks if all slots have both answer and points revealed.
+   */
+  public isAllRevealed(): boolean {
+    return this.questions.every((_, idx) => {
+      const state = this.revealStates.get(idx + 1);
+      return state?.isAnswerRevealed && state?.isPointsRevealed;
+    });
+  }
+
+  /**
+   * Returns the 1-based number of the slot currently being revealed,
+   * or null if not in P1_REVEAL or all are revealed.
+   */
+  public getActiveRevealSlotNumber(): number | null {
+    if (this.phase !== 'P1_REVEAL') {
+      return null;
+    }
+    for (let i = 1; i <= this.questions.length; i++) {
+      const state = this.revealStates.get(i);
+      if (!state || !state.isAnswerRevealed || !state.isPointsRevealed) {
+        return i;
+      }
+    }
+    return null;
+  }
+
   // --- Getters & Queries ---
 
   public getPhase(): FastMoneyPhase {
@@ -295,7 +514,14 @@ export class FastMoneySession {
       return this.timerDurationSeconds;
     }
 
-    if (this.phase === 'P1_FINISHED' || this.phase === 'P1_REVEAL') {
+    if (
+      this.phase === 'P1_FINISHED' ||
+      this.phase === 'P1_REVEAL' ||
+      this.phase === 'P2_READY' ||
+      this.phase === 'P2_PLAYING' ||
+      this.phase === 'P2_FINISHED' ||
+      this.phase === 'P2_REVEAL'
+    ) {
       return 0;
     }
 
@@ -316,7 +542,14 @@ export class FastMoneySession {
   }
 
   public isTurnFinished(): boolean {
-    return this.phase === 'P1_FINISHED' || this.phase === 'P1_REVEAL';
+    return (
+      this.phase === 'P1_FINISHED' ||
+      this.phase === 'P1_REVEAL' ||
+      this.phase === 'P2_READY' ||
+      this.phase === 'P2_PLAYING' ||
+      this.phase === 'P2_FINISHED' ||
+      this.phase === 'P2_REVEAL'
+    );
   }
 
   public getSubmissions(): SubmittedAnswerRecord[] {
@@ -346,6 +579,11 @@ export class FastMoneySession {
       questionNumber = originalIdx >= 0 ? originalIdx + 1 : 1;
     }
 
+    const isRevealOrReady = this.phase === 'P1_REVEAL' || this.phase === 'P2_READY';
+    const totalScore = this.getRoundTotalScore();
+    const revealSlots = isRevealOrReady ? this.getRevealSlots(true) : undefined;
+    const activeRevealSlotNumber = this.getActiveRevealSlotNumber();
+
     return {
       phase: this.phase,
       currentQuestion: currentQ
@@ -363,26 +601,42 @@ export class FastMoneySession {
       isTimerRunning: isPlaying,
       canSubmit: isPlaying && currentQ !== null,
       canPass: isPlaying && currentQ !== null,
+      totalScore,
+      revealSlots,
+      activeRevealSlotNumber,
     };
   }
 
   /**
    * Sanitized isolation shield snapshot for Player 2 (Scenario 5 Anti-Cheating).
-   * Strictly omits question text, input fields, and contestant answers.
+   * Strictly omits question text, input fields, and contestant answers until reveal phase.
    */
   public getPlayer2Snapshot(): Player2IsolationSnapshot {
+    const isReveal = this.phase === 'P1_REVEAL';
+    const isReady = this.phase === 'P2_READY';
+    const totalScore = this.getRoundTotalScore();
+    const revealSlots = isReveal || isReady ? this.getRevealSlots(true) : undefined;
+    const activeRevealSlotNumber = this.getActiveRevealSlotNumber();
+
     return {
       phase: this.phase,
       isOffstage: this.phase === 'P1_READY' || this.phase === 'P1_PLAYING',
-      isolationMessage: '🎧 Player 1 is currently playing! Look away from the host screen',
+      isolationMessage: isReady
+        ? "Player 1's reveal is complete! Get ready for your turn"
+        : isReveal
+        ? "Player 1's reveal sequence in progress..."
+        : '🎧 Player 1 is currently playing! Look away from the host screen',
       remainingSeconds: this.getRemainingSeconds(),
       isTimerRunning: this.phase === 'P1_PLAYING',
+      totalScore,
+      revealSlots,
+      activeRevealSlotNumber,
     };
   }
 
   /**
    * Sanitized snapshot for the TV Host screen.
-   * Shows 5 concealed answer slots without revealing contestant answers or point values.
+   * Shows 5 concealed answer slots during playing, and controlled reveal states during P1_REVEAL.
    */
   public getHostSnapshot(): HostStateSnapshot {
     const slots = this.questions.map((q, idx) => ({
@@ -396,6 +650,11 @@ export class FastMoneySession {
       activeQuestionNumber = idx >= 0 ? idx + 1 : null;
     }
 
+    const isRevealOrReady = this.phase === 'P1_REVEAL' || this.phase === 'P2_READY';
+    const totalScore = this.getRoundTotalScore();
+    const revealSlots = isRevealOrReady ? this.getRevealSlots(true) : undefined;
+    const activeRevealSlotNumber = this.getActiveRevealSlotNumber();
+
     return {
       phase: this.phase,
       activeQuestionNumber,
@@ -405,7 +664,9 @@ export class FastMoneySession {
       isTimerRunning: this.phase === 'P1_PLAYING' && this.getRemainingSeconds() > 0,
       currentQuestionText: this.currentQuestion ? this.currentQuestion.questionText : null,
       slots,
+      totalScore,
+      revealSlots,
+      activeRevealSlotNumber,
     };
   }
 }
-
