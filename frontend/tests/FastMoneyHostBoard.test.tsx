@@ -1,9 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import confetti from 'canvas-confetti';
 import { FastMoneyHostBoard } from '../src/components/FastMoneyHostBoard';
 import { HostStateSnapshot, TimerTickPayload } from '../src/types';
 import * as ttsModule from '../src/utils/tts';
 import * as sfxModule from '../src/utils/soundEffects';
+
+vi.mock('canvas-confetti', () => ({
+  default: vi.fn(),
+}));
 
 describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
   const readyHostSnapshot: HostStateSnapshot = {
@@ -614,6 +619,300 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
 
       // Slot 2 active
       expect(screen.getByTestId('fast-money-slot-2')).toHaveClass('border-blue-400');
+    });
+  });
+
+  describe('US-10: Player 2 Reveal, Dynamic Victory & Replay Flow', () => {
+    const p2FinishedSnapshot: HostStateSnapshot = {
+      phase: 'P2_FINISHED',
+      activeQuestionNumber: null,
+      totalQuestions: 5,
+      answeredCount: 5,
+      remainingSeconds: 0,
+      isTimerRunning: false,
+      currentQuestionText: null,
+      totalScore: 120,
+      p1TotalScore: 120,
+      p2TotalScore: 0,
+      grandTotal: 120,
+      slots: [
+        { slotNumber: 1, isFilled: true },
+        { slotNumber: 2, isFilled: true },
+        { slotNumber: 3, isFilled: true },
+        { slotNumber: 4, isFilled: true },
+        { slotNumber: 5, isFilled: true },
+      ],
+      p1Slots: [
+        { slotNumber: 1, questionId: 'q-1', questionText: 'Q1', rawAnswer: 'Eggs', pointsAwarded: 35, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+        { slotNumber: 2, questionId: 'q-2', questionText: 'Q2', rawAnswer: 'Couch', pointsAwarded: 40, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+        { slotNumber: 3, questionId: 'q-3', questionText: 'Q3', rawAnswer: 'Lion', pointsAwarded: 25, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+        { slotNumber: 4, questionId: 'q-4', questionText: 'Q4', rawAnswer: 'Friday', pointsAwarded: 20, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+        { slotNumber: 5, questionId: 'q-5', questionText: 'Q5', rawAnswer: '', pointsAwarded: 0, isAnswerRevealed: true, isPointsRevealed: true, isMatched: false },
+      ],
+      p2Slots: [
+        { slotNumber: 1, questionId: 'q-1', questionText: 'Q1', rawAnswer: 'Pancakes', pointsAwarded: 25, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+        { slotNumber: 2, questionId: 'q-2', questionText: 'Q2', rawAnswer: 'Chair', pointsAwarded: 30, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+        { slotNumber: 3, questionId: 'q-3', questionText: 'Q3', rawAnswer: 'Tiger', pointsAwarded: 20, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+        { slotNumber: 4, questionId: 'q-4', questionText: 'Q4', rawAnswer: 'Saturday', pointsAwarded: 25, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+        { slotNumber: 5, questionId: 'q-5', questionText: 'Q5', rawAnswer: 'Soda', pointsAwarded: 20, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+      ],
+    };
+
+    it('renders "Start Player 2 Reveal" button on P2_FINISHED and handles click', () => {
+      const startP2Spy = vi.fn();
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={p2FinishedSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          onStartP2Reveal={startP2Spy}
+        />
+      );
+
+      const startBtn = screen.getByTestId('host-start-p2-reveal-btn');
+      expect(startBtn).toBeInTheDocument();
+      expect(startBtn).toHaveTextContent(/start player 2 reveal/i);
+
+      fireEvent.click(startBtn);
+      expect(startP2Spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('satisfies Scenario 1: renders dual columns in P2_REVEAL, speaks question via TTS, and reveals answers and points', () => {
+      const speakSpy = vi.spyOn(ttsModule, 'speakQuestion').mockImplementation(() => {});
+      const onRevealAnswerSpy = vi.fn();
+      const onRevealPointsSpy = vi.fn();
+
+      const p2RevealSnapshot: HostStateSnapshot = {
+        ...p2FinishedSnapshot,
+        phase: 'P2_REVEAL',
+        activeRevealSlotNumber: 1,
+      };
+
+      const { rerender } = render(
+        <FastMoneyHostBoard
+          snapshot={p2RevealSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={true}
+          enableSFX={true}
+          onRevealP2Answer={onRevealAnswerSpy}
+          onRevealP2Points={onRevealPointsSpy}
+        />
+      );
+
+      // Question spoken via TTS
+      expect(speakSpy).toHaveBeenCalledWith('Question 1: Q1', 'EN');
+
+      // Reveal answer button visible
+      const revealAnswerBtn = screen.getByTestId('host-reveal-p2-answer-btn');
+      expect(revealAnswerBtn).toBeInTheDocument();
+      expect(revealAnswerBtn).toHaveTextContent(/reveal answer #1/i);
+
+      fireEvent.click(revealAnswerBtn);
+      expect(onRevealAnswerSpy).toHaveBeenCalledWith(1);
+
+      // Rerender with Slot 1 answer revealed
+      const slot1AnswerRevealed: HostStateSnapshot = {
+        ...p2RevealSnapshot,
+        p2Slots: [
+          { ...p2FinishedSnapshot.p2Slots![0], isAnswerRevealed: true },
+          ...p2FinishedSnapshot.p2Slots!.slice(1),
+        ],
+      };
+
+      rerender(
+        <FastMoneyHostBoard
+          snapshot={slot1AnswerRevealed}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={true}
+          enableSFX={true}
+          onRevealP2Answer={onRevealAnswerSpy}
+          onRevealP2Points={onRevealPointsSpy}
+        />
+      );
+
+      // Answer is now displayed
+      expect(screen.getByTestId('revealed-answer-1')).toHaveTextContent('Pancakes');
+
+      // Reveal points button visible
+      const revealPointsBtn = screen.getByTestId('host-reveal-p2-points-btn');
+      expect(revealPointsBtn).toBeInTheDocument();
+      expect(revealPointsBtn).toHaveTextContent(/reveal points #1/i);
+
+      fireEvent.click(revealPointsBtn);
+      expect(onRevealPointsSpy).toHaveBeenCalledWith(1);
+    });
+
+    it('satisfies Scenario 1: auto-pacing triggers automated answer reveal and 1.5s suspense pause', () => {
+      vi.useFakeTimers();
+      const onRevealAnswerSpy = vi.fn();
+      const onRevealPointsSpy = vi.fn();
+
+      const p2RevealSnapshot: HostStateSnapshot = {
+        ...p2FinishedSnapshot,
+        phase: 'P2_REVEAL',
+        activeRevealSlotNumber: 1,
+      };
+
+      const { rerender } = render(
+        <FastMoneyHostBoard
+          snapshot={p2RevealSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={false}
+          enableSFX={false}
+          onRevealP2Answer={onRevealAnswerSpy}
+          onRevealP2Points={onRevealPointsSpy}
+        />
+      );
+
+      // Turn on Auto-Pacing
+      const autoPacingBtn = screen.getByTestId('host-p2-auto-pacing-btn');
+      fireEvent.click(autoPacingBtn);
+
+      // Fast forward 1.2s -> reveals answer
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+      expect(onRevealAnswerSpy).toHaveBeenCalledWith(1);
+
+      // Update to answer revealed (state remains auto-pacing: true)
+      rerender(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...p2RevealSnapshot,
+            p2Slots: [
+              { ...p2FinishedSnapshot.p2Slots![0], isAnswerRevealed: true },
+              ...p2FinishedSnapshot.p2Slots!.slice(1),
+            ],
+          }}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={false}
+          enableSFX={false}
+          onRevealP2Answer={onRevealAnswerSpy}
+          onRevealP2Points={onRevealPointsSpy}
+        />
+      );
+
+      // Fast forward 1.5s (suspense pause) -> reveals points
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(onRevealPointsSpy).toHaveBeenCalledWith(1);
+
+      vi.useRealTimers();
+    });
+
+    it('satisfies Scenario 2: triggers immediate victory celebration, fanfare, confetti, and speech at >= 200 points', () => {
+      const fanfareSpy = vi.spyOn(sfxModule, 'playVictoryFanfare').mockImplementation(() => {});
+      const victoryTtsSpy = vi.spyOn(ttsModule, 'speakVictory').mockImplementation(() => {});
+
+      const victorySnapshot: HostStateSnapshot = {
+        ...p2FinishedSnapshot,
+        phase: 'GAME_OVER',
+        isVictory: true,
+        p1TotalScore: 140,
+        p2TotalScore: 65,
+        grandTotal: 205,
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={victorySnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={true}
+          enableSFX={true}
+          onReplay={vi.fn()}
+        />
+      );
+
+      // Victory banner
+      const victoryBanner = screen.getByTestId('host-victory-banner');
+      expect(victoryBanner).toBeInTheDocument();
+      expect(victoryBanner).toHaveTextContent(/200 POINTS! YOU WON FAST MONEY!/i);
+
+      // Fanfare & TTS
+      expect(fanfareSpy).toHaveBeenCalled();
+      expect(victoryTtsSpy).toHaveBeenCalledWith('EN');
+
+      // Confetti burst
+      expect(confetti).toHaveBeenCalled();
+
+      // Play Again button rendered
+      expect(screen.getByTestId('host-replay-btn')).toBeInTheDocument();
+    });
+
+    it('satisfies Scenario 3: triggers defeat summary and defeat audio when under 200 points', () => {
+      const defeatSpy = vi.spyOn(sfxModule, 'playDefeatSound').mockImplementation(() => {});
+      const defeatTtsSpy = vi.spyOn(ttsModule, 'speakDefeat').mockImplementation(() => {});
+
+      const defeatSnapshot: HostStateSnapshot = {
+        ...p2FinishedSnapshot,
+        phase: 'GAME_OVER',
+        isVictory: false,
+        p1TotalScore: 90,
+        p2TotalScore: 85,
+        grandTotal: 175,
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={defeatSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={true}
+          enableSFX={true}
+          onReplay={vi.fn()}
+        />
+      );
+
+      // Defeat banner
+      const defeatBanner = screen.getByTestId('host-defeat-banner');
+      expect(defeatBanner).toBeInTheDocument();
+      expect(defeatBanner).toHaveTextContent(/GAME OVER/i);
+      expect(defeatBanner).toHaveTextContent(/175 \/ 200/i);
+
+      // Audio & Speech
+      expect(defeatSpy).toHaveBeenCalled();
+      expect(defeatTtsSpy).toHaveBeenCalledWith('EN', 175);
+
+      // Play Again button rendered
+      expect(screen.getByTestId('host-replay-btn')).toBeInTheDocument();
+    });
+
+    it('satisfies Scenario 4: clicking Play Again triggers onReplay and displays loading state', () => {
+      const replaySpy = vi.fn();
+
+      const gameOverSnapshot: HostStateSnapshot = {
+        ...p2FinishedSnapshot,
+        phase: 'GAME_OVER',
+        isVictory: true,
+        grandTotal: 200,
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={gameOverSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          onReplay={replaySpy}
+        />
+      );
+
+      const replayBtn = screen.getByTestId('host-replay-btn');
+      expect(replayBtn).toBeInTheDocument();
+      expect(replayBtn).toHaveTextContent(/play again/i);
+
+      fireEvent.click(replayBtn);
+      expect(replaySpy).toHaveBeenCalledTimes(1);
+
+      // Enters loading / replaying state
+      expect(screen.getByText(/starting new match\.\.\./i)).toBeInTheDocument();
+      expect(replayBtn).toBeDisabled();
     });
   });
 });

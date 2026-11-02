@@ -187,7 +187,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 423 regression tests** (286 backend, 137 frontend) pass cleanly with **>90% code coverage** across 36 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 477 regression tests** (315 backend, 162 frontend) pass cleanly with **>90% code coverage** across 38 suites:
 
 ```bash
 # Run all regression tests across the whole project

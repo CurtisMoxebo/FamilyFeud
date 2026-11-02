@@ -1,6 +1,7 @@
 /**
  * Host Speech Synthesis (TTS) Engine Utility
- * Provides safe text-to-speech for Question reading during Fast Money speed rounds.
+ * Provides safe text-to-speech for Question reading during Fast Money speed rounds,
+ * duplicate warnings, and victory / defeat announcements.
  */
 
 export function speakQuestion(text: string, language: string = 'EN'): void {
@@ -42,7 +43,6 @@ export function cancelSpeech(): void {
   }
 }
 
-
 export const DUPLICATE_WARNING_PHRASES: Record<string, string> = {
   EN: 'Already said! Try again!',
   FR: 'Déjà dit ! Réessayez !',
@@ -60,5 +60,46 @@ export function getDuplicateWarningPhrase(language: string = 'EN'): string {
  */
 export function speakDuplicateAlert(language: string = 'EN', customText?: string): void {
   const text = customText || getDuplicateWarningPhrase(language);
+  speakQuestion(text, language);
+}
+
+export const VICTORY_PHRASES: Record<string, string> = {
+  EN: '200 points! You won Fast Money!',
+  FR: '200 points ! Vous avez gagné le Face-à-Face !',
+  ES: '¡200 puntos! ¡Ganaron Dinero Rápido!',
+};
+
+export function getVictoryPhrase(language: string = 'EN'): string {
+  const norm = language.toUpperCase();
+  return VICTORY_PHRASES[norm] || VICTORY_PHRASES.EN;
+}
+
+/**
+ * Host Speech Synthesis for Fast Money Victory Announcement (US-10 Scenario 2)
+ * Announces localized celebration: "200 points! You won Fast Money!"
+ */
+export function speakVictory(language: string = 'EN', customText?: string): void {
+  const text = customText || getVictoryPhrase(language);
+  speakQuestion(text, language);
+}
+
+export const DEFEAT_PHRASES: Record<string, (score: number) => string> = {
+  EN: (score: number) => `Final score: ${score} points. Game over!`,
+  FR: (score: number) => `Score final : ${score} points. Partie terminée !`,
+  ES: (score: number) => `Puntuación final: ${score} puntos. ¡Juego terminado!`,
+};
+
+export function getDefeatPhrase(language: string = 'EN', finalScore: number = 0): string {
+  const norm = language.toUpperCase();
+  const formatter = DEFEAT_PHRASES[norm] || DEFEAT_PHRASES.EN;
+  return formatter(finalScore);
+}
+
+/**
+ * Host Speech Synthesis for Fast Money Defeat Announcement (US-10 Scenario 3)
+ * Announces localized defeat summary: "Final score: [X] points. Game over!"
+ */
+export function speakDefeat(language: string = 'EN', finalScore: number = 0, customText?: string): void {
+  const text = customText || getDefeatPhrase(language, finalScore);
   speakQuestion(text, language);
 }

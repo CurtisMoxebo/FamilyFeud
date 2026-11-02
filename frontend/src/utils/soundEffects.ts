@@ -1,6 +1,6 @@
 /**
- * Game Show Sound Effects Synthesizer (US-08 & US-18)
- * Synthesizes classic TV game show sound cues (Ding, Chime, Buzzer) using the Web Audio API.
+ * Game Show Sound Effects Synthesizer (US-08, US-09, US-10 & US-18)
+ * Synthesizes classic TV game show sound cues (Ding, Chime, Buzzer, Victory Fanfare, Defeat) using the Web Audio API.
  * 100% zero external audio asset dependencies.
  */
 
@@ -208,15 +208,104 @@ export function playDuplicateWarning(): void {
   }
 }
 
+/**
+ * Scenario 2: Game Show Victory Fanfare (US-10)
+ * Plays a triumphant celebratory brass/synth fanfare when contestants reach >= 200 points.
+ * Ascending triumphant sequence: C5 (523.25 Hz) -> E5 (659.25 Hz) -> G5 (783.99 Hz) -> C6 (1046.5 Hz)
+ * with a sustaining celebratory major chord (E6 + G6).
+ */
+export function playVictoryFanfare(): void {
+  if (isSoundMuted) return;
+
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const sequence = [
+      { freq: 523.25, start: now, duration: 0.12, type: 'triangle' as OscillatorType, gain: 0.25 },
+      { freq: 659.25, start: now + 0.12, duration: 0.12, type: 'triangle' as OscillatorType, gain: 0.25 },
+      { freq: 783.99, start: now + 0.24, duration: 0.15, type: 'triangle' as OscillatorType, gain: 0.28 },
+      { freq: 1046.5, start: now + 0.39, duration: 0.8, type: 'sine' as OscillatorType, gain: 0.3 },
+      { freq: 1318.51, start: now + 0.39, duration: 0.8, type: 'sine' as OscillatorType, gain: 0.2 },
+      { freq: 1567.98, start: now + 0.39, duration: 0.8, type: 'sine' as OscillatorType, gain: 0.18 },
+    ];
+
+    sequence.forEach(({ freq, start, duration, type, gain }) => {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, start);
+
+      gainNode.gain.setValueAtTime(gain, start);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      osc.start(start);
+      osc.stop(start + duration);
+    });
+  } catch (err) {
+    console.warn('[SFX:WARN] Failed to synthesize Victory Fanfare:', err);
+  }
+}
+
+/**
+ * Scenario 3: Game Show Defeat Sound (US-10)
+ * Plays a classic descending sad trombone / wah-wah sequence when contestants fall short of 200 points.
+ * Descending tones: 370 Hz -> 349.23 Hz -> 329.63 Hz -> 311.13 Hz with pitch drop.
+ */
+export function playDefeatSound(): void {
+  if (isSoundMuted) return;
+
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const notes = [
+      { freq: 370.0, start: now, duration: 0.25 },
+      { freq: 349.23, start: now + 0.28, duration: 0.25 },
+      { freq: 329.63, start: now + 0.56, duration: 0.25 },
+      { freq: 311.13, start: now + 0.84, duration: 0.6, dropTo: 246.94 },
+    ];
+
+    notes.forEach(({ freq, start, duration, dropTo }) => {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, start);
+      if (dropTo) {
+        osc.frequency.linearRampToValueAtTime(dropTo, start + duration);
+      }
+
+      gainNode.gain.setValueAtTime(0.22, start);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      osc.start(start);
+      osc.stop(start + duration);
+    });
+  } catch (err) {
+    console.warn('[SFX:WARN] Failed to synthesize Defeat Sound:', err);
+  }
+}
+
 export const sfx = {
   playDing,
   playPointsChime,
   playBuzzerBlip,
   playDuplicateWarning,
+  playVictoryFanfare,
+  playDefeatSound,
   setMuted,
   isMuted,
   getAudioContext,
 };
 
 export default sfx;
-

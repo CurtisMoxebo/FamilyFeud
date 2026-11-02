@@ -9,6 +9,7 @@ import {
 } from '../services/fastMoneySession';
 import { SupportedLanguage } from '../services/geminiService';
 import { evaluatePlayerAnswer } from '../services/answerValidationService';
+import { generateAndSaveGameQuestions } from '../services/questionService';
 import { normalizeRoomCode } from '../utils/roomCode';
 import { logger } from '../utils/logger';
 
@@ -67,10 +68,22 @@ export interface BoardRevealPayload {
   roomCode: string;
   type: 'ANSWER' | 'POINTS';
   slotNumber: number;
+  column?: 1 | 2;
   slot: FastMoneyRevealSlot;
   totalScore: number;
+  p1TotalScore?: number;
+  p2TotalScore?: number;
   isAllRevealed: boolean;
   nextActiveSlotNumber: number | null;
+}
+
+export interface GameOverPayload {
+  roomCode: string;
+  isVictory: boolean;
+  p1TotalScore: number;
+  p2TotalScore: number;
+  grandTotal: number;
+  targetScore: number;
 }
 
 /**
@@ -811,8 +824,11 @@ export function registerFastMoneyHandlers(
           roomCode: normalizedCode,
           type: 'ANSWER',
           slotNumber,
+          column: 1,
           slot: session.getRevealSlot(slotNumber, true),
           totalScore,
+          p1TotalScore: totalScore,
+          p2TotalScore: 0,
           isAllRevealed: session.isAllRevealed(),
           nextActiveSlotNumber: session.getActiveRevealSlotNumber(),
         };
@@ -894,8 +910,11 @@ export function registerFastMoneyHandlers(
           roomCode: normalizedCode,
           type: 'POINTS',
           slotNumber,
+          column: 1,
           slot: session.getRevealSlot(slotNumber, true),
           totalScore,
+          p1TotalScore: totalScore,
+          p2TotalScore: 0,
           isAllRevealed,
           nextActiveSlotNumber: session.getActiveRevealSlotNumber(),
         };
@@ -938,4 +957,386 @@ export function registerFastMoneyHandlers(
       }
     }
   );
+  /**
+   * Scenario 1: Host Initiates Fast Money Player 2 Reveal Phase (US-10)
+   */
+  socket.on(
+    'start_p2_reveal_phase',
+    (
+      payload: { roomCode: string; isHost?: boolean },
+      callback?: (res: { success: boolean; error?: string; phase?: string }) => void
+    ) => {
+      try {
+        const { roomCode } = payload || {};
+        if (!roomCode) {
+          const errMsg = 'roomCode is required';
+          socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(roomCode);
+        const session = getFastMoneySession(normalizedCode);
+
+        if (!session) {
+          const errMsg = 'No active Fast Money session found for this room';
+          socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const isHost = socket.data?.isHost === true || payload.isHost === true;
+        if (!isHost) {
+          const errMsg = 'Only the host display can start the reveal phase';
+          socket.emit('room_error', { code: 'UNAUTHORIZED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        session.startP2RevealPhase();
+        broadcastFastMoneyState(io, session);
+
+        logger.info(
+          `[FAST_MONEY:P2_REVEAL_START] Host initiated Player 2 reveal phase in room ${normalizedCode}`
+        );
+
+        if (callback) callback({ success: true, phase: 'P2_REVEAL' });
+      } catch (error: unknown) {
+        logger.error('[FAST_MONEY:ERROR] Error in start_p2_reveal_phase handler', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to start Player 2 reveal phase';
+        socket.emit('room_error', { code: 'SERVER_ERROR', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+      }
+    }
+  );
+
+  /**
+   * Scenario 1: Host Reveals Player 2 Answer Text for Slot N (US-10)
+   */
+  socket.on(
+    'reveal_p2_answer',
+    (
+      payload: RevealAnswerPayload,
+      callback?: (res: {
+        success: boolean;
+        error?: string;
+        slot?: FastMoneyRevealSlot;
+      }) => void
+    ) => {
+      try {
+        const { roomCode, slotNumber } = payload || {};
+        if (!roomCode || typeof slotNumber !== 'number') {
+          const errMsg = 'roomCode and numeric slotNumber are required';
+          socket.emit('room_error', { code: 'INVALID_PAYLOAD', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(roomCode);
+        const session = getFastMoneySession(normalizedCode);
+
+        if (!session) {
+          const errMsg = 'No active Fast Money session found for this room';
+          socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const isHost = socket.data?.isHost === true || payload.isHost === true;
+        if (!isHost) {
+          const errMsg = 'Only the host display can trigger answer reveal';
+          socket.emit('room_error', { code: 'UNAUTHORIZED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const slot = session.revealP2Answer(slotNumber);
+
+        const revealPayload: BoardRevealPayload = {
+          roomCode: normalizedCode,
+          type: 'ANSWER',
+          slotNumber,
+          column: 2,
+          slot: session.getP2RevealSlot(slotNumber, true),
+          totalScore: session.getGrandTotalScore(),
+          p1TotalScore: session.getP1TotalScore(),
+          p2TotalScore: session.getP2TotalScore(),
+          isAllRevealed: session.isAllP2Revealed(),
+          nextActiveSlotNumber: session.getActiveP2RevealSlotNumber(),
+        };
+
+        io.to(`room:${normalizedCode}`).emit('board_reveal', revealPayload);
+        broadcastFastMoneyState(io, session);
+
+        logger.info(
+          `[FAST_MONEY:P2_REVEAL_ANSWER] Room ${normalizedCode} Column 2 Slot ${slotNumber} revealed: "${slot.rawAnswer}"`
+        );
+
+        if (callback) {
+          callback({
+            success: true,
+            slot: revealPayload.slot,
+          });
+        }
+      } catch (error: unknown) {
+        logger.error('[FAST_MONEY:ERROR] Error in reveal_p2_answer handler', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to reveal answer';
+        socket.emit('room_error', { code: 'SERVER_ERROR', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+      }
+    }
+  );
+
+  /**
+   * Scenario 1, 2 & 3: Host Reveals Point Value for Player 2 Slot N & Dynamic Victory (US-10)
+   */
+  socket.on(
+    'reveal_p2_points',
+    async (
+      payload: RevealPointsPayload,
+      callback?: (res: {
+        success: boolean;
+        error?: string;
+        slot?: FastMoneyRevealSlot;
+        totalScore?: number;
+        p1TotalScore?: number;
+        p2TotalScore?: number;
+        isVictory?: boolean;
+        isGameOver?: boolean;
+      }) => void
+    ) => {
+      try {
+        const { roomCode, slotNumber } = payload || {};
+        if (!roomCode || typeof slotNumber !== 'number') {
+          const errMsg = 'roomCode and numeric slotNumber are required';
+          socket.emit('room_error', { code: 'INVALID_PAYLOAD', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(roomCode);
+        const session = getFastMoneySession(normalizedCode);
+
+        if (!session) {
+          const errMsg = 'No active Fast Money session found for this room';
+          socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const isHost = socket.data?.isHost === true || payload.isHost === true;
+        if (!isHost) {
+          const errMsg = 'Only the host display can trigger points reveal';
+          socket.emit('room_error', { code: 'UNAUTHORIZED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const res = session.revealP2Points(slotNumber);
+        const p1TotalScore = session.getP1TotalScore();
+        const p2TotalScore = session.getP2TotalScore();
+        const grandTotal = res.grandTotal;
+        const isVictory = res.isVictory;
+        const isGameOver = res.isGameOver;
+
+        const revealPayload: BoardRevealPayload = {
+          roomCode: normalizedCode,
+          type: 'POINTS',
+          slotNumber,
+          column: 2,
+          slot: session.getP2RevealSlot(slotNumber, true),
+          totalScore: grandTotal,
+          p1TotalScore,
+          p2TotalScore,
+          isAllRevealed: session.isAllP2Revealed(),
+          nextActiveSlotNumber: session.getActiveP2RevealSlotNumber(),
+        };
+
+        io.to(`room:${normalizedCode}`).emit('board_reveal', revealPayload);
+        broadcastFastMoneyState(io, session);
+
+        logger.info(
+          `[FAST_MONEY:P2_REVEAL_POINTS] Room ${normalizedCode} Column 2 Slot ${slotNumber} points: ${res.slot.pointsAwarded} (Grand Total: ${grandTotal}, Victory: ${isVictory})`
+        );
+
+        if (isGameOver) {
+          const gameOverPayload: GameOverPayload = {
+            roomCode: normalizedCode,
+            isVictory,
+            p1TotalScore,
+            p2TotalScore,
+            grandTotal,
+            targetScore: 200,
+          };
+
+          io.to(`room:${normalizedCode}`).emit('game_over', gameOverPayload);
+
+          try {
+            await db.game.update({
+              where: { id: session.gameId },
+              data: {
+                status: 'COMPLETED',
+                totalPointsAccumulated: grandTotal,
+              },
+            });
+            await db.room.update({
+              where: { roomCode: normalizedCode },
+              data: { status: 'FINISHED' },
+            });
+            logger.info(
+              `[FAST_MONEY:PERSIST] Completed Game ${session.gameId} in DB with ${grandTotal} points (Victory: ${isVictory})`
+            );
+          } catch (dbErr) {
+            logger.error('[FAST_MONEY:DB_ERROR] Failed to persist completed game status', dbErr);
+          }
+        }
+
+        if (callback) {
+          callback({
+            success: true,
+            slot: revealPayload.slot,
+            totalScore: grandTotal,
+            p1TotalScore,
+            p2TotalScore,
+            isVictory,
+            isGameOver,
+          });
+        }
+      } catch (error: unknown) {
+        logger.error('[FAST_MONEY:ERROR] Error in reveal_p2_points handler', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to reveal points';
+        socket.emit('room_error', { code: 'SERVER_ERROR', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+      }
+    }
+  );
+
+  /**
+   * Scenario 4: Host Requests Match Replay in the Same Room (US-10)
+   */
+  socket.on(
+    'request_replay',
+    async (
+      payload: { roomCode: string; isHost?: boolean },
+      callback?: (res: { success: boolean; error?: string; gameId?: string }) => void
+    ) => {
+      try {
+        const { roomCode } = payload || {};
+        if (!roomCode) {
+          const errMsg = 'roomCode is required';
+          socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(roomCode);
+        const session = getFastMoneySession(normalizedCode);
+
+        if (!session) {
+          const errMsg = 'No active Fast Money session found for this room';
+          socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const isHost = socket.data?.isHost === true || payload.isHost === true;
+        if (!isHost) {
+          const errMsg = 'Only the host display can initiate match replay';
+          socket.emit('room_error', { code: 'UNAUTHORIZED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const room = await db.room.findUnique({
+          where: { roomCode: normalizedCode },
+          include: { players: true },
+        });
+
+        if (!room) {
+          const errMsg = 'Room not found in database';
+          socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        // 1. Create new Game row in MySQL
+        const newGame = await db.game.create({
+          data: {
+            roomId: room.id,
+            mode: room.gameMode,
+            status: 'IN_PROGRESS',
+            currentRound: 1,
+          },
+        });
+
+        // 2. Generate and save 5 fresh questions
+        const questions = await generateAndSaveGameQuestions({
+          gameId: newGame.id,
+          gameMode: room.gameMode,
+          language: room.language,
+          roundNumber: 1,
+          count: 5,
+          prismaClient: db,
+        });
+
+        // 3. Update room status to ACTIVE
+        await db.room.update({
+          where: { id: room.id },
+          data: { status: 'ACTIVE' },
+          include: { players: true },
+        });
+
+        // 4. Map questions and reset session
+        const mappedQuestions: FastMoneyQuestionItem[] = questions.map((q, idx) => ({
+          id: q.id,
+          questionText: q.questionText,
+          orderIndex: q.orderIndex ?? idx,
+          answers: q.answers.map((a) => ({
+            id: a.id,
+            answerText: a.answerText,
+            points: a.points,
+            rankOrder: a.rankOrder,
+          })),
+        }));
+
+        session.resetForReplay(newGame.id, mappedQuestions);
+
+        // 5. Construct payload and broadcast to room
+        const gameStartedPayload = {
+          gameId: newGame.id,
+          roomCode: room.roomCode,
+          gameMode: room.gameMode,
+          language: room.language,
+          currentRound: 1,
+          status: 'IN_PROGRESS',
+          questionCount: questions.length,
+          firstQuestion: {
+            id: questions[0].id,
+            questionText: questions[0].questionText,
+            answerCount: questions[0].answers.length,
+          },
+        };
+
+        io.to(`room:${normalizedCode}`).emit('game_started', gameStartedPayload);
+        io.to(`room:${normalizedCode}`).emit('game_replayed', {
+          roomCode: normalizedCode,
+          gameId: newGame.id,
+        });
+
+        broadcastFastMoneyState(io, session);
+
+        logger.info(
+          `[FAST_MONEY:REPLAY] Replay initiated in room ${normalizedCode} with new game ${newGame.id}`
+        );
+
+        if (callback) callback({ success: true, gameId: newGame.id });
+      } catch (error: unknown) {
+        logger.error('[FAST_MONEY:ERROR] Error in request_replay handler', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to replay match';
+        socket.emit('room_error', { code: 'SERVER_ERROR', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+      }
+    }
+  );
+
 }

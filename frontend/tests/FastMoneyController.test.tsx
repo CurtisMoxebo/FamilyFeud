@@ -602,4 +602,112 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
       expect(onClearDuplicateWarning).toHaveBeenCalled();
     });
   });
+
+  describe('US-10: Player Mobile Views (P2 Reveal Spectator, Victory & Defeat)', () => {
+    it('satisfies Scenario 1: renders P2_REVEAL spectator screen with grand total and locked notice', () => {
+      const p2RevealSnapshot: any = {
+        phase: 'P2_REVEAL',
+        grandTotal: 145,
+        totalScore: 145,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={p2RevealSnapshot}
+          playerNumber={1}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('p2-reveal-spectator-screen')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Look up at the host TV screen to watch Player 2's answers and points revealed!/i)
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('player-reveal-grand-total')).toHaveTextContent('145');
+      expect(screen.getByTestId('fast-money-locked-notice')).toBeInTheDocument();
+    });
+
+    it('satisfies Scenario 2: renders victory celebratory screen when grandTotal >= 200 and vibrates device', () => {
+      const vibrateSpy = vi.fn();
+      vi.stubGlobal('navigator', { vibrate: vibrateSpy });
+
+      const victorySnapshot: any = {
+        phase: 'GAME_OVER',
+        isVictory: true,
+        grandTotal: 215,
+        p1TotalScore: 130,
+        p2TotalScore: 85,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={victorySnapshot}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('fast-money-game-over-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('player-victory-view')).toBeInTheDocument();
+      expect(screen.getByTestId('player-final-score')).toHaveTextContent('215');
+      expect(screen.getByText(/P1:/i)).toBeInTheDocument();
+      expect(screen.getByText(/P2:/i)).toBeInTheDocument();
+      expect(screen.getByTestId('player-waiting-replay-notice')).toBeInTheDocument();
+      expect(vibrateSpy).toHaveBeenCalledWith([100, 50, 100, 50, 200]);
+    });
+
+    it('satisfies Scenario 3: renders defeat screen when grandTotal < 200 and game concludes', () => {
+      const defeatSnapshot: any = {
+        phase: 'GAME_OVER',
+        isVictory: false,
+        grandTotal: 175,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={defeatSnapshot}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('fast-money-game-over-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('player-defeat-view')).toBeInTheDocument();
+      expect(screen.getByTestId('player-final-score')).toHaveTextContent('175');
+      expect(screen.getByTestId('player-waiting-replay-notice')).toBeInTheDocument();
+    });
+
+    it('satisfies Scenario 2 with gameOver prop override: displays victory payload dynamically', () => {
+      const playingSnapshot: any = {
+        phase: 'P2_PLAYING',
+        remainingSeconds: 10,
+      };
+      const gameOverPayload = {
+        roomCode: 'FEUD-TEST',
+        isVictory: true,
+        p1TotalScore: 120,
+        p2TotalScore: 85,
+        grandTotal: 205,
+        targetScore: 200,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          gameOver={gameOverPayload}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('fast-money-game-over-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('player-victory-view')).toBeInTheDocument();
+      expect(screen.getByTestId('player-final-score')).toHaveTextContent('205');
+    });
+  });
 });

@@ -1,12 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
+import confetti from 'canvas-confetti';
 import {
   HostStateSnapshot,
   TimerTickPayload,
   FastMoneyRevealSlot,
   DuplicateAnswerWarningPayload,
+  GameOverPayload,
 } from '../types';
-import { speakQuestion, speakDuplicateAlert } from '../utils/tts';
-import { playDing, playPointsChime, playBuzzerBlip, playDuplicateWarning } from '../utils/soundEffects';
+import {
+  speakQuestion,
+  speakDuplicateAlert,
+  speakVictory,
+  speakDefeat,
+} from '../utils/tts';
+import {
+  playDing,
+  playPointsChime,
+  playBuzzerBlip,
+  playDuplicateWarning,
+  playVictoryFanfare,
+  playDefeatSound,
+} from '../utils/soundEffects';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
   Timer,
@@ -21,12 +35,16 @@ import {
   ChevronRight,
   UserCheck,
   AlertTriangle,
+  RotateCcw,
+  Loader2,
+  Award,
 } from 'lucide-react';
 
 export interface FastMoneyHostBoardProps {
   snapshot?: HostStateSnapshot | null;
   timerTick?: TimerTickPayload | null;
   duplicateWarning?: DuplicateAnswerWarningPayload | null;
+  gameOver?: GameOverPayload | null;
   language?: string;
   roomName?: string;
   roomCode?: string;
@@ -35,12 +53,17 @@ export interface FastMoneyHostBoardProps {
   onRevealAnswer?: (slotNumber: number) => void;
   onRevealPoints?: (slotNumber: number) => void;
   onStartReveal?: () => void;
+  onStartP2Reveal?: () => void;
+  onRevealP2Answer?: (slotNumber: number) => void;
+  onRevealP2Points?: (slotNumber: number) => void;
+  onReplay?: () => void;
 }
 
 export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   snapshot = null,
   timerTick = null,
   duplicateWarning = null,
+  gameOver = null,
   language = 'EN',
   roomName = 'Family Feud',
   roomCode = '',
@@ -49,25 +72,37 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   onRevealAnswer,
   onRevealPoints,
   onStartReveal,
+  onStartP2Reveal,
+  onRevealP2Answer,
+  onRevealP2Points,
+  onReplay,
 }) => {
   const { t } = useTranslation();
   const [audioEnabled, setAudioEnabled] = useState<boolean>(enableSFX || enableTTS);
   const isInitialMountRef = useRef<boolean>(true);
+  const isP2InitialMountRef = useRef<boolean>(true);
   const [isAutoPacing, setIsAutoPacing] = useState<boolean>(false);
+  const [isAutoPacingP2, setIsAutoPacingP2] = useState<boolean>(false);
   const [activeWarning, setActiveWarning] = useState<DuplicateAnswerWarningPayload | null>(null);
+  const [isReplaying, setIsReplaying] = useState<boolean>(false);
 
   const lastSpokenQuestionRef = useRef<string | null>(null);
   const lastSpokenRevealSlotRef = useRef<number | null>(null);
+  const lastSpokenP2RevealSlotRef = useRef<number | null>(null);
   const prevRevealStatesRef = useRef<Map<number, { answer: boolean; points: boolean }>>(new Map());
+  const prevP2RevealStatesRef = useRef<Map<number, { answer: boolean; points: boolean }>>(new Map());
   const autoPacingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasHandledGameOverRef = useRef<boolean>(false);
 
   const phase = snapshot?.phase ?? 'P1_READY';
-  const isP2Playing = phase === 'P2_PLAYING';
-  const isP2SpeedRound = phase === 'P2_PLAYING' || phase === 'P2_FINISHED';
-  const isRevealPhase = phase === 'P1_REVEAL';
+  const isP1RevealPhase = phase === 'P1_REVEAL';
+  const isP2RevealPhase = phase === 'P2_REVEAL';
   const isReadyForP2 = phase === 'P2_READY';
-  const isRevealOrP2 = isRevealPhase || isReadyForP2;
+  const isP2Playing = phase === 'P2_PLAYING';
+  const isP2Finished = phase === 'P2_FINISHED';
+  const isP2SpeedRound = isP2Playing || isP2Finished;
+  const isGameOver = phase === 'GAME_OVER' || !!gameOver;
 
   const remainingSeconds =
     timerTick && typeof timerTick.secondsRemaining === 'number'
@@ -77,11 +112,8 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   const currentQuestionText = snapshot?.currentQuestionText ?? null;
   const activeNumber = snapshot?.activeQuestionNumber ?? 1;
 
-  const totalScore = snapshot?.totalScore ?? 0;
-  const activeRevealSlotNumber = snapshot?.activeRevealSlotNumber ?? (isReadyForP2 ? null : 1);
-
   // Fallback 5 reveal slots if not loaded from snapshot
-  const revealSlots: FastMoneyRevealSlot[] = snapshot?.revealSlots ?? [
+  const defaultSlots: FastMoneyRevealSlot[] = [
     {
       slotNumber: 1,
       questionId: 'q-1',
@@ -134,13 +166,38 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     },
   ];
 
-  // Player 1 slots for dual-column view
-  const p1Slots: FastMoneyRevealSlot[] = snapshot?.p1Slots ?? snapshot?.revealSlots ?? revealSlots;
+  const p1Slots: FastMoneyRevealSlot[] =
+    snapshot?.p1Slots ?? snapshot?.revealSlots ?? defaultSlots;
+  const p2Slots: FastMoneyRevealSlot[] =
+    snapshot?.p2Slots ?? snapshot?.revealSlots ?? defaultSlots;
 
-  // Current active slot object in reveal mode
+  // Active slot tracking for P1 Reveal
+  const activeRevealSlotNumber = snapshot?.activeRevealSlotNumber ?? (isReadyForP2 ? null : 1);
   const activeRevealSlot =
-    revealSlots.find((s) => s.slotNumber === activeRevealSlotNumber) ??
-    (revealSlots.length > 0 ? revealSlots[0] : null);
+    p1Slots.find((s) => s.slotNumber === activeRevealSlotNumber) ??
+    (p1Slots.length > 0 ? p1Slots[0] : null);
+
+  // Active slot tracking for P2 Reveal
+  const activeP2RevealSlotNumber =
+    snapshot?.activeRevealSlotNumber ??
+    p2Slots.find((s) => !s.isPointsRevealed)?.slotNumber ??
+    null;
+  const activeP2RevealSlot =
+    p2Slots.find((s) => s.slotNumber === activeP2RevealSlotNumber) ??
+    (p2Slots.length > 0 ? p2Slots[0] : null);
+
+  // Score Calculations
+  const p1TotalScore = snapshot?.p1TotalScore ?? snapshot?.totalScore ?? 0;
+  const p2TotalScore = snapshot?.p2TotalScore ?? 0;
+  const grandTotal =
+    gameOver?.grandTotal ??
+    snapshot?.grandTotal ??
+    (p1TotalScore + p2TotalScore);
+  const totalScore = isP2RevealPhase || isGameOver ? grandTotal : snapshot?.totalScore ?? p1TotalScore;
+
+  const isVictory = gameOver
+    ? gameOver.isVictory
+    : snapshot?.isVictory ?? grandTotal >= 200;
 
   // 1. Speak question via TTS during P1_PLAYING and P2_PLAYING (US-07 & US-09 Scenario 1)
   useEffect(() => {
@@ -179,12 +236,12 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }
   }, [duplicateWarning, enableSFX, enableTTS, audioEnabled, language]);
 
-  // 3. Speak question via TTS when new slot begins in P1_REVEAL (Scenario 1)
+  // 3. Speak question via TTS when new slot begins in P1_REVEAL (US-08 Scenario 1)
   useEffect(() => {
     if (
       enableTTS &&
       audioEnabled &&
-      isRevealPhase &&
+      isP1RevealPhase &&
       activeRevealSlotNumber !== null &&
       activeRevealSlotNumber !== lastSpokenRevealSlotRef.current &&
       activeRevealSlot
@@ -195,15 +252,33 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
         language
       );
     }
-  }, [activeRevealSlotNumber, isRevealPhase, activeRevealSlot, language, enableTTS, audioEnabled]);
+  }, [activeRevealSlotNumber, isP1RevealPhase, activeRevealSlot, language, enableTTS, audioEnabled]);
 
-  // 4. Play Synchronized Sound Effects on Reveal Flips (Scenario 1 & 2)
+  // 4. Speak question via TTS when new slot begins in P2_REVEAL (US-10 Scenario 1)
   useEffect(() => {
-    if (!isRevealOrP2) return;
+    if (
+      enableTTS &&
+      audioEnabled &&
+      isP2RevealPhase &&
+      activeP2RevealSlotNumber !== null &&
+      activeP2RevealSlotNumber !== lastSpokenP2RevealSlotRef.current &&
+      activeP2RevealSlot
+    ) {
+      lastSpokenP2RevealSlotRef.current = activeP2RevealSlotNumber;
+      speakQuestion(
+        `Question ${activeP2RevealSlotNumber}: ${activeP2RevealSlot.questionText}`,
+        language
+      );
+    }
+  }, [activeP2RevealSlotNumber, isP2RevealPhase, activeP2RevealSlot, language, enableTTS, audioEnabled]);
+
+  // 5. Play Synchronized Sound Effects on P1 Reveal Flips
+  useEffect(() => {
+    if (!isP1RevealPhase && !isReadyForP2) return;
 
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
-      revealSlots.forEach((slot) => {
+      p1Slots.forEach((slot) => {
         prevRevealStatesRef.current.set(slot.slotNumber, {
           answer: slot.isAnswerRevealed,
           points: slot.isPointsRevealed,
@@ -212,7 +287,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       return;
     }
 
-    revealSlots.forEach((slot) => {
+    p1Slots.forEach((slot) => {
       const prev = prevRevealStatesRef.current.get(slot.slotNumber);
 
       // Answer just revealed -> Play Ding
@@ -233,34 +308,126 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
         }
       }
 
-      // Update ref state
       prevRevealStatesRef.current.set(slot.slotNumber, {
         answer: slot.isAnswerRevealed,
         points: slot.isPointsRevealed,
       });
     });
-  }, [revealSlots, isRevealOrP2, enableSFX, audioEnabled]);
+  }, [p1Slots, isP1RevealPhase, isReadyForP2, enableSFX, audioEnabled]);
 
-  // 5. Auto-Pacing Execution Engine with 1.5-Second Suspense Pause (Scenario 1 & DoD)
+  // 6. Play Synchronized Sound Effects on P2 Reveal Flips (US-10 Scenario 1)
   useEffect(() => {
-    if (!isAutoPacing || !isRevealPhase || !activeRevealSlotNumber) {
+    if (!isP2RevealPhase && !isGameOver) return;
+
+    if (isP2InitialMountRef.current) {
+      isP2InitialMountRef.current = false;
+      p2Slots.forEach((slot) => {
+        prevP2RevealStatesRef.current.set(slot.slotNumber, {
+          answer: slot.isAnswerRevealed,
+          points: slot.isPointsRevealed,
+        });
+      });
+      return;
+    }
+
+    p2Slots.forEach((slot) => {
+      const prev = prevP2RevealStatesRef.current.get(slot.slotNumber);
+
+      if (slot.isAnswerRevealed && (!prev || !prev.answer)) {
+        if (enableSFX && audioEnabled) {
+          playDing();
+        }
+      }
+
+      if (slot.isPointsRevealed && (!prev || !prev.points)) {
+        if (enableSFX && audioEnabled) {
+          if (slot.pointsAwarded > 0) {
+            playPointsChime();
+          } else {
+            playBuzzerBlip();
+          }
+        }
+      }
+
+      prevP2RevealStatesRef.current.set(slot.slotNumber, {
+        answer: slot.isAnswerRevealed,
+        points: slot.isPointsRevealed,
+      });
+    });
+  }, [p2Slots, isP2RevealPhase, isGameOver, enableSFX, audioEnabled]);
+
+  // 7. Victory Fanfare, Confetti, and Defeat Sounds (US-10 Scenario 2 & 3)
+  useEffect(() => {
+    if (isGameOver && !hasHandledGameOverRef.current) {
+      hasHandledGameOverRef.current = true;
+
+      if (isVictory) {
+        // Victory Fanfare & TTS
+        if (enableSFX && audioEnabled) {
+          playVictoryFanfare();
+        }
+        if (enableTTS && audioEnabled) {
+          speakVictory(language);
+        }
+
+        // Spectacular Confetti Bursts via canvas-confetti
+        try {
+          confetti({
+            particleCount: 150,
+            spread: 80,
+            origin: { y: 0.6 },
+            colors: ['#f59e0b', '#fbbf24', '#3b82f6', '#10b981', '#ef4444', '#ec4899'],
+          });
+
+          setTimeout(() => {
+            confetti({
+              particleCount: 80,
+              angle: 60,
+              spread: 55,
+              origin: { x: 0 },
+            });
+            confetti({
+              particleCount: 80,
+              angle: 120,
+              spread: 55,
+              origin: { x: 1 },
+            });
+          }, 350);
+        } catch {
+          // Safe fallback for virtual / non-canvas DOM environments
+        }
+      } else {
+        // Defeat Sound & TTS
+        if (enableSFX && audioEnabled) {
+          playDefeatSound();
+        }
+        if (enableTTS && audioEnabled) {
+          speakDefeat(language, grandTotal);
+        }
+      }
+    } else if (!isGameOver) {
+      hasHandledGameOverRef.current = false;
+      setIsReplaying(false);
+    }
+  }, [isGameOver, isVictory, grandTotal, enableSFX, enableTTS, audioEnabled, language]);
+
+  // 8. Auto-Pacing Execution Engine for P1 Reveal
+  useEffect(() => {
+    if (!isAutoPacing || !isP1RevealPhase || !activeRevealSlotNumber) {
       if (autoPacingTimeoutRef.current) {
         clearTimeout(autoPacingTimeoutRef.current);
       }
       return;
     }
 
-    const currentSlot = revealSlots.find((s) => s.slotNumber === activeRevealSlotNumber);
+    const currentSlot = p1Slots.find((s) => s.slotNumber === activeRevealSlotNumber);
     if (!currentSlot) return;
 
-    // If answer is hidden: pause 1.2s for question reading, then reveal answer
     if (!currentSlot.isAnswerRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
         onRevealAnswer?.(activeRevealSlotNumber);
       }, 1200);
-    }
-    // If answer revealed but points hidden: suspense pause 1.5s, then reveal points (Scenario 1)
-    else if (!currentSlot.isPointsRevealed) {
+    } else if (!currentSlot.isPointsRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
         onRevealPoints?.(activeRevealSlotNumber);
       }, 1500);
@@ -271,33 +438,72 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
         clearTimeout(autoPacingTimeoutRef.current);
       }
     };
+  }, [isAutoPacing, isP1RevealPhase, activeRevealSlotNumber, p1Slots, onRevealAnswer, onRevealPoints]);
+
+  // 9. Auto-Pacing Execution Engine for P2 Reveal with 1.5s Suspense Pause (US-10 Scenario 1)
+  useEffect(() => {
+    if (!isAutoPacingP2 || !isP2RevealPhase || !activeP2RevealSlotNumber) {
+      return;
+    }
+
+    const currentSlot = p2Slots.find((s) => s.slotNumber === activeP2RevealSlotNumber);
+    if (!currentSlot) return;
+
+    if (!currentSlot.isAnswerRevealed) {
+      autoPacingTimeoutRef.current = setTimeout(() => {
+        onRevealP2Answer?.(activeP2RevealSlotNumber);
+      }, 1200);
+    } else if (!currentSlot.isPointsRevealed) {
+      autoPacingTimeoutRef.current = setTimeout(() => {
+        onRevealP2Points?.(activeP2RevealSlotNumber);
+      }, 1500);
+    }
+
+    return () => {
+      if (autoPacingTimeoutRef.current) {
+        clearTimeout(autoPacingTimeoutRef.current);
+      }
+    };
   }, [
-    isAutoPacing,
-    isRevealPhase,
-    activeRevealSlotNumber,
-    revealSlots,
-    onRevealAnswer,
-    onRevealPoints,
+    isAutoPacingP2,
+    isP2RevealPhase,
+    activeP2RevealSlotNumber,
+    p2Slots,
+    onRevealP2Answer,
+    onRevealP2Points,
   ]);
 
-  // Turn finished but reveal not yet started -> Trigger reveal phase
   const handleStartRevealClick = () => {
     if (onStartReveal) {
       onStartReveal();
     }
   };
 
-  // Timer style for P1_PLAYING and P2_PLAYING
+  const handleStartP2RevealClick = () => {
+    if (onStartP2Reveal) {
+      onStartP2Reveal();
+    }
+  };
+
+  const handleReplayClick = () => {
+    if (onReplay && !isReplaying) {
+      setIsReplaying(true);
+      onReplay();
+    }
+  };
+
   const getTimerStyle = () => {
     if (remainingSeconds > 30) return 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40';
     if (remainingSeconds > 10) return 'text-amber-400 border-amber-500/40 bg-amber-950/40';
     return 'text-feud-red border-red-500/50 bg-red-950/60 animate-pulse';
   };
 
+  const isDualColumnView = isP2SpeedRound || isP2RevealPhase || isGameOver;
+
   return (
     <div
       data-testid="fast-money-host-board"
-      className="w-full max-w-4xl flex flex-col items-center gap-6 animate-fade-in"
+      className="w-full max-w-5xl flex flex-col items-center gap-6 animate-fade-in"
     >
       {/* Top TV Scoreboard Header */}
       <div className="w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">
@@ -309,7 +515,13 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-widest text-feud-gold px-2.5 py-0.5 rounded-full bg-feud-gold/10 border border-feud-gold/20">
-                  {isRevealOrP2
+                  {isGameOver
+                    ? isVictory
+                      ? 'Fast Money Victory'
+                      : 'Match Defeat'
+                    : isP2RevealPhase
+                    ? t.fastMoney.p2RevealPhaseTitle
+                    : isP1RevealPhase || isReadyForP2
                     ? t.fastMoney.revealPhaseTitle
                     : isP2SpeedRound
                     ? t.fastMoney.p2SpeedRoundTitle
@@ -333,9 +545,8 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
             </div>
           </div>
 
-          {/* Right Header Area: Total Score (Reveal) or Authoritative Countdown Clock */}
+          {/* Right Header Area: Total Score (Reveal/Game Over) or Countdown Clock */}
           <div className="flex items-center gap-3">
-            {/* Audio Toggle Button */}
             <button
               type="button"
               onClick={() => setAudioEnabled(!audioEnabled)}
@@ -350,20 +561,30 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               )}
             </button>
 
-            {isRevealOrP2 ? (
-              /* Real-Time Cumulative Round Total Score Counter */
+            {isP1RevealPhase || isReadyForP2 || isP2RevealPhase || isGameOver ? (
+              /* Cumulative Score Display with Target Indicator */
               <div
                 data-testid="fast-money-total-score"
-                className="flex items-center gap-2.5 px-6 py-3 rounded-2xl border border-feud-gold/50 bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/60 text-feud-gold font-black font-game text-3xl sm:text-4xl tracking-wider shadow-lg shadow-feud-gold/10 transition-all"
+                className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl border font-black font-game text-3xl sm:text-4xl tracking-wider shadow-lg transition-all ${
+                  isGameOver && isVictory
+                    ? 'border-yellow-400 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.6)] animate-pulse'
+                    : 'border-feud-gold/50 bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/60 text-feud-gold shadow-feud-gold/10'
+                }`}
               >
-                <Trophy className="w-7 h-7 text-feud-gold shrink-0 animate-bounce" />
+                <Trophy
+                  className={`w-7 h-7 shrink-0 ${
+                    isGameOver && isVictory
+                      ? 'text-slate-950 fill-current animate-bounce'
+                      : 'text-feud-gold'
+                  }`}
+                />
                 <span data-testid="host-total-score-digits">{totalScore}</span>
-                <span className="text-xs font-bold uppercase tracking-widest text-feud-gold/80 ml-1">
-                  PTS
+                <span className="text-xs font-bold uppercase tracking-widest opacity-80 ml-1">
+                  / 200 PTS
                 </span>
               </div>
             ) : (
-              /* Synchronized Authoritative 60s (P1) or 75s (P2) Clock */
+              /* Synchronized 60s (P1) or 75s (P2) Clock */
               <div
                 data-testid="fast-money-host-timer"
                 className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl border font-black font-game text-3xl sm:text-4xl tracking-wider transition-colors shadow-lg ${getTimerStyle()}`}
@@ -380,8 +601,14 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-feud-gold/20 border border-feud-gold/30 text-feud-gold text-xs font-extrabold uppercase tracking-widest mb-2">
             <Sparkles className="w-3.5 h-3.5" />
             <span>
-              {isRevealPhase
-                ? `Reveal Slot #${activeRevealSlotNumber ?? 1}`
+              {isGameOver
+                ? isVictory
+                  ? 'Victory Celebration'
+                  : 'Game Over'
+                : isP2RevealPhase
+                ? `Player 2 Reveal • Slot #${activeP2RevealSlotNumber ?? 1}`
+                : isP1RevealPhase
+                ? `Player 1 Reveal • Slot #${activeRevealSlotNumber ?? 1}`
                 : isReadyForP2
                 ? 'Player 1 Complete'
                 : isP2Playing
@@ -394,21 +621,27 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
             data-testid="fast-money-host-question"
             className="text-xl sm:text-2xl font-black text-white leading-snug drop-shadow min-h-[3rem] flex items-center justify-center"
           >
-            {phase === 'P1_READY'
+            {isGameOver
+              ? isVictory
+                ? t.fastMoney.victoryTitle
+                : t.fastMoney.defeatSubtitle.replace('{score}', String(grandTotal))
+              : phase === 'P1_READY'
               ? "Waiting for Player 1 to press 'I'm Ready!'..."
               : phase === 'P1_FINISHED'
               ? 'Player 1 Speed Round Complete! Click "Start Reveal" below.'
               : isReadyForP2
               ? 'Player 1 Reveal Sequence Complete! Ready for Player 2.'
               : phase === 'P2_FINISHED'
-              ? 'Player 2 Speed Round Complete!'
-              : isRevealPhase && activeRevealSlot
+              ? 'Player 2 Speed Round Complete! Click "Start Player 2 Reveal" below.'
+              : isP2RevealPhase && activeP2RevealSlot
+              ? activeP2RevealSlot.questionText
+              : isP1RevealPhase && activeRevealSlot
               ? activeRevealSlot.questionText
               : currentQuestionText || 'Loading question...'}
           </h2>
         </div>
 
-        {/* US-09 Scenario 2: Duplicate Answer Warning Visual Alert Banner */}
+        {/* Duplicate Answer Warning Banner */}
         {activeWarning && (
           <div
             data-testid="host-duplicate-warning-banner"
@@ -428,36 +661,92 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
             )}
           </div>
         )}
+
+        {/* US-10 Scenario 2: Immediate Victory Celebratory Banner */}
+        {isGameOver && isVictory && (
+          <div
+            data-testid="host-victory-banner"
+            className="mt-6 p-6 rounded-3xl bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border-2 border-feud-gold text-center animate-fade-in shadow-[0_0_40px_rgba(245,158,11,0.4)]"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-feud-gold text-slate-950 font-black text-xs uppercase tracking-widest mb-3 shadow-md">
+              <Award className="w-4 h-4" />
+              <span>Fast Money Champions</span>
+            </div>
+            <h3 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-feud-gold to-amber-200">
+              {t.fastMoney.victoryTitle}
+            </h3>
+            <p className="text-slate-200 text-sm sm:text-base font-semibold mt-2 max-w-xl mx-auto">
+              {t.fastMoney.victorySubtitle}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
+              <span className="px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-700">
+                Player 1: <strong className="text-feud-gold">{p1TotalScore} pts</strong>
+              </span>
+              <span>+</span>
+              <span className="px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-700">
+                Player 2: <strong className="text-blue-400">{p2TotalScore} pts</strong>
+              </span>
+              <span>=</span>
+              <span className="px-3.5 py-1 rounded-lg bg-feud-gold/20 border border-feud-gold/40 text-feud-gold font-extrabold text-sm">
+                Grand Total: {grandTotal} pts
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* US-10 Scenario 3: Defeat Summary Banner (< 200 Points) */}
+        {isGameOver && !isVictory && (
+          <div
+            data-testid="host-defeat-banner"
+            className="mt-6 p-6 rounded-3xl bg-gradient-to-r from-red-950/40 via-slate-900 to-red-950/40 border border-red-500/40 text-center animate-fade-in shadow-xl"
+          >
+            <h3 className="text-2xl sm:text-3xl font-black text-red-400 uppercase tracking-wider">
+              {t.fastMoney.defeatTitle}
+            </h3>
+            <p className="text-slate-300 text-base font-semibold mt-1">
+              {t.fastMoney.defeatSubtitle.replace('{score}', String(grandTotal))}
+            </p>
+            <div className="mt-3 text-xs font-mono font-bold text-slate-400">
+              Player 1 ({p1TotalScore} pts) + Player 2 ({p2TotalScore} pts) = {grandTotal} / 200 pts
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Answer & Point Slots Board */}
       <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">
-        {/* Dual-Column Layout for Player 2 Speed Round (US-09) */}
-        {isP2SpeedRound ? (
+        {/* Dual-Column Layout for Player 2 Speed Round, Reveal, and Game Over */}
+        {isDualColumnView ? (
           <div>
             <div className="flex items-center justify-between border-b border-feud-slate-border/80 pb-4 mb-6">
               <h3 className="text-lg font-black uppercase tracking-wider text-slate-200">
-                Fast Money Dual Column Board
+                {isGameOver
+                  ? 'Final Match Results'
+                  : isP2RevealPhase
+                  ? t.fastMoney.p2RevealPhaseTitle
+                  : 'Fast Money Dual Column Board'}
               </h3>
-              <div className="text-xs font-bold uppercase tracking-wider text-blue-400">
-                Player 2 Speed Round: {snapshot?.answeredCount ?? 0} / 5 Answered
+              <div className="text-xs font-bold uppercase tracking-wider text-feud-gold">
+                {isP2RevealPhase
+                  ? `Player 2: ${p2Slots.filter((s) => s.isPointsRevealed).length} / 5 Revealed`
+                  : isGameOver
+                  ? `Match Completed • ${grandTotal} pts`
+                  : `Player 2 Speed Round: ${snapshot?.answeredCount ?? 0} / 5 Answered`}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Left Column: Player 1 Revealed Board */}
               <div className="flex flex-col gap-3 p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-bold uppercase tracking-wider">
-                  <span className="text-feud-gold font-extrabold">Player 1</span>
-                  <span className="text-feud-gold">
-                    {snapshot?.p1TotalScore ?? totalScore} PTS
-                  </span>
+                  <span className="text-feud-gold font-extrabold">{t.fastMoney.p1ColumnTitle}</span>
+                  <span className="text-feud-gold">{p1TotalScore} PTS</span>
                 </div>
                 {p1Slots.map((slot) => (
                   <div
                     key={`p1-${slot.slotNumber}`}
                     data-testid={`host-p1-slot-${slot.slotNumber}`}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-800/80 bg-slate-900/60"
+                    className="flex items-center justify-between p-3.5 rounded-xl border border-slate-800/80 bg-slate-900/60"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 mr-2">
                       <span className="w-7 h-7 rounded-lg bg-slate-800 text-feud-gold text-xs font-black flex items-center justify-center shrink-0">
@@ -476,45 +765,79 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                 ))}
               </div>
 
-              {/* Right Column: Player 2 Speed Round Slots (Concealed) */}
-              <div className="flex flex-col gap-3 p-4 rounded-2xl bg-slate-950/60 border border-blue-500/30 shadow-lg shadow-blue-500/5">
+              {/* Right Column: Player 2 Slots (Playing, Reveal, or Game Over) */}
+              <div
+                className={`flex flex-col gap-3 p-4 rounded-2xl bg-slate-950/60 border transition-all ${
+                  isP2RevealPhase
+                    ? 'border-blue-500/50 shadow-lg shadow-blue-500/10'
+                    : 'border-blue-500/30'
+                }`}
+              >
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs font-bold uppercase tracking-wider">
-                  <span className="text-blue-400 font-extrabold">Player 2</span>
-                  <span className="text-slate-400">
-                    {snapshot?.answeredCount ?? 0} / 5 Answered
+                  <span className="text-blue-400 font-extrabold">{t.fastMoney.p2ColumnTitle}</span>
+                  <span className="text-blue-400">
+                    {isP2RevealPhase || isGameOver
+                      ? `${p2TotalScore} PTS`
+                      : `${snapshot?.answeredCount ?? 0} / 5 Answered`}
                   </span>
                 </div>
-                {revealSlots.map((slot) => {
+
+                {p2Slots.map((slot) => {
                   const isPlayingActive =
                     phase === 'P2_PLAYING' && activeNumber === slot.slotNumber;
+                  const isRevealActive =
+                    isP2RevealPhase && activeP2RevealSlotNumber === slot.slotNumber;
                   const isFilled =
                     snapshot?.slots?.[slot.slotNumber - 1]?.isFilled ?? false;
 
                   return (
                     <div
-                      key={slot.slotNumber}
+                      key={`p2-${slot.slotNumber}`}
                       data-testid={`fast-money-slot-${slot.slotNumber}`}
-                      className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all duration-300 ${
-                        isPlayingActive
-                          ? 'border-blue-400 bg-slate-800/90 shadow-[0_0_15px_rgba(96,165,250,0.3)] scale-[1.01]'
+                      className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition-all duration-300 ${
+                        isRevealActive
+                          ? 'border-blue-400 bg-slate-800/90 shadow-[0_0_20px_rgba(96,165,250,0.35)] scale-[1.01]'
+                          : isPlayingActive
+                          ? 'border-blue-400 bg-slate-800/90 shadow-[0_0_15px_rgba(96,165,250,0.3)]'
                           : 'border-slate-800 bg-slate-900/70'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 mr-2">
                         <span
                           className={`w-7 h-7 rounded-lg font-black text-xs flex items-center justify-center shrink-0 ${
-                            isPlayingActive
-                              ? 'bg-blue-500 text-white'
+                            isRevealActive || isPlayingActive
+                              ? 'bg-blue-500 text-white shadow'
                               : 'bg-slate-800 text-blue-400'
                           }`}
                         >
                           {slot.slotNumber}
                         </span>
+
                         <div
                           data-testid={`fast-money-slot-status-${slot.slotNumber}`}
                           className="font-mono text-sm tracking-wider font-bold truncate"
                         >
-                          {isFilled ? (
+                          {isP2RevealPhase || isGameOver ? (
+                            slot.isAnswerRevealed ? (
+                              <span
+                                data-testid={`revealed-answer-${slot.slotNumber}`}
+                                className="text-white font-extrabold uppercase tracking-wide text-base drop-shadow"
+                              >
+                                {slot.rawAnswer || (
+                                  <span className="text-slate-500 italic">
+                                    {t.fastMoney.noAnswer}
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span
+                                data-testid={`unrevealed-answer-${slot.slotNumber}`}
+                                className="text-slate-600 select-none tracking-widest"
+                              >
+                                — — — — — — — — — —
+                              </span>
+                            )
+                          ) : isFilled ? (
                             <span
                               data-testid={`fast-money-slot-filled-${slot.slotNumber}`}
                               className="inline-flex items-center gap-1.5 text-emerald-400"
@@ -532,11 +855,30 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                           )}
                         </div>
                       </div>
+
                       <div
                         data-testid={`revealed-points-box-${slot.slotNumber}`}
-                        className="w-12 h-8 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center font-game font-black text-sm text-slate-600"
+                        className={`w-14 h-8 rounded-lg border flex items-center justify-center font-game font-black text-sm select-none transition-all ${
+                          slot.isPointsRevealed
+                            ? slot.pointsAwarded > 0
+                              ? 'bg-gradient-to-tr from-blue-600 to-cyan-400 text-slate-950 border-cyan-300 shadow-[0_0_10px_rgba(56,189,248,0.5)]'
+                              : 'bg-slate-900 border-red-500/50 text-red-400'
+                            : 'border-slate-800 bg-slate-950 text-slate-600'
+                        }`}
                       >
-                        {isFilled ? '--' : ''}
+                        {isP2RevealPhase || isGameOver ? (
+                          slot.isPointsRevealed ? (
+                            <span data-testid={`points-val-${slot.slotNumber}`}>
+                              {slot.pointsAwarded}
+                            </span>
+                          ) : (
+                            '--'
+                          )
+                        ) : isFilled ? (
+                          '--'
+                        ) : (
+                          ''
+                        )}
                       </div>
                     </div>
                   );
@@ -549,19 +891,18 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
           <div>
             <div className="flex items-center justify-between border-b border-feud-slate-border/80 pb-4 mb-6">
               <h3 className="text-lg font-black uppercase tracking-wider text-slate-200">
-                {isRevealOrP2 ? 'Player 1 Reveal Board' : 'Player 1 Board (Answers Concealed)'}
+                {isP1RevealPhase ? 'Player 1 Reveal Board' : 'Player 1 Board (Answers Concealed)'}
               </h3>
               <div className="text-xs font-bold uppercase tracking-wider text-feud-gold">
-                {isRevealOrP2
-                  ? `${revealSlots.filter((s) => s.isPointsRevealed).length} / 5 Revealed`
+                {isP1RevealPhase
+                  ? `${p1Slots.filter((s) => s.isPointsRevealed).length} / 5 Revealed`
                   : `${snapshot?.answeredCount ?? 0} / 5 Answered`}
               </div>
             </div>
 
-            {/* The 5 Slot Grid with 3D Flip Card Aesthetics */}
             <div className="flex flex-col gap-3">
-              {revealSlots.map((slot) => {
-                const isActive = isRevealPhase && activeRevealSlotNumber === slot.slotNumber;
+              {p1Slots.map((slot) => {
+                const isActive = isP1RevealPhase && activeRevealSlotNumber === slot.slotNumber;
                 const isPlayingActive =
                   phase === 'P1_PLAYING' && activeNumber === slot.slotNumber;
 
@@ -577,7 +918,6 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                         : 'border-slate-800 bg-slate-900/70'
                     }`}
                   >
-                    {/* Slot Number & Raw Contestant Answer Box */}
                     <div className="flex items-center gap-3.5 min-w-0 flex-1 mr-4">
                       <span
                         className={`w-9 h-9 rounded-xl border font-black text-sm flex items-center justify-center shrink-0 ${
@@ -589,12 +929,11 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                         {slot.slotNumber}
                       </span>
 
-                      {/* Contestant Answer Text */}
                       <div
                         data-testid={`fast-money-slot-status-${slot.slotNumber}`}
                         className="font-mono text-base tracking-wider font-bold truncate"
                       >
-                        {isRevealOrP2 ? (
+                        {isP1RevealPhase || isReadyForP2 ? (
                           slot.isAnswerRevealed ? (
                             <span
                               data-testid={`revealed-answer-${slot.slotNumber}`}
@@ -633,7 +972,6 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                       </div>
                     </div>
 
-                    {/* Point Value Box */}
                     <div
                       data-testid={`revealed-points-box-${slot.slotNumber}`}
                       className={`w-16 h-11 rounded-xl border flex items-center justify-center font-game font-black text-lg select-none shadow-inner transition-all ${
@@ -644,7 +982,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                           : 'bg-slate-950 border-slate-800 text-slate-600'
                       }`}
                     >
-                      {isRevealOrP2 ? (
+                      {isP1RevealPhase || isReadyForP2 ? (
                         slot.isPointsRevealed ? (
                           <span data-testid={`points-val-${slot.slotNumber}`}>
                             {slot.pointsAwarded}
@@ -665,13 +1003,12 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
           </div>
         )}
 
-        {/* Host Pacing Controls & Auto-Pacing Mode */}
-        {isRevealPhase && (
+        {/* P1 Reveal Pacing Controls */}
+        {isP1RevealPhase && (
           <div
             data-testid="host-reveal-controls"
             className="mt-6 pt-6 border-t border-feud-slate-border/80 flex flex-wrap items-center justify-between gap-4"
           >
-            {/* Auto Pacing Toggle */}
             <button
               type="button"
               onClick={() => setIsAutoPacing(!isAutoPacing)}
@@ -688,7 +1025,6 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               </span>
             </button>
 
-            {/* Manual Step-by-Step Pacing Button */}
             {activeRevealSlotNumber && (
               <div className="flex items-center gap-3">
                 {activeRevealSlot && !activeRevealSlot.isAnswerRevealed && (
@@ -731,7 +1067,71 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
           </div>
         )}
 
-        {/* Phase Transition to Start Reveal */}
+        {/* P2 Reveal Pacing Controls (US-10 Scenario 1) */}
+        {isP2RevealPhase && (
+          <div
+            data-testid="host-p2-reveal-controls"
+            className="mt-6 pt-6 border-t border-feud-slate-border/80 flex flex-wrap items-center justify-between gap-4"
+          >
+            <button
+              type="button"
+              onClick={() => setIsAutoPacingP2(!isAutoPacingP2)}
+              data-testid="host-p2-auto-pacing-btn"
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm border transition-all cursor-pointer ${
+                isAutoPacingP2
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-md'
+                  : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white'
+              }`}
+            >
+              {isAutoPacingP2 ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              <span>
+                {isAutoPacingP2 ? t.fastMoney.autoPacing : t.fastMoney.manualPacing}
+              </span>
+            </button>
+
+            {activeP2RevealSlotNumber && (
+              <div className="flex items-center gap-3">
+                {activeP2RevealSlot && !activeP2RevealSlot.isAnswerRevealed && (
+                  <button
+                    type="button"
+                    onClick={() => onRevealP2Answer?.(activeP2RevealSlotNumber)}
+                    data-testid="host-reveal-p2-answer-btn"
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600 text-slate-950 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
+                  >
+                    <span>
+                      {t.fastMoney.revealAnswerBtn.replace(
+                        '{num}',
+                        String(activeP2RevealSlotNumber)
+                      )}
+                    </span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
+
+                {activeP2RevealSlot &&
+                  activeP2RevealSlot.isAnswerRevealed &&
+                  !activeP2RevealSlot.isPointsRevealed && (
+                    <button
+                      type="button"
+                      onClick={() => onRevealP2Points?.(activeP2RevealSlotNumber)}
+                      data-testid="host-reveal-p2-points-btn"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-amber-500 via-yellow-400 to-feud-gold text-slate-950 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-feud-gold/25 cursor-pointer"
+                    >
+                      <span>
+                        {t.fastMoney.revealPointsBtn.replace(
+                          '{num}',
+                          String(activeP2RevealSlotNumber)
+                        )}
+                      </span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Phase Transition: Start P1 Reveal */}
         {phase === 'P1_FINISHED' && onStartReveal && (
           <div className="mt-6 pt-6 border-t border-feud-slate-border/80 flex justify-center">
             <button
@@ -746,7 +1146,22 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
           </div>
         )}
 
-        {/* Completion Banner (Scenario 4) */}
+        {/* Phase Transition: Start P2 Reveal (US-10 Scenario 1) */}
+        {phase === 'P2_FINISHED' && onStartP2Reveal && (
+          <div className="mt-6 pt-6 border-t border-feud-slate-border/80 flex justify-center">
+            <button
+              type="button"
+              onClick={handleStartP2RevealClick}
+              data-testid="host-start-p2-reveal-btn"
+              className="px-8 py-3.5 rounded-2xl font-black text-base uppercase tracking-wider bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600 text-slate-950 shadow-xl shadow-blue-500/25 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+            >
+              <Sparkles className="w-5 h-5 fill-slate-950" />
+              <span>{t.fastMoney.startP2RevealBtn}</span>
+            </button>
+          </div>
+        )}
+
+        {/* P1 Reveal Completion Banner */}
         {isReadyForP2 && (
           <div
             data-testid="host-reveal-complete-banner"
@@ -761,6 +1176,38 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
             </h4>
             <p className="text-xs text-slate-300 mt-1">
               Player 2 has been invited to take the stage and press &quot;I&apos;m Ready!&quot;
+            </p>
+          </div>
+        )}
+
+        {/* Game Over Actions: Play Again in the Same Room (US-10 Scenario 4) */}
+        {isGameOver && onReplay && (
+          <div className="mt-8 pt-6 border-t border-feud-slate-border/80 flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={handleReplayClick}
+              disabled={isReplaying}
+              data-testid="host-replay-btn"
+              className={`px-8 py-4 rounded-2xl font-black text-base uppercase tracking-wider transition-all shadow-xl flex items-center gap-2.5 ${
+                isReplaying
+                  ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-wait'
+                  : 'bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 text-slate-950 shadow-feud-gold/25 hover:scale-105 active:scale-95 cursor-pointer animate-pulse'
+              }`}
+            >
+              {isReplaying ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Starting New Match...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-5 h-5" />
+                  <span>{t.fastMoney.playAgain}</span>
+                </>
+              )}
+            </button>
+            <p className="text-xs text-slate-400">
+              Resets scores and starts a fresh Fast Money round in the same room.
             </p>
           </div>
         )}

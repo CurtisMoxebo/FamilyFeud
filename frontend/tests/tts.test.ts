@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { speakQuestion, cancelSpeech, speakDuplicateAlert, getDuplicateWarningPhrase, DUPLICATE_WARNING_PHRASES } from '../src/utils/tts';
+import {
+  speakQuestion,
+  cancelSpeech,
+  speakDuplicateAlert,
+  getDuplicateWarningPhrase,
+  DUPLICATE_WARNING_PHRASES,
+  speakVictory,
+  getVictoryPhrase,
+  VICTORY_PHRASES,
+  speakDefeat,
+  getDefeatPhrase,
+  DEFEAT_PHRASES,
+} from '../src/utils/tts';
 
 describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
   let mockSpeak: any;
@@ -100,6 +112,7 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect.any(Error)
     );
   });
+
   describe('speakDuplicateAlert (US-09 Scenario 2)', () => {
     it('speaks English duplicate warning by default', () => {
       speakDuplicateAlert();
@@ -146,6 +159,86 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(getDuplicateWarningPhrase('FR')).toBe('Déjà dit ! Réessayez !');
       expect(getDuplicateWarningPhrase('ES')).toBe('¡Ya se dijo! ¡Intenta de nuevo!');
       expect(getDuplicateWarningPhrase('DE')).toBe('Already said! Try again!');
+    });
+  });
+
+  describe('speakVictory (US-10 Scenario 2)', () => {
+    it('speaks English victory announcement by default', () => {
+      speakVictory();
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('200 points! You won Fast Money!');
+      expect(utterance.lang).toBe('en-US');
+    });
+
+    it('speaks French victory announcement when language is FR', () => {
+      speakVictory('FR');
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('200 points ! Vous avez gagné le Face-à-Face !');
+      expect(utterance.lang).toBe('fr-FR');
+    });
+
+    it('speaks Spanish victory announcement when language is ES', () => {
+      speakVictory('ES');
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('¡200 puntos! ¡Ganaron Dinero Rápido!');
+      expect(utterance.lang).toBe('es-ES');
+    });
+
+    it('getVictoryPhrase returns localized victory phrases and English fallback', () => {
+      expect(VICTORY_PHRASES.EN).toBe('200 points! You won Fast Money!');
+      expect(getVictoryPhrase('EN')).toBe('200 points! You won Fast Money!');
+      expect(getVictoryPhrase('FR')).toBe('200 points ! Vous avez gagné le Face-à-Face !');
+      expect(getVictoryPhrase('ES')).toBe('¡200 puntos! ¡Ganaron Dinero Rápido!');
+      expect(getVictoryPhrase('IT')).toBe('200 points! You won Fast Money!');
+    });
+  });
+
+  describe('speakDefeat (US-10 Scenario 3)', () => {
+    it('speaks English defeat announcement with final score', () => {
+      speakDefeat('EN', 145);
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Final score: 145 points. Game over!');
+      expect(utterance.lang).toBe('en-US');
+    });
+
+    it('speaks French defeat announcement with final score', () => {
+      speakDefeat('FR', 180);
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Score final : 180 points. Partie terminée !');
+      expect(utterance.lang).toBe('fr-FR');
+    });
+
+    it('speaks Spanish defeat announcement with final score', () => {
+      speakDefeat('ES', 160);
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Puntuación final: 160 puntos. ¡Juego terminado!');
+      expect(utterance.lang).toBe('es-ES');
+    });
+
+    it('getDefeatPhrase returns localized defeat phrases with score formatting', () => {
+      expect(DEFEAT_PHRASES.EN(120)).toBe('Final score: 120 points. Game over!');
+      expect(getDefeatPhrase('EN', 120)).toBe('Final score: 120 points. Game over!');
+      expect(getDefeatPhrase('FR', 120)).toBe('Score final : 120 points. Partie terminée !');
+      expect(getDefeatPhrase('ES', 120)).toBe('Puntuación final: 120 puntos. ¡Juego terminado!');
+      expect(getDefeatPhrase('DE', 120)).toBe('Final score: 120 points. Game over!');
     });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { HostBoard } from '../src/pages/HostBoard';
@@ -47,6 +47,12 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     p2TurnEnded: null,
     duplicateWarning: null,
     clearDuplicateWarning: vi.fn(),
+    gameOver: null,
+    clearGameOver: vi.fn(),
+    startP2FastMoneyRevealPhase: vi.fn(),
+    revealP2FastMoneyAnswer: vi.fn(),
+    revealP2FastMoneyPoints: vi.fn(),
+    requestReplay: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {
@@ -362,5 +368,43 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
       'Nommez un aliment pour le petit déjeuner'
     );
     expect(screen.getByTestId('fast-money-slot-1')).toBeInTheDocument();
+  });
+
+  it('satisfies US-10: wires Player 2 reveal and replay socket actions in HostBoard', () => {
+    const startP2RevealSpy = vi.fn();
+    const revealP2AnswerSpy = vi.fn();
+    const revealP2PointsSpy = vi.fn();
+    const requestReplaySpy = vi.fn();
+
+    const mockHostSnapshot = {
+      phase: 'P2_FINISHED',
+      activeQuestionNumber: null,
+      totalQuestions: 5,
+      answeredCount: 5,
+      remainingSeconds: 0,
+      isTimerRunning: false,
+      currentQuestionText: null,
+      totalScore: 130,
+      slots: [],
+      p1Slots: [],
+      p2Slots: [],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      fastMoneyHostState: mockHostSnapshot,
+      startP2FastMoneyRevealPhase: startP2RevealSpy,
+      revealP2FastMoneyAnswer: revealP2AnswerSpy,
+      revealP2FastMoneyPoints: revealP2PointsSpy,
+      requestReplay: requestReplaySpy,
+    } as any);
+
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    // Start P2 Reveal button is rendered
+    const startP2Btn = screen.getByTestId('host-start-p2-reveal-btn');
+    expect(startP2Btn).toBeInTheDocument();
+    fireEvent.click(startP2Btn);
+    expect(startP2RevealSpy).toHaveBeenCalledWith('FEUD-7890');
   });
 });

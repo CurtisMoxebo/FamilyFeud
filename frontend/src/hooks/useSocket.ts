@@ -11,6 +11,7 @@ import {
   TurnEndedPayload,
   BoardRevealPayload,
   DuplicateAnswerWarningPayload,
+  GameOverPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -56,6 +57,7 @@ export function useSocket(options?: UseSocketOptions) {
     totalScore: number;
     phase: string;
   } | null>(null);
+  const [gameOver, setGameOver] = useState<GameOverPayload | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -134,6 +136,26 @@ export function useSocket(options?: UseSocketOptions) {
     }
   }, []);
 
+  const startP2FastMoneyRevealPhase = useCallback((roomCode: string) => {
+    socketRef.current?.emit('start_p2_reveal_phase', { roomCode, isHost: true });
+  }, []);
+
+  const revealP2FastMoneyAnswer = useCallback((roomCode: string, slotNumber: number) => {
+    socketRef.current?.emit('reveal_p2_answer', { roomCode, slotNumber, isHost: true });
+  }, []);
+
+  const revealP2FastMoneyPoints = useCallback((roomCode: string, slotNumber: number) => {
+    socketRef.current?.emit('reveal_p2_points', { roomCode, slotNumber, isHost: true });
+  }, []);
+
+  const requestReplay = useCallback((roomCode: string) => {
+    socketRef.current?.emit('request_replay', { roomCode, isHost: true });
+  }, []);
+
+  const clearGameOver = useCallback(() => {
+    setGameOver(null);
+  }, []);
+
   const revealFastMoneyPoints = useCallback((roomCode: string, slotNumber: number) => {
     setRoomError(null);
     if (socketRef.current) {
@@ -207,6 +229,15 @@ export function useSocket(options?: UseSocketOptions) {
 
     socket.on('game_started', (payload: GameStartedPayload) => {
       setGameStarted(payload);
+      setGameOver(null);
+      setP1RevealCompleted(null);
+      setDuplicateWarning(null);
+    });
+
+    socket.on('game_replayed', () => {
+      setGameOver(null);
+      setP1RevealCompleted(null);
+      setDuplicateWarning(null);
     });
 
     // Fast Money Speed Round Listeners (US-07 & US-09)
@@ -265,6 +296,11 @@ export function useSocket(options?: UseSocketOptions) {
       }
     );
 
+    // Fast Money Victory & Game Over (US-10)
+    socket.on('game_over', (payload: GameOverPayload) => {
+      setGameOver(payload);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -287,6 +323,12 @@ export function useSocket(options?: UseSocketOptions) {
     duplicateWarning,
     boardReveal,
     p1RevealCompleted,
+    gameOver,
+    clearGameOver,
+    startP2FastMoneyRevealPhase,
+    revealP2FastMoneyAnswer,
+    revealP2FastMoneyPoints,
+    requestReplay,
     joinRoom,
     startGame,
     sendPlayerReady,
