@@ -77,6 +77,7 @@ export interface TranslationDictionary {
     startGameWithCount: string;
     mainGameEvenCountRequired: string;
     mainGameCurrentWaiting: string;
+    oddPlayerCountWarning: string;
     fastMoneyWaiting: string;
     statusHost: string;
     statusReady: string;
@@ -124,5 +125,18 @@ export interface TranslationDictionary {
     grandTotal: string;
     targetGoal: string;
     startP2RevealBtn: string;
+  };
+  mainGame: {
+    team1: string;
+    team2: string;
+    teamsAssignedTitle: string;
+    teamsAssignedSubtitle: string;
+    youAreOnTeam: string;
+    teammatesTitle: string;
+    battingOrder: string;
+    playerOrder: string;
+    versus: string;
+    teamRoster: string;
+    readyForFaceOff: string;
   };
 }

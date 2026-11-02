@@ -226,6 +226,57 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       expect(result.current.t.lobby.startGame).toBe('Lancer la partie');
     });
 
+    it('defines US-11 Main Game team partitioning dictionary keys for all supported languages', () => {
+      for (const lang of supportedLanguages) {
+        const mg = translations[lang].mainGame;
+        expect(mg).toBeDefined();
+        expect(mg.team1).toBeTruthy();
+        expect(mg.team2).toBeTruthy();
+        expect(mg.teamsAssignedTitle).toBeTruthy();
+        expect(mg.teamsAssignedSubtitle).toBeTruthy();
+        expect(mg.youAreOnTeam).toBeTruthy();
+        expect(mg.teammatesTitle).toBeTruthy();
+        expect(mg.battingOrder).toBeTruthy();
+        expect(mg.playerOrder).toBeTruthy();
+        expect(mg.versus).toBeTruthy();
+        expect(mg.teamRoster).toBeTruthy();
+        expect(mg.readyForFaceOff).toBeTruthy();
+
+        expect(translations[lang].lobby.oddPlayerCountWarning).toBeTruthy();
+      }
+
+      // Check specific English, French, and Spanish key values
+      expect(translations.EN.mainGame.team1).toBe('Team 1');
+      expect(translations.EN.mainGame.team2).toBe('Team 2');
+      expect(translations.FR.mainGame.team1).toBe('Équipe 1');
+      expect(translations.FR.mainGame.team2).toBe('Équipe 2');
+      expect(translations.ES.mainGame.team1).toBe('Equipo 1');
+      expect(translations.ES.mainGame.team2).toBe('Equipo 2');
+
+      // Check interpolation templates
+      expect(
+        translations.EN.lobby.oddPlayerCountWarning
+          .replace('{count}', '5')
+          .replace('{target}', '6')
+      ).toBe('Cannot start with an odd number of players (5). Connect 1 more player to reach 6.');
+
+      expect(
+        translations.FR.lobby.oddPlayerCountWarning
+          .replace('{count}', '5')
+          .replace('{target}', '6')
+      ).toBe(
+        'Impossible de commencer avec un nombre impair de joueurs (5). Connectez 1 joueur de plus pour atteindre 6.'
+      );
+
+      expect(
+        translations.ES.lobby.oddPlayerCountWarning
+          .replace('{count}', '5')
+          .replace('{target}', '6')
+      ).toBe(
+        'No se puede iniciar con un número impar de jugadores (5). Conecta 1 jugador más para alcanzar 6.'
+      );
+    });
+
     it('gracefully falls back to English when rendered outside of LanguageProvider', () => {
       const { result } = renderHook(() => useTranslation());
 
