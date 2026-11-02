@@ -78,7 +78,7 @@ FamilyFeud/
 │   │   ├── router/          # Client router with param matching
 │   │   ├── hooks/           # useSocket
 │   │   ├── types/           # Shared TypeScript contracts
-│   │   ├── utils/           # Web Speech API TTS engine (tts.ts)
+│   │   ├── utils/           # Web Speech API TTS (tts.ts) & Web Audio SFX (soundEffects.ts)
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   ├── tests/               # Symmetrical frontend regression & component suites
@@ -187,7 +187,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 265 regression tests** (203 backend, 62 frontend) pass cleanly with **>95% code coverage**:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 383 regression tests** (261 backend, 122 frontend) pass cleanly with **>90% code coverage** across 34 suites:
 
 ```bash
 # Run all regression tests across the whole project
