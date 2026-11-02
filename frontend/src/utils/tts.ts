@@ -42,3 +42,23 @@ export function cancelSpeech(): void {
   }
 }
 
+
+export const DUPLICATE_WARNING_PHRASES: Record<string, string> = {
+  EN: 'Already said! Try again!',
+  FR: 'Déjà dit ! Réessayez !',
+  ES: '¡Ya se dijo! ¡Intenta de nuevo!',
+};
+
+export function getDuplicateWarningPhrase(language: string = 'EN'): string {
+  const norm = language.toUpperCase();
+  return DUPLICATE_WARNING_PHRASES[norm] || DUPLICATE_WARNING_PHRASES.EN;
+}
+
+/**
+ * Host Speech Synthesis for Fast Money Duplicate Answer Warning (US-09 Scenario 2)
+ * Announces localized prompt: "Already said! Try again!" / "Déjà dit ! Réessayez !" / "¡Ya se dijo! ¡Intenta de nuevo!"
+ */
+export function speakDuplicateAlert(language: string = 'EN', customText?: string): void {
+  const text = customText || getDuplicateWarningPhrase(language);
+  speakQuestion(text, language);
+}

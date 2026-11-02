@@ -111,6 +111,10 @@ export const en: TranslationDictionary = {
     p2ReadyTitle: "Player 2, You're Up!",
     p2ReadySubtitle: 'Player 1 scored {score} points. Tap ready when you are set!',
     watchingReveal: "Watching Player 1's reveal sequence...",
+    duplicateWarningHost: 'Already said! Try again!',
+    duplicateWarningPlayer: 'Duplicate answer! Enter another answer.',
+    p2SpeedRoundTitle: 'Fast Money - Player 2',
+    p2SpeedRoundSubtitle: 'You have 75 seconds. Duplicates of Player 1 are not allowed!',
   },
 };
 

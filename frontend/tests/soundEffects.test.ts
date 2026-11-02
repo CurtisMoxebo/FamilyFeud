@@ -3,6 +3,7 @@ import {
   playDing,
   playPointsChime,
   playBuzzerBlip,
+  playDuplicateWarning,
   setMuted,
   isMuted,
   getAudioContext,
@@ -129,6 +130,23 @@ describe('Frontend Utility Suite: Game Show Sound Effects Synthesizer (soundEffe
     expect(osc.stop).toHaveBeenCalledWith(0.3);
   });
 
+  it('satisfies US-09 Scenario 2: playDuplicateWarning synthesizes alternating two-tone alarm', () => {
+    playDuplicateWarning();
+
+    expect(createdOscillators).toHaveLength(2);
+    expect(createdGains).toHaveLength(2);
+
+    expect(createdOscillators[0].type).toBe('sawtooth');
+    expect(createdOscillators[0].frequency.setValueAtTime).toHaveBeenCalledWith(440, 0);
+    expect(createdOscillators[0].start).toHaveBeenCalledWith(0);
+    expect(createdOscillators[0].stop).toHaveBeenCalledWith(0.12);
+
+    expect(createdOscillators[1].type).toBe('sawtooth');
+    expect(createdOscillators[1].frequency.setValueAtTime).toHaveBeenCalledWith(330, 0.14);
+    expect(createdOscillators[1].start).toHaveBeenCalledWith(0.14);
+    expect(createdOscillators[1].stop).toHaveBeenCalledWith(0.32);
+  });
+
   it('honors setMuted toggle and skips audio playback when muted', () => {
     setMuted(true);
     expect(isMuted()).toBe(true);
@@ -136,6 +154,7 @@ describe('Frontend Utility Suite: Game Show Sound Effects Synthesizer (soundEffe
     playDing();
     playPointsChime();
     playBuzzerBlip();
+    playDuplicateWarning();
 
     expect(createdOscillators).toHaveLength(0);
     expect(createdGains).toHaveLength(0);
@@ -150,6 +169,7 @@ describe('Frontend Utility Suite: Game Show Sound Effects Synthesizer (soundEffe
     expect(() => playDing()).not.toThrow();
     expect(() => playPointsChime()).not.toThrow();
     expect(() => playBuzzerBlip()).not.toThrow();
+    expect(() => playDuplicateWarning()).not.toThrow();
   });
 
   it('catches and logs warning if audio node creation throws', () => {
@@ -170,5 +190,6 @@ describe('Frontend Utility Suite: Game Show Sound Effects Synthesizer (soundEffe
     expect(sfx.playDing).toBe(playDing);
     expect(sfx.playPointsChime).toBe(playPointsChime);
     expect(sfx.playBuzzerBlip).toBe(playBuzzerBlip);
+    expect(sfx.playDuplicateWarning).toBe(playDuplicateWarning);
   });
 });

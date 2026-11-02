@@ -111,7 +111,10 @@ export const fr: TranslationDictionary = {
     p2ReadyTitle: 'Joueur 2, à vous !',
     p2ReadySubtitle: 'Le joueur 1 a marqué {score} points. Appuyez sur prêt lorsque vous êtes prêt !',
     watchingReveal: 'Séquence de révélation du joueur 1 en cours...',
-
+    duplicateWarningHost: 'Déjà dit ! Réessayez !',
+    duplicateWarningPlayer: 'Réponse déjà donnée ! Entrez une autre réponse.',
+    p2SpeedRoundTitle: 'Face-à-Face Rapide - Joueur 2',
+    p2SpeedRoundSubtitle: 'Vous avez 75 secondes. Les doublons du Joueur 1 sont interdits !',
   },
 };
 
