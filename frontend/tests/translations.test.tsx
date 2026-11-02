@@ -5,7 +5,7 @@ import { translations } from '../src/i18n/translations';
 import { LanguageProvider, useTranslation } from '../src/i18n/LanguageContext';
 import { Language } from '../src/types';
 
-describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
+describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', () => {
   const supportedLanguages: Language[] = ['EN', 'FR', 'ES'];
 
   describe('Translation Dictionary Integrity', () => {
@@ -17,6 +17,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
         expect(translations[lang].gameModes).toBeDefined();
         expect(translations[lang].gameActions).toBeDefined();
         expect(translations[lang].host).toBeDefined();
+        expect(translations[lang].joinRoom).toBeDefined();
       }
     });
 
@@ -66,6 +67,34 @@ describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
         expect(mode.mainGameDesc).toBeTruthy();
       }
     });
+
+    it('defines US-03 join room dictionary keys for all supported languages', () => {
+      for (const lang of supportedLanguages) {
+        const join = translations[lang].joinRoom;
+        expect(join.title).toBeTruthy();
+        expect(join.subtitle).toBeTruthy();
+        expect(join.tabHost).toBeTruthy();
+        expect(join.tabJoin).toBeTruthy();
+        expect(join.roomCodeLabel).toBeTruthy();
+        expect(join.roomCodePlaceholder).toBeTruthy();
+        expect(join.nicknameLabel).toBeTruthy();
+        expect(join.nicknamePlaceholder).toBeTruthy();
+        expect(join.joinButton).toBeTruthy();
+        expect(join.joining).toBeTruthy();
+        expect(join.scanToJoin).toBeTruthy();
+        expect(join.validationErrorNickname).toBeTruthy();
+        expect(join.validationErrorRoomCode).toBeTruthy();
+        expect(join.roomNotFound).toBeTruthy();
+      }
+
+      // Verify specific localized tab and button values
+      expect(translations.EN.joinRoom.tabHost).toBe('Host a Game');
+      expect(translations.EN.joinRoom.tabJoin).toBe('Join a Game');
+      expect(translations.FR.joinRoom.tabHost).toBe('Animer une partie');
+      expect(translations.FR.joinRoom.tabJoin).toBe('Rejoindre une partie');
+      expect(translations.ES.joinRoom.tabHost).toBe('Crear sala');
+      expect(translations.ES.joinRoom.tabJoin).toBe('Unirse a una sala');
+    });
   });
 
   describe('useTranslation Hook & LanguageContext', () => {
@@ -79,6 +108,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
       expect(result.current.language).toBe('EN');
       expect(result.current.t.gameActions.ready).toBe('Ready');
       expect(result.current.t.createRoom.submitButton).toBe('Create Room');
+      expect(result.current.t.joinRoom.tabJoin).toBe('Join a Game');
     });
 
     it('supports custom initialLanguage in LanguageProvider', () => {
@@ -91,6 +121,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
       expect(result.current.language).toBe('FR');
       expect(result.current.t.gameActions.ready).toBe('Je suis prêt');
       expect(result.current.t.createRoom.submitButton).toBe('Créer le salon');
+      expect(result.current.t.joinRoom.tabJoin).toBe('Rejoindre une partie');
     });
 
     it('updates translations dynamically when setLanguage is called', () => {
@@ -109,6 +140,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
       expect(result.current.language).toBe('ES');
       expect(result.current.t.gameActions.ready).toBe('¡Listo!');
       expect(result.current.t.createRoom.submitButton).toBe('Crear sala');
+      expect(result.current.t.joinRoom.tabJoin).toBe('Unirse a una sala');
 
       act(() => {
         result.current.setLanguage('FR');
@@ -116,6 +148,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
 
       expect(result.current.language).toBe('FR');
       expect(result.current.t.gameActions.ready).toBe('Je suis prêt');
+      expect(result.current.t.joinRoom.tabJoin).toBe('Rejoindre une partie');
     });
 
     it('gracefully falls back to English when rendered outside of LanguageProvider', () => {
@@ -123,6 +156,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
 
       expect(result.current.language).toBe('EN');
       expect(result.current.t.gameActions.ready).toBe('Ready');
+      expect(result.current.t.joinRoom.tabJoin).toBe('Join a Game');
       expect(typeof result.current.setLanguage).toBe('function');
     });
 
@@ -134,8 +168,9 @@ describe('Frontend Regression Suite: i18n Localization System (US-02)', () => {
       const { result } = renderHook(() => useTranslation(), { wrapper });
 
       expect(result.current.getTranslation('FR').gameActions.ready).toBe('Je suis prêt');
+      expect(result.current.getTranslation('FR').joinRoom.tabJoin).toBe('Rejoindre une partie');
       expect(result.current.getTranslation('ES').gameActions.ready).toBe('¡Listo!');
+      expect(result.current.getTranslation('ES').joinRoom.tabJoin).toBe('Unirse a una sala');
     });
   });
 });
-

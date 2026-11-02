@@ -51,7 +51,22 @@ export const en: TranslationDictionary = {
     gameMode: 'Game Mode',
     language: 'Language',
   },
+  joinRoom: {
+    title: 'Join Game Room',
+    subtitle: 'Enter your room code and nickname to join the game',
+    tabHost: 'Host a Game',
+    tabJoin: 'Join a Game',
+    roomCodeLabel: 'Room Code',
+    roomCodePlaceholder: 'e.g. FEUD-8291',
+    nicknameLabel: 'Your Nickname',
+    nicknamePlaceholder: 'e.g. Steve',
+    joinButton: 'Join Game',
+    joining: 'Joining Room...',
+    scanToJoin: 'Scan with phone camera to join instantly',
+    validationErrorNickname: 'Please enter a nickname (2-20 characters)',
+    validationErrorRoomCode: 'Invalid room code format (must be FEUD-XXXX)',
+    roomNotFound: 'Room not found or session has ended',
+  },
 };
 
 export default en;
-

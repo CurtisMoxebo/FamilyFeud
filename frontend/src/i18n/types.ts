@@ -49,5 +49,20 @@ export interface TranslationDictionary {
     gameMode: string;
     language: string;
   };
+  joinRoom: {
+    title: string;
+    subtitle: string;
+    tabHost: string;
+    tabJoin: string;
+    roomCodeLabel: string;
+    roomCodePlaceholder: string;
+    nicknameLabel: string;
+    nicknamePlaceholder: string;
+    joinButton: string;
+    joining: string;
+    scanToJoin: string;
+    validationErrorNickname: string;
+    validationErrorRoomCode: string;
+    roomNotFound: string;
+  };
 }
-

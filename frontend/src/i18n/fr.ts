@@ -51,7 +51,22 @@ export const fr: TranslationDictionary = {
     gameMode: 'Mode de jeu',
     language: 'Langue',
   },
+  joinRoom: {
+    title: 'Rejoindre une partie',
+    subtitle: 'Saisissez le code du salon et votre pseudo pour participer',
+    tabHost: 'Animer une partie',
+    tabJoin: 'Rejoindre une partie',
+    roomCodeLabel: 'Code du salon',
+    roomCodePlaceholder: 'ex. FEUD-8291',
+    nicknameLabel: 'Votre pseudo',
+    nicknamePlaceholder: 'ex. Sophie',
+    joinButton: 'Rejoindre le salon',
+    joining: 'Connexion en cours...',
+    scanToJoin: 'Scannez avec votre téléphone pour rejoindre instantanément',
+    validationErrorNickname: 'Veuillez saisir un pseudo (2 à 20 caractères)',
+    validationErrorRoomCode: 'Format de code invalide (doit être FEUD-XXXX)',
+    roomNotFound: 'Salon introuvable ou session terminée',
+  },
 };
 
 export default fr;
-
