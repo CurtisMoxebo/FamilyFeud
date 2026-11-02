@@ -100,6 +100,17 @@ export const en: TranslationDictionary = {
     answeredCount: '{count} of {total} questions answered',
     player2IsolationTitle: '🎧 Player 1 is currently playing!',
     player2IsolationSubtitle: 'Please look away from the host TV screen and wait for your turn.',
+    revealPhaseTitle: 'Fast Money Board Reveal',
+    revealAnswerBtn: 'Reveal Answer #{num}',
+    revealPointsBtn: 'Reveal Points #{num}',
+    totalScore: 'Total Score',
+    noAnswer: 'NO ANSWER',
+    revealComplete: 'Player 1 Reveal Complete!',
+    autoPacing: 'Auto Pacing',
+    manualPacing: 'Manual Control',
+    p2ReadyTitle: "Player 2, You're Up!",
+    p2ReadySubtitle: 'Player 1 scored {score} points. Tap ready when you are set!',
+    watchingReveal: "Watching Player 1's reveal sequence...",
   },
 };
 

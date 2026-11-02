@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSocket } from '../src/hooks/useSocket';
 import { io } from 'socket.io-client';
-import { RoomStateUpdate, RoomErrorPayload, GameStartedPayload } from '../src/types';
+import { RoomStateUpdate, RoomErrorPayload, GameStartedPayload, BoardRevealPayload } from '../src/types';
 
 vi.mock('socket.io-client', () => {
   return {
@@ -210,5 +210,83 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
     });
 
     expect(result.current.gameStarted).toEqual(mockGameStarted);
+  });
+
+  describe('Fast Money Reveal Sequence Socket Methods (US-08 Step 2)', () => {
+    it('emits start_reveal_phase, reveal_answer, and reveal_points', () => {
+      const { result } = renderHook(() => useSocket());
+
+      act(() => {
+        result.current.startFastMoneyRevealPhase('FEUD-REV1');
+      });
+      expect(mockSocket.emit).toHaveBeenCalledWith('start_reveal_phase', {
+        roomCode: 'FEUD-REV1',
+        isHost: true,
+      });
+
+      act(() => {
+        result.current.revealFastMoneyAnswer('FEUD-REV1', 1);
+      });
+      expect(mockSocket.emit).toHaveBeenCalledWith('reveal_answer', {
+        roomCode: 'FEUD-REV1',
+        slotNumber: 1,
+        isHost: true,
+      });
+
+      act(() => {
+        result.current.revealFastMoneyPoints('FEUD-REV1', 1);
+      });
+      expect(mockSocket.emit).toHaveBeenCalledWith('reveal_points', {
+        roomCode: 'FEUD-REV1',
+        slotNumber: 1,
+        isHost: true,
+      });
+    });
+
+    it('updates boardReveal and p1RevealCompleted on incoming socket events', () => {
+      const { result } = renderHook(() => useSocket());
+
+      const mockReveal: BoardRevealPayload = {
+        roomCode: 'FEUD-REV1',
+        type: 'ANSWER',
+        slotNumber: 1,
+        slot: {
+          slotNumber: 1,
+          questionId: 'q-1',
+          questionText: 'Name breakfast food',
+          rawAnswer: 'Eggs',
+          pointsAwarded: 0,
+          isAnswerRevealed: true,
+          isPointsRevealed: false,
+          isMatched: false,
+        },
+        totalScore: 0,
+        isAllRevealed: false,
+        nextActiveSlotNumber: 1,
+      };
+
+      act(() => {
+        eventHandlers['board_reveal'](mockReveal);
+      });
+      expect(result.current.boardReveal).toEqual(mockReveal);
+
+      const mockCompleted = {
+        roomCode: 'FEUD-REV1',
+        totalScore: 120,
+        phase: 'P2_READY',
+      };
+
+      act(() => {
+        eventHandlers['p1_reveal_completed'](mockCompleted);
+      });
+      expect(result.current.p1RevealCompleted).toEqual(mockCompleted);
+
+      // Verify leaveRoom clears reveal states
+      act(() => {
+        result.current.leaveRoom();
+      });
+      expect(result.current.boardReveal).toBeNull();
+      expect(result.current.p1RevealCompleted).toBeNull();
+    });
   });
 });

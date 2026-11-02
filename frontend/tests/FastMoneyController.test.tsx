@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { FastMoneyController } from '../src/components/FastMoneyController';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
-import { Player1StateSnapshot, TimerTickPayload } from '../src/types';
+import { FastMoneyRevealSlot, Player1StateSnapshot, TimerTickPayload } from '../src/types';
 
 describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
   const readySnapshot: Player1StateSnapshot = {
@@ -322,5 +322,135 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
       expect(screen.getByText('4 / 5')).toBeInTheDocument();
     });
   });
-});
 
+  describe('US-08: Reveal Sequence and P2 Ready Synchronization', () => {
+    const mockSlots: FastMoneyRevealSlot[] = [
+      {
+        slotNumber: 1,
+        questionId: 'q-1',
+        questionText: 'Name something you eat with a spoon',
+        rawAnswer: 'SOUP',
+        pointsAwarded: 45,
+        isAnswerRevealed: true,
+        isPointsRevealed: true,
+        isMatched: true,
+      },
+      {
+        slotNumber: 2,
+        questionId: 'q-2',
+        questionText: 'Name a yellow fruit',
+        rawAnswer: 'BANANA',
+        pointsAwarded: 30,
+        isAnswerRevealed: true,
+        isPointsRevealed: false,
+        isMatched: true,
+      },
+      {
+        slotNumber: 3,
+        questionId: 'q-3',
+        questionText: 'Name something you wear on your head',
+        rawAnswer: 'HAT',
+        pointsAwarded: 0,
+        isAnswerRevealed: false,
+        isPointsRevealed: false,
+        isMatched: false,
+      },
+      {
+        slotNumber: 4,
+        questionId: 'q-4',
+        questionText: 'Name a day of the week',
+        rawAnswer: 'FRIDAY',
+        pointsAwarded: 25,
+        isAnswerRevealed: false,
+        isPointsRevealed: false,
+        isMatched: true,
+      },
+      {
+        slotNumber: 5,
+        questionId: 'q-5',
+        questionText: 'Name an animal with stripes',
+        rawAnswer: 'ZEBRA',
+        pointsAwarded: 40,
+        isAnswerRevealed: false,
+        isPointsRevealed: false,
+        isMatched: true,
+      },
+    ];
+
+    it('renders p1-reveal-screen with live cumulative score and synchronized card flips', () => {
+      const revealSnapshot: Player1StateSnapshot = {
+        phase: 'P1_REVEAL',
+        currentQuestion: null,
+        answeredCount: 5,
+        passedCount: 0,
+        totalQuestions: 5,
+        remainingSeconds: 0,
+        isTimerRunning: false,
+        canSubmit: false,
+        canPass: false,
+        totalScore: 45,
+        revealSlots: mockSlots,
+        activeRevealSlotNumber: 2,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={revealSnapshot}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('p1-reveal-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('p1-reveal-total-score')).toHaveTextContent('45');
+
+      // Slot 1: Answer and points revealed
+      expect(screen.getByTestId('p1-reveal-answer-1')).toHaveTextContent('SOUP');
+      expect(screen.getByTestId('p1-reveal-points-1')).toHaveTextContent('45');
+
+      // Slot 2: Answer revealed, points concealed
+      expect(screen.getByTestId('p1-reveal-answer-2')).toHaveTextContent('BANANA');
+      expect(screen.getByTestId('p1-reveal-points-2')).toHaveTextContent('--');
+
+      // Slot 3: Both concealed
+      expect(screen.getByTestId('p1-concealed-answer-3')).toHaveTextContent('••••••••');
+      expect(screen.getByTestId('p1-reveal-points-3')).toHaveTextContent('--');
+
+      // Input locked notice
+      expect(screen.getByTestId('fast-money-locked-notice')).toBeInTheDocument();
+      expect(screen.queryByTestId('fast-money-input')).not.toBeInTheDocument();
+    });
+
+    it('displays completion banner and final total score when transitioning to P2_READY', () => {
+      const readySnapshot2: Player1StateSnapshot = {
+        phase: 'P2_READY',
+        currentQuestion: null,
+        answeredCount: 5,
+        passedCount: 0,
+        totalQuestions: 5,
+        remainingSeconds: 0,
+        isTimerRunning: false,
+        canSubmit: false,
+        canPass: false,
+        totalScore: 140,
+        revealSlots: mockSlots.map((s) => ({ ...s, isAnswerRevealed: true, isPointsRevealed: true })),
+        activeRevealSlotNumber: null,
+      };
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={readySnapshot2}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('p1-reveal-screen')).toBeInTheDocument();
+      expect(screen.getByTestId('p1-reveal-total-score')).toHaveTextContent('140');
+      expect(screen.getByTestId('p1-reveal-complete-banner')).toBeInTheDocument();
+      expect(screen.getByText(/Player 1 Reveal Complete!/i)).toBeInTheDocument();
+    });
+  });
+});

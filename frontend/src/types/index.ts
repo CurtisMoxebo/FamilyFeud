@@ -84,6 +84,17 @@ export type FastMoneyPhase =
   | 'P1_REVEAL'
   | 'P2_REVEAL';
 
+export interface FastMoneyRevealSlot {
+  slotNumber: number;
+  questionId: string;
+  questionText: string;
+  rawAnswer: string;
+  pointsAwarded: number;
+  isAnswerRevealed: boolean;
+  isPointsRevealed: boolean;
+  isMatched: boolean;
+}
+
 export interface Player1StateSnapshot {
   phase: FastMoneyPhase;
   currentQuestion: {
@@ -99,6 +110,9 @@ export interface Player1StateSnapshot {
   isTimerRunning: boolean;
   canSubmit: boolean;
   canPass: boolean;
+  totalScore?: number;
+  revealSlots?: FastMoneyRevealSlot[];
+  activeRevealSlotNumber?: number | null;
 }
 
 export interface Player2IsolationSnapshot {
@@ -107,6 +121,9 @@ export interface Player2IsolationSnapshot {
   isolationMessage: string;
   remainingSeconds: number;
   isTimerRunning: boolean;
+  totalScore?: number;
+  revealSlots?: FastMoneyRevealSlot[];
+  activeRevealSlotNumber?: number | null;
 }
 
 export interface TimerTickPayload {
@@ -121,7 +138,6 @@ export interface TurnEndedPayload {
   totalQuestions: number;
 }
 
-
 export interface HostStateSnapshot {
   phase: FastMoneyPhase;
   activeQuestionNumber: number | null;
@@ -134,6 +150,9 @@ export interface HostStateSnapshot {
     slotNumber: number;
     isFilled: boolean;
   }>;
+  totalScore?: number;
+  revealSlots?: FastMoneyRevealSlot[];
+  activeRevealSlotNumber?: number | null;
 }
 
 export interface QuestionData {
@@ -143,4 +162,14 @@ export interface QuestionData {
   roundNumber: number;
   language: string;
   answers: AnswerItem[];
+}
+
+export interface BoardRevealPayload {
+  roomCode: string;
+  type: 'ANSWER' | 'POINTS';
+  slotNumber: number;
+  slot: FastMoneyRevealSlot;
+  totalScore: number;
+  isAllRevealed: boolean;
+  nextActiveSlotNumber: number | null;
 }

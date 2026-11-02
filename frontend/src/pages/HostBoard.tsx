@@ -44,7 +44,15 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
 
   // Live real-time socket connection for host display (US-04 & US-05)
-  const { roomState, startGame, fastMoneyHostState, timerTick } = useSocket({
+  const {
+    roomState,
+    startGame,
+    fastMoneyHostState,
+    timerTick,
+    revealFastMoneyAnswer,
+    revealFastMoneyPoints,
+    startFastMoneyRevealPhase,
+  } = useSocket({
     roomCode,
     isHost: true,
     autoJoin: true,
@@ -142,7 +150,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   const isFastMoney = room.gameMode === 'FAST_MONEY';
 
-  // Fast Money Host Board Screen (US-07 Scenario 1, 2, 4)
+  // Fast Money Host Board Screen (US-07 & US-08 Reveal)
   if (isFastMoney && fastMoneyHostState) {
     return (
       <FastMoneyHostBoard
@@ -151,6 +159,9 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         language={room.language}
         roomName={room.roomName}
         roomCode={room.roomCode}
+        onRevealAnswer={(slotNum) => revealFastMoneyAnswer(room.roomCode, slotNum)}
+        onRevealPoints={(slotNum) => revealFastMoneyPoints(room.roomCode, slotNum)}
+        onStartReveal={() => startFastMoneyRevealPhase(room.roomCode)}
       />
     );
   }

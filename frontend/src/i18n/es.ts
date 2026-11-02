@@ -100,6 +100,18 @@ export const es: TranslationDictionary = {
     answeredCount: '{count} de {total} preguntas respondidas',
     player2IsolationTitle: '🎧 ¡El Jugador 1 está jugando!',
     player2IsolationSubtitle: 'Por favor, no mires la pantalla del anfitrión y espera tu turno.',
+    revealPhaseTitle: 'Revelación del Tablero',
+    revealAnswerBtn: 'Revelar Respuesta #{num}',
+    revealPointsBtn: 'Revelar Puntos #{num}',
+    totalScore: 'Puntuación Total',
+    noAnswer: 'SIN RESPUESTA',
+    revealComplete: '¡Revelación del Jugador 1 Completa!',
+    autoPacing: 'Ritmo Automático',
+    manualPacing: 'Control Manual',
+    p2ReadyTitle: '¡Jugador 2, te toca!',
+    p2ReadySubtitle: '¡El jugador 1 anotó {score} puntos. Toca listo cuando estés preparado!',
+    watchingReveal: 'Viendo la secuencia de revelación del Jugador 1...',
+
   },
 };
 
