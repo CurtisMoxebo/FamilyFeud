@@ -53,6 +53,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     timerTick,
     duplicateWarning,
     clearDuplicateWarning,
+    gameOver,
     joinRoom,
     sendPlayerReady,
     submitFastMoneyAnswer,
@@ -209,6 +210,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
         <FastMoneyController
           snapshot={fastMoneyP1State}
           timerTick={timerTick}
+          gameOver={gameOver}
           onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
           onSubmitAnswer={(qId, ans) =>
             submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
@@ -225,12 +227,16 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       playersList[1]?.id === currentPlayer?.id ||
       playersList[1]?.nickname.toLowerCase() === nickname.trim().toLowerCase();
 
-    // Fast Money Player 2 Active Speed Round (US-09)
+    // Fast Money Player 2 Active Speed Round (US-09) & Reveal / Victory (US-10)
     if (
       isFastMoney &&
       isPlayer2 &&
       fastMoneyP2State &&
-      (fastMoneyP2State.phase === 'P2_PLAYING' || fastMoneyP2State.phase === 'P2_FINISHED')
+      (fastMoneyP2State.phase === 'P2_PLAYING' ||
+        fastMoneyP2State.phase === 'P2_FINISHED' ||
+        fastMoneyP2State.phase === 'P2_REVEAL' ||
+        fastMoneyP2State.phase === 'GAME_OVER' ||
+        gameOver)
     ) {
       const activePlayerId = currentPlayer?.id || 'player-2';
       return (
@@ -238,6 +244,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           snapshot={fastMoneyP2State as any}
           timerTick={timerTick}
           duplicateWarning={duplicateWarning}
+          gameOver={gameOver}
           onClearDuplicateWarning={clearDuplicateWarning}
           playerNumber={2}
           onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}

@@ -229,6 +229,15 @@ export function useSocket(options?: UseSocketOptions) {
 
     socket.on('game_started', (payload: GameStartedPayload) => {
       setGameStarted(payload);
+      setGameOver(null);
+      setP1RevealCompleted(null);
+      setDuplicateWarning(null);
+    });
+
+    socket.on('game_replayed', () => {
+      setGameOver(null);
+      setP1RevealCompleted(null);
+      setDuplicateWarning(null);
     });
 
     // Fast Money Speed Round Listeners (US-07 & US-09)

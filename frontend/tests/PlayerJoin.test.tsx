@@ -524,4 +524,144 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         );
       });
     });
+
+    it('satisfies US-10 Scenario 2: transitions joined player to victory screen upon receiving gameOver payload', async () => {
+      const user = userEvent.setup();
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        socketId: 'player-socket-1',
+        roomState: {
+          roomCode: 'FEUD-8291',
+          status: 'PLAYING',
+          playerCount: 2,
+          maxPlayers: 2,
+          players: [
+            { id: 'p1', nickname: 'Sophie', isConnected: true, isReady: true },
+            { id: 'p2', nickname: 'Marc', isConnected: true, isReady: true },
+          ],
+        },
+        fastMoneyP1State: {
+          phase: 'GAME_OVER',
+          grandTotal: 210,
+          p1TotalScore: 125,
+          p2TotalScore: 85,
+          isVictory: true,
+        },
+        gameOver: {
+          roomCode: 'FEUD-8291',
+          isVictory: true,
+          p1TotalScore: 125,
+          p2TotalScore: 85,
+          grandTotal: 210,
+          targetScore: 200,
+        },
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Sophie');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('fast-money-game-over-screen')).toBeInTheDocument();
+        expect(screen.getByTestId('player-victory-view')).toBeInTheDocument();
+        expect(screen.getByTestId('player-final-score')).toHaveTextContent('210');
+        expect(screen.getByTestId('player-waiting-replay-notice')).toBeInTheDocument();
+      });
+    });
+
+    it('satisfies US-10 Scenario 3: transitions Player 2 to defeat screen when game completes under 200 points', async () => {
+      const user = userEvent.setup();
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        socketId: 'player-socket-2',
+        roomState: {
+          roomCode: 'FEUD-8291',
+          status: 'FINISHED',
+          playerCount: 2,
+          maxPlayers: 2,
+          players: [
+            { id: 'p1', nickname: 'Sophie', isConnected: true, isReady: true },
+            { id: 'p2', nickname: 'Marc', isConnected: true, isReady: true },
+          ],
+        },
+        fastMoneyP2State: {
+          phase: 'GAME_OVER',
+          isOffstage: false,
+          isolationMessage: '',
+          remainingSeconds: 0,
+          isTimerRunning: false,
+          canSubmit: false,
+          canPass: false,
+          grandTotal: 165,
+          p1TotalScore: 95,
+          p2TotalScore: 70,
+          isVictory: false,
+        },
+        gameOver: {
+          roomCode: 'FEUD-8291',
+          isVictory: false,
+          p1TotalScore: 95,
+          p2TotalScore: 70,
+          grandTotal: 165,
+          targetScore: 200,
+        },
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Marc');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('fast-money-game-over-screen')).toBeInTheDocument();
+        expect(screen.getByTestId('player-defeat-view')).toBeInTheDocument();
+        expect(screen.getByTestId('player-final-score')).toHaveTextContent('165');
+        expect(screen.getByTestId('player-waiting-replay-notice')).toBeInTheDocument();
+      });
+    });
+
+    it('satisfies US-10 Scenario 4: resets Player 2 seamlessly to isolation when new match starts without disconnecting', async () => {
+      const user = userEvent.setup();
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        socketId: 'player-socket-2',
+        roomState: {
+          roomCode: 'FEUD-8291',
+          status: 'PLAYING',
+          playerCount: 2,
+          maxPlayers: 2,
+          players: [
+            { id: 'p1', nickname: 'Sophie', isConnected: true, isReady: true },
+            { id: 'p2', nickname: 'Marc', isConnected: true, isReady: true },
+          ],
+        },
+        fastMoneyP2State: {
+          phase: 'P1_READY',
+          isOffstage: true,
+          isolationMessage: 'Offstage in isolation',
+          remainingSeconds: 75,
+          isTimerRunning: false,
+          canSubmit: false,
+          canPass: false,
+        },
+        gameOver: null,
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
+
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Marc');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('player2-isolation-screen')).toBeInTheDocument();
+        expect(screen.getByText(/Offstage Isolation Shield/i)).toBeInTheDocument();
+      });
+    });
   });

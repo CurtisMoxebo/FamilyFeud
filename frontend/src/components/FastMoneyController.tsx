@@ -4,6 +4,7 @@ import {
   Player2IsolationSnapshot,
   TimerTickPayload,
   DuplicateAnswerWarningPayload,
+  GameOverPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
@@ -15,12 +16,14 @@ import {
   Sparkles,
   Lock,
   AlertCircle,
+  Trophy,
 } from 'lucide-react';
 
 export interface FastMoneyControllerProps {
   snapshot: Player1StateSnapshot | Player2IsolationSnapshot;
   timerTick?: TimerTickPayload | null;
   duplicateWarning?: DuplicateAnswerWarningPayload | null;
+  gameOver?: GameOverPayload | null;
   onClearDuplicateWarning?: () => void;
   playerNumber?: 1 | 2;
   onReady: () => void;
@@ -33,6 +36,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   snapshot,
   timerTick = null,
   duplicateWarning = null,
+  gameOver = null,
   onClearDuplicateWarning,
   playerNumber,
   onReady,
@@ -137,6 +141,114 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     if (remainingSeconds > 10) return 'text-amber-400 border-amber-500/40 bg-amber-950/40';
     return 'text-feud-red border-red-500/40 bg-red-950/50 animate-pulse';
   };
+
+  // US-10 Scenario 2: Haptic feedback on Victory
+  useEffect(() => {
+    const isGameOverState = snapshot.phase === 'GAME_OVER' || !!gameOver;
+    if (isGameOverState) {
+      const isVic = gameOver
+        ? gameOver.isVictory
+        : snapshot.isVictory ??
+          (snapshot.grandTotal ?? snapshot.totalScore ?? 0) >= 200;
+      if (isVic && typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([100, 50, 100, 50, 200]);
+        } catch {
+          // Safe fallback
+        }
+      }
+    }
+  }, [snapshot.phase, gameOver, snapshot.isVictory, snapshot.grandTotal, snapshot.totalScore]);
+
+  // US-10 Scenario 2 & 3: Game Over (Victory / Defeat) Mobile Screen
+  if (snapshot.phase === 'GAME_OVER' || gameOver) {
+    const isVic = gameOver
+      ? gameOver.isVictory
+      : snapshot.isVictory ??
+        (snapshot.grandTotal ?? snapshot.totalScore ?? 0) >= 200;
+    const finalScore =
+      gameOver?.grandTotal ??
+      snapshot.grandTotal ??
+      snapshot.totalScore ??
+      0;
+    const p1Score = gameOver?.p1TotalScore ?? snapshot.p1TotalScore ?? 0;
+    const p2Score = gameOver?.p2TotalScore ?? snapshot.p2TotalScore ?? 0;
+
+    return (
+      <div
+        data-testid="fast-money-game-over-screen"
+        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+      >
+        {isVic ? (
+          <div data-testid="player-victory-view" className="flex flex-col items-center">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500/20 to-yellow-400/30 text-feud-gold mx-auto flex items-center justify-center mb-4 ring-4 ring-feud-gold/30 shadow-lg shadow-feud-gold/20 animate-bounce">
+              <Trophy className="w-10 h-10" />
+            </div>
+
+            <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-feud-gold to-amber-200 mb-2">
+              {t.fastMoney.victoryTitle}
+            </h2>
+            <p className="text-slate-300 text-sm mb-6 leading-relaxed">
+              {t.fastMoney.victorySubtitle}
+            </p>
+
+            <div className="w-full p-4 rounded-2xl bg-slate-900/80 border border-feud-gold/40 mb-6">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                Final Score
+              </div>
+              <div
+                data-testid="player-final-score"
+                className="text-4xl font-black font-game text-feud-gold"
+              >
+                {finalScore} <span className="text-sm font-bold text-feud-gold/80">/ 200 PTS</span>
+              </div>
+              {(p1Score > 0 || p2Score > 0) && (
+                <div className="mt-2 text-xs text-slate-400 flex items-center justify-center gap-3">
+                  <span>P1: <strong className="text-feud-gold">{p1Score}</strong></span>
+                  <span>•</span>
+                  <span>P2: <strong className="text-blue-400">{p2Score}</strong></span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div data-testid="player-defeat-view" className="flex flex-col items-center">
+            <div className="w-20 h-20 rounded-full bg-red-950/60 border border-red-500/40 text-red-400 mx-auto flex items-center justify-center mb-4">
+              <AlertCircle className="w-10 h-10" />
+            </div>
+
+            <h2 className="text-2xl font-black text-red-400 mb-2">
+              {t.fastMoney.defeatTitle}
+            </h2>
+            <p className="text-slate-300 text-sm mb-6">
+              {t.fastMoney.defeatSubtitle.replace('{score}', String(finalScore))}
+            </p>
+
+            <div className="w-full p-4 rounded-2xl bg-slate-900/80 border border-slate-800 mb-6">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                Final Score
+              </div>
+              <div
+                data-testid="player-final-score"
+                className="text-3xl font-black font-game text-slate-200"
+              >
+                {finalScore} <span className="text-sm font-bold text-slate-400">/ 200 PTS</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Waiting for Host Replay Status Indicator */}
+        <div
+          data-testid="player-waiting-replay-notice"
+          className="flex items-center justify-center gap-2 text-xs font-semibold text-feud-gold/90 bg-slate-900/90 py-3 px-4 rounded-2xl border border-feud-gold/30"
+        >
+          <span className="w-2 h-2 rounded-full bg-feud-gold animate-ping" />
+          <span>Waiting for host to start a new match...</span>
+        </div>
+      </div>
+    );
+  }
 
   // 1. Scenario 1: Ready Button State
   if (
@@ -311,11 +423,59 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     );
   }
 
+  // US-10 Scenario 1: P2 Reveal Spectator Screen for Mobile Players
+  if (snapshot.phase === 'P2_REVEAL') {
+    const grandTotal =
+      (snapshot as any).grandTotal ??
+      (snapshot as any).totalScore ??
+      0;
+
+    return (
+      <div
+        data-testid="p2-reveal-spectator-screen"
+        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+      >
+        <div className="w-16 h-16 rounded-full bg-feud-gold/20 text-feud-gold mx-auto flex items-center justify-center mb-4">
+          <Sparkles className="w-10 h-10 text-feud-gold animate-spin" />
+        </div>
+
+        <h2 className="text-2xl font-black text-white mb-2">
+          {t.fastMoney.p2RevealPhaseTitle || 'Fast Money Reveal'}
+        </h2>
+        <p className="text-slate-300 text-sm mb-6 leading-relaxed">
+          Look up at the host TV screen to watch Player 2's answers and points revealed!
+        </p>
+
+        {/* Grand Total Indicator */}
+        <div className="w-full p-4 rounded-2xl bg-slate-900/80 border border-slate-800 mb-6">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+            {t.fastMoney.grandTotal || 'Grand Total'}
+          </div>
+          <div
+            data-testid="player-reveal-grand-total"
+            className="text-3xl font-black font-game text-feud-gold"
+          >
+            {grandTotal} <span className="text-sm font-bold text-slate-400">/ 200 PTS</span>
+          </div>
+        </div>
+
+        <div
+          data-testid="fast-money-locked-notice"
+          className="flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60"
+        >
+          <Lock className="w-4 h-4 text-slate-400" />
+          <span>Input locked for reveal phase</span>
+        </div>
+      </div>
+    );
+  }
+
   // 3. Scenario 4: Turn Expiration / Turn Complete State
   if (
     snapshot.phase === 'P1_FINISHED' ||
     snapshot.phase === 'P2_FINISHED' ||
-    (snapshot.phase === 'P1_REVEAL' && isPlayer2)
+    (snapshot.phase === 'P1_REVEAL' && isPlayer2) ||
+    (!isPlayer2 && (snapshot.phase === 'P2_PLAYING' || snapshot.phase === 'P2_FINISHED'))
   ) {
     const answeredCount = snapshot.answeredCount ?? 0;
     const totalQuestions = snapshot.totalQuestions || 5;
