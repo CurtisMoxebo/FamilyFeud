@@ -158,6 +158,18 @@ export const en: TranslationDictionary = {
     timeUpHandOff: "Time's up! Turn passed to {next}",
     timeUpTeammate: 'Turn passed to teammate {next}',
     deadlockReset: 'No answers given! Loading new question...',
+    passOrPlayTitle: 'Play or Pass?',
+    passOrPlaySubtitle: 'You won the Face-Off! Choose whether your team will play this board or pass control to the opposing team.',
+    playBtn: 'PLAY',
+    passBtn: 'PASS',
+    canYouBeat: 'Can you beat {answer} ({points} pts)?',
+    opponentChance: '{contender} missed! Any valid answer on the board wins the Face-Off!',
+    numberOneAnswerFound: '#1 ANSWER!',
+    teamChosePlay: 'Team {team} has chosen to PLAY!',
+    teamChosePass: 'Team {team} has PASSED to Team {target}!',
+    controlPassesTo: 'Control passes to Team {team}!',
+    waitingForWinnerChoice: 'Waiting for {winner} to choose Play or Pass...',
+    cardRevealed: 'Card #{rank} Revealed: {answer} ({points} pts)',
   },
 };
 

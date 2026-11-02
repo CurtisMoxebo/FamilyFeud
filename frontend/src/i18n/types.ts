@@ -155,5 +155,17 @@ export interface TranslationDictionary {
     timeUpHandOff: string;
     timeUpTeammate: string;
     deadlockReset: string;
+    passOrPlayTitle: string;
+    passOrPlaySubtitle: string;
+    playBtn: string;
+    passBtn: string;
+    canYouBeat: string;
+    opponentChance: string;
+    numberOneAnswerFound: string;
+    teamChosePlay: string;
+    teamChosePass: string;
+    controlPassesTo: string;
+    waitingForWinnerChoice: string;
+    cardRevealed: string;
   };
 }
