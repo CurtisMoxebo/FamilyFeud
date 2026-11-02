@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
-import { translations } from '../src/i18n/translations';
-import { LanguageProvider, useTranslation } from '../src/i18n/LanguageContext';
+import { translations, LanguageProvider, useTranslation } from '../src/i18n';
 import { Language } from '../src/types';
 
 describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', () => {
