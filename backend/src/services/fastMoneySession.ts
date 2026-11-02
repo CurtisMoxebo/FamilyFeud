@@ -1,3 +1,5 @@
+import { SupportedLanguage } from './geminiService';
+
 export type FastMoneyPhase =
   | 'P1_READY'
   | 'P1_PLAYING'
@@ -13,6 +15,7 @@ export interface FastMoneyQuestionAnswer {
   answerText: string;
   points: number;
   rankOrder?: number;
+  [key: string]: unknown;
 }
 
 export interface FastMoneyQuestionItem {
@@ -38,6 +41,7 @@ export interface FastMoneySessionOptions {
   player2Id: string;
   questions: FastMoneyQuestionItem[];
   timerDurationSeconds?: number;
+  language?: SupportedLanguage;
 }
 
 export interface Player1StateSnapshot {
@@ -90,6 +94,7 @@ export class FastMoneySession {
   public readonly player1Id: string;
   public readonly player2Id: string;
   public readonly timerDurationSeconds: number;
+  public readonly language: SupportedLanguage;
 
   private readonly questions: FastMoneyQuestionItem[];
   private unattemptedQueue: FastMoneyQuestionItem[];
@@ -113,6 +118,7 @@ export class FastMoneySession {
     this.player1Id = options.player1Id;
     this.player2Id = options.player2Id;
     this.timerDurationSeconds = options.timerDurationSeconds ?? 60;
+    this.language = options.language ?? 'EN';
 
     // Clone and sort questions by orderIndex
     this.questions = [...options.questions].sort((a, b) => a.orderIndex - b.orderIndex);

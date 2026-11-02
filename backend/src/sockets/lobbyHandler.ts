@@ -422,6 +422,7 @@ export function registerLobbyHandlers(
               player2Id: connectedPlayers[1].id,
               questions: fmQuestions,
               timerDurationSeconds: 60,
+              language: room.language,
             });
 
             broadcastFastMoneyState(io, session);
