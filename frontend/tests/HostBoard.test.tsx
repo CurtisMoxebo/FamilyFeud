@@ -7,7 +7,7 @@ import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
 import { Room } from '../src/types';
 
-describe('Frontend Regression Suite: HostBoard Page (US-02)', () => {
+describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02 & US-03)', () => {
   const mockRoom: Room = {
     id: 'room-abc',
     roomCode: 'FEUD-7890',
@@ -51,6 +51,46 @@ describe('Frontend Regression Suite: HostBoard Page (US-02)', () => {
     expect(screen.getByText('LOBBY')).toBeInTheDocument();
   });
 
+  it('satisfies US-03 Scenario 1: renders high-contrast QR code and mobile scan instructions', () => {
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    // Check QR Code SVG is rendered
+    const qrCode = screen.getByTestId('host-qr-code');
+    expect(qrCode).toBeInTheDocument();
+    expect(qrCode.tagName.toLowerCase()).toBe('svg');
+
+    // Check scan instruction in French
+    const scanInstruction = screen.getByTestId('host-scan-instruction');
+    expect(scanInstruction).toBeInTheDocument();
+    expect(scanInstruction).toHaveTextContent(/scannez avec votre téléphone/i);
+
+    // Check direct link URL is displayed
+    expect(screen.getByText(new RegExp('/play/FEUD-7890'))).toBeInTheDocument();
+  });
+
+  it('satisfies US-03 Scenario 2: copies the join URL when Copy Link is clicked', async () => {
+    const user = userEvent.setup();
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    const copyBtn = screen.getByTestId('host-copy-link-btn');
+    await user.click(copyBtn);
+
+    expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('/play/FEUD-7890'));
+    expect(screen.getByText(/copié/i)).toBeInTheDocument();
+
+    // Secondary link copy button also works
+    const directCopyBtn = screen.getByTestId('host-direct-link-copy-btn');
+    await user.click(directCopyBtn);
+    expect(writeTextMock).toHaveBeenCalledTimes(2);
+  });
+
   it('fetches room details via REST API when loaded without initialRoom', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,
@@ -78,6 +118,7 @@ describe('Frontend Regression Suite: HostBoard Page (US-02)', () => {
     expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/rooms/FEUD-7890'));
     expect(screen.getByTestId('host-room-language')).toHaveTextContent('Español (ES)');
     expect(screen.getByTestId('host-room-mode')).toHaveTextContent(/Juego Principal/i);
+    expect(screen.getByTestId('host-qr-code')).toBeInTheDocument();
   });
 
   it('displays error state when room cannot be found (404)', async () => {
@@ -99,23 +140,4 @@ describe('Frontend Regression Suite: HostBoard Page (US-02)', () => {
     expect(screen.getByText(/room not found/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /back to home/i })).toBeInTheDocument();
   });
-
-  it('copies the join URL when Copy Link is clicked', async () => {
-    const user = userEvent.setup();
-    const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: writeTextMock },
-      writable: true,
-      configurable: true,
-    });
-
-    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
-
-    const copyBtn = screen.getByTestId('host-copy-link-btn');
-    await user.click(copyBtn);
-
-    expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('/play/FEUD-7890'));
-    expect(screen.getByText(/copié/i)).toBeInTheDocument();
-  });
 });
-
