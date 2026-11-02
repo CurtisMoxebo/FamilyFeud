@@ -3,9 +3,10 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import { config } from './config/env';
-import { logger, getSocketIp } from './utils/logger';
+import { logger } from './utils/logger';
 import { requestLogger } from './middleware/requestLogger';
 import roomRoutes from './routes/roomRoutes';
+import { setupSocketServer } from './sockets/lobbyHandler';
 
 const app = express();
 const server = http.createServer(app);
@@ -50,15 +51,7 @@ export const io = new SocketIOServer(server, {
   },
 });
 
-io.on('connection', (socket) => {
-  const clientIp = getSocketIp(socket);
-  const transport = socket.conn.transport.name;
-  logger.socket('CONNECT', socket.id, clientIp, `Transport: ${transport}`);
-
-  socket.on('disconnect', (reason) => {
-    logger.socket('DISCONNECT', socket.id, clientIp, `Reason: ${reason}`);
-  });
-});
+setupSocketServer(io);
 
 // Start listening if not in test environment
 if (process.env.NODE_ENV !== 'test') {

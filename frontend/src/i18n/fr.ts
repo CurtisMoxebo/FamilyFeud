@@ -67,6 +67,25 @@ export const fr: TranslationDictionary = {
     validationErrorRoomCode: 'Format de code invalide (doit être FEUD-XXXX)',
     roomNotFound: 'Salon introuvable ou session terminée',
   },
+  lobby: {
+    rosterTitle: 'Joueurs connectés',
+    waitingForHost: 'En attente du lancement par l’hôte...',
+    roomFullTitle: 'Salon complet',
+    roomFullFastMoney: 'Ce salon Face-à-Face Rapide est déjà complet (2/2 joueurs).',
+    roomFullMainGame: 'Ce salon Jeu Principal est déjà complet (10/10 joueurs).',
+    fastMoneyCapacity: 'Face-à-Face Rapide : 2/2 Requis',
+    mainGameCapacity: 'Jeu Principal : Pair (2-10 Joueurs)',
+    startGame: 'Lancer la partie',
+    startGameWithCount: 'Lancer la partie ({count} joueurs)',
+    mainGameEvenCountRequired: 'Nombre pair de joueurs requis (2, 4, 6, 8, 10) pour commencer',
+    mainGameCurrentWaiting: 'En attente d’un nombre pair de joueurs (actuel : {count})',
+    fastMoneyWaiting: 'En attente de 2 joueurs (actuel : {count}/2)',
+    statusHost: 'Hôte',
+    statusReady: 'Prêt',
+    statusWaiting: 'En attente',
+    statusDisconnected: 'Déconnecté',
+    backHome: 'Retour à l’accueil',
+  },
 };
 
 export default fr;

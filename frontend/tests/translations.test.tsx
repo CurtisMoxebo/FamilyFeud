@@ -4,7 +4,7 @@ import React from 'react';
 import { translations, LanguageProvider, useTranslation } from '../src/i18n';
 import { Language } from '../src/types';
 
-describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', () => {
+describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US-04)', () => {
   const supportedLanguages: Language[] = ['EN', 'FR', 'ES'];
 
   describe('Translation Dictionary Integrity', () => {
@@ -17,6 +17,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', 
         expect(translations[lang].gameActions).toBeDefined();
         expect(translations[lang].host).toBeDefined();
         expect(translations[lang].joinRoom).toBeDefined();
+        expect(translations[lang].lobby).toBeDefined();
       }
     });
 
@@ -94,6 +95,50 @@ describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', 
       expect(translations.ES.joinRoom.tabHost).toBe('Crear sala');
       expect(translations.ES.joinRoom.tabJoin).toBe('Unirse a una sala');
     });
+
+    it('defines US-04 lobby and capacity dictionary keys for all supported languages', () => {
+      for (const lang of supportedLanguages) {
+        const lobby = translations[lang].lobby;
+        expect(lobby.rosterTitle).toBeTruthy();
+        expect(lobby.waitingForHost).toBeTruthy();
+        expect(lobby.roomFullTitle).toBeTruthy();
+        expect(lobby.roomFullFastMoney).toBeTruthy();
+        expect(lobby.roomFullMainGame).toBeTruthy();
+        expect(lobby.fastMoneyCapacity).toBeTruthy();
+        expect(lobby.mainGameCapacity).toBeTruthy();
+        expect(lobby.startGame).toBeTruthy();
+        expect(lobby.startGameWithCount).toBeTruthy();
+        expect(lobby.mainGameEvenCountRequired).toBeTruthy();
+        expect(lobby.mainGameCurrentWaiting).toBeTruthy();
+        expect(lobby.fastMoneyWaiting).toBeTruthy();
+        expect(lobby.statusHost).toBeTruthy();
+        expect(lobby.statusReady).toBeTruthy();
+        expect(lobby.statusWaiting).toBeTruthy();
+        expect(lobby.statusDisconnected).toBeTruthy();
+        expect(lobby.backHome).toBeTruthy();
+      }
+
+      // Verify specific localized US-04 capacity texts and alerts
+      expect(translations.EN.lobby.roomFullFastMoney).toBe(
+        'This Fast Money room is already full (2/2 players).'
+      );
+      expect(translations.FR.lobby.roomFullFastMoney).toBe(
+        'Ce salon Face-à-Face Rapide est déjà complet (2/2 joueurs).'
+      );
+      expect(translations.ES.lobby.roomFullFastMoney).toBe(
+        'Esta sala de Dinero Rápido ya está llena (2/2 jugadores).'
+      );
+
+      expect(translations.EN.lobby.mainGameEvenCountRequired).toBe(
+        'Even number of players required (2, 4, 6, 8, 10) to start'
+      );
+      expect(translations.FR.lobby.mainGameEvenCountRequired).toBe(
+        'Nombre pair de joueurs requis (2, 4, 6, 8, 10) pour commencer'
+      );
+      expect(translations.ES.lobby.mainGameEvenCountRequired).toBe(
+        'Se requiere un número par de jugadores (2, 4, 6, 8, 10) para comenzar'
+      );
+    });
   });
 
   describe('useTranslation Hook & LanguageContext', () => {
@@ -108,6 +153,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', 
       expect(result.current.t.gameActions.ready).toBe('Ready');
       expect(result.current.t.createRoom.submitButton).toBe('Create Room');
       expect(result.current.t.joinRoom.tabJoin).toBe('Join a Game');
+      expect(result.current.t.lobby.startGame).toBe('Start Game');
     });
 
     it('supports custom initialLanguage in LanguageProvider', () => {
@@ -121,6 +167,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', 
       expect(result.current.t.gameActions.ready).toBe('Je suis prêt');
       expect(result.current.t.createRoom.submitButton).toBe('Créer le salon');
       expect(result.current.t.joinRoom.tabJoin).toBe('Rejoindre une partie');
+      expect(result.current.t.lobby.startGame).toBe('Lancer la partie');
     });
 
     it('updates translations dynamically when setLanguage is called', () => {
@@ -140,6 +187,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', 
       expect(result.current.t.gameActions.ready).toBe('¡Listo!');
       expect(result.current.t.createRoom.submitButton).toBe('Crear sala');
       expect(result.current.t.joinRoom.tabJoin).toBe('Unirse a una sala');
+      expect(result.current.t.lobby.startGame).toBe('Iniciar partida');
 
       act(() => {
         result.current.setLanguage('FR');
@@ -148,6 +196,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', 
       expect(result.current.language).toBe('FR');
       expect(result.current.t.gameActions.ready).toBe('Je suis prêt');
       expect(result.current.t.joinRoom.tabJoin).toBe('Rejoindre une partie');
+      expect(result.current.t.lobby.startGame).toBe('Lancer la partie');
     });
 
     it('gracefully falls back to English when rendered outside of LanguageProvider', () => {
@@ -156,6 +205,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', 
       expect(result.current.language).toBe('EN');
       expect(result.current.t.gameActions.ready).toBe('Ready');
       expect(result.current.t.joinRoom.tabJoin).toBe('Join a Game');
+      expect(result.current.t.lobby.startGame).toBe('Start Game');
       expect(typeof result.current.setLanguage).toBe('function');
     });
 
@@ -168,8 +218,10 @@ describe('Frontend Regression Suite: i18n Localization System (US-02 & US-03)', 
 
       expect(result.current.getTranslation('FR').gameActions.ready).toBe('Je suis prêt');
       expect(result.current.getTranslation('FR').joinRoom.tabJoin).toBe('Rejoindre une partie');
+      expect(result.current.getTranslation('FR').lobby.startGame).toBe('Lancer la partie');
       expect(result.current.getTranslation('ES').gameActions.ready).toBe('¡Listo!');
       expect(result.current.getTranslation('ES').joinRoom.tabJoin).toBe('Unirse a una sala');
+      expect(result.current.getTranslation('ES').lobby.startGame).toBe('Iniciar partida');
     });
   });
 });

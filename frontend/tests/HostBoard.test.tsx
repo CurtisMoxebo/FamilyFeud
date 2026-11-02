@@ -5,9 +5,10 @@ import React from 'react';
 import { HostBoard } from '../src/pages/HostBoard';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
-import { Room } from '../src/types';
+import { Room, RoomStateUpdate } from '../src/types';
+import * as socketHook from '../src/hooks/useSocket';
 
-describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02 & US-03)', () => {
+describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US-04)', () => {
   const mockRoom: Room = {
     id: 'room-abc',
     roomCode: 'FEUD-7890',
@@ -153,5 +154,158 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02 & US-03)', 
     const leaveBtn = screen.getByTestId('host-back-home-btn');
     expect(leaveBtn).toBeInTheDocument();
     await user.click(leaveBtn);
+  });
+
+  /* -------------------------------------------------------------
+   * US-04 Specific Tests: Roster, Capacity, Dynamic Start Game
+   * ------------------------------------------------------------- */
+  it('satisfies US-04 Scenario 1: displays empty roster initially and disables Start button', () => {
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    // Empty roster state
+    expect(screen.getByTestId('host-empty-roster')).toBeInTheDocument();
+    expect(screen.getByTestId('host-roster-count')).toHaveTextContent('0 / 2 Players');
+
+    // Start Game button is disabled with Fast Money waiting message
+    const startBtn = screen.getByTestId('host-start-game-btn');
+    expect(startBtn).toBeDisabled();
+    expect(screen.getByTestId('host-start-disabled-reason')).toHaveTextContent(
+      /en attente de 2 joueurs \(actuel : 0\/2\)/i
+    );
+  });
+
+  it('satisfies US-04 Scenario 1 & 3: renders live roster and enables Start Game button when Fast Money reaches 2 players', async () => {
+    const user = userEvent.setup();
+    const onStartGameMock = vi.fn();
+
+    const mockState: RoomStateUpdate = {
+      roomCode: 'FEUD-7890',
+      roomName: 'Soirée Famille',
+      language: 'FR',
+      gameMode: 'FAST_MONEY',
+      status: 'LOBBY',
+      playerCount: 2,
+      maxPlayers: 2,
+      canStart: true,
+      players: [
+        { id: 'p1', nickname: 'Sarah', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p2', nickname: 'Michael', team: 'NONE', isReady: true, isConnected: true },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      socket: null,
+      isConnected: true,
+      socketId: 'host-socket',
+      roomState: mockState,
+      roomError: null,
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
+      clearError: vi.fn(),
+    });
+
+    renderWithProviders(
+      <HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} onStartGame={onStartGameMock} />
+    );
+
+    // Player roster rendering
+    expect(screen.getByTestId('host-roster-count')).toHaveTextContent('2 / 2 Players');
+    expect(screen.getByTestId('host-player-card-Sarah')).toBeInTheDocument();
+    expect(screen.getByTestId('host-player-card-Michael')).toBeInTheDocument();
+
+    // Start Game button is enabled with player count
+    const startBtn = screen.getByTestId('host-start-game-btn');
+    expect(startBtn).toBeEnabled();
+    expect(startBtn).toHaveTextContent(/lancer la partie \(2 joueurs\)/i);
+
+    // Clicking fires onStartGame
+    await user.click(startBtn);
+    expect(onStartGameMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('satisfies US-04 Scenario 3: enforces even player count for Main Game mode', () => {
+    const mainGameRoom: Room = {
+      ...mockRoom,
+      gameMode: 'MAIN_GAME',
+    };
+
+    const mockState: RoomStateUpdate = {
+      roomCode: 'FEUD-7890',
+      roomName: 'Soirée Famille',
+      language: 'FR',
+      gameMode: 'MAIN_GAME',
+      status: 'LOBBY',
+      playerCount: 3,
+      maxPlayers: 10,
+      canStart: false,
+      startDisabledReason: 'Waiting for an even number of players (current: 3)',
+      players: [
+        { id: 'p1', nickname: 'Sarah', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p2', nickname: 'Michael', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p3', nickname: 'Lucas', team: 'NONE', isReady: true, isConnected: true },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      socket: null,
+      isConnected: true,
+      socketId: 'host-socket',
+      roomState: mockState,
+      roomError: null,
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
+      clearError: vi.fn(),
+    });
+
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mainGameRoom} />);
+
+    expect(screen.getByTestId('host-roster-count')).toHaveTextContent('3 / 10 Players');
+    const startBtn = screen.getByTestId('host-start-game-btn');
+    expect(startBtn).toBeDisabled();
+
+    // Helper message explains odd count restriction
+    expect(screen.getByTestId('host-start-disabled-reason')).toHaveTextContent(
+      /en attente d’un nombre pair de joueurs \(actuel : 3\)/i
+    );
+  });
+
+  it('satisfies US-04 Scenario 4: renders disconnected badge when a player disconnects', () => {
+    const mockState: RoomStateUpdate = {
+      roomCode: 'FEUD-7890',
+      roomName: 'Soirée Famille',
+      language: 'FR',
+      gameMode: 'FAST_MONEY',
+      status: 'LOBBY',
+      playerCount: 1,
+      maxPlayers: 2,
+      canStart: false,
+      players: [
+        { id: 'p1', nickname: 'Sarah', team: 'NONE', isReady: true, isConnected: true },
+        { id: 'p2', nickname: 'Michael', team: 'NONE', isReady: true, isConnected: false },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      socket: null,
+      isConnected: true,
+      socketId: 'host-socket',
+      roomState: mockState,
+      roomError: null,
+      joinRoom: vi.fn(),
+      leaveRoom: vi.fn(),
+      clearError: vi.fn(),
+    });
+
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    // Count is 1 / 2
+    expect(screen.getByTestId('host-roster-count')).toHaveTextContent('1 / 2 Players');
+
+    // Michael has disconnected badge
+    const michaelCard = screen.getByTestId('host-player-card-Michael');
+    expect(michaelCard).toHaveTextContent(/déconnecté/i);
+
+    // Start button is disabled
+    expect(screen.getByTestId('host-start-game-btn')).toBeDisabled();
   });
 });

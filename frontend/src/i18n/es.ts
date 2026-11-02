@@ -67,6 +67,25 @@ export const es: TranslationDictionary = {
     validationErrorRoomCode: 'Formato de código inválido (debe ser FEUD-XXXX)',
     roomNotFound: 'Sala no encontrada o sesión finalizada',
   },
+  lobby: {
+    rosterTitle: 'Jugadores conectados',
+    waitingForHost: 'Esperando a que el anfitrión inicie...',
+    roomFullTitle: 'Sala llena',
+    roomFullFastMoney: 'Esta sala de Dinero Rápido ya está llena (2/2 jugadores).',
+    roomFullMainGame: 'Esta sala de Juego Principal ya está llena (10/10 jugadores).',
+    fastMoneyCapacity: 'Dinero Rápido: 2/2 Requeridos',
+    mainGameCapacity: 'Juego Principal: Par (2-10 Jugadores)',
+    startGame: 'Iniciar partida',
+    startGameWithCount: 'Iniciar partida ({count} jugadores)',
+    mainGameEvenCountRequired: 'Se requiere un número par de jugadores (2, 4, 6, 8, 10) para comenzar',
+    mainGameCurrentWaiting: 'Esperando un número par de jugadores (actual: {count})',
+    fastMoneyWaiting: 'Esperando 2 jugadores (actual: {count}/2)',
+    statusHost: 'Anfitrión',
+    statusReady: 'Listo',
+    statusWaiting: 'Esperando',
+    statusDisconnected: 'Desconectado',
+    backHome: 'Volver al inicio',
+  },
 };
 
 export default es;

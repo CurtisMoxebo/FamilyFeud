@@ -65,4 +65,23 @@ export interface TranslationDictionary {
     validationErrorRoomCode: string;
     roomNotFound: string;
   };
+  lobby: {
+    rosterTitle: string;
+    waitingForHost: string;
+    roomFullTitle: string;
+    roomFullFastMoney: string;
+    roomFullMainGame: string;
+    fastMoneyCapacity: string;
+    mainGameCapacity: string;
+    startGame: string;
+    startGameWithCount: string;
+    mainGameEvenCountRequired: string;
+    mainGameCurrentWaiting: string;
+    fastMoneyWaiting: string;
+    statusHost: string;
+    statusReady: string;
+    statusWaiting: string;
+    statusDisconnected: string;
+    backHome: string;
+  };
 }
