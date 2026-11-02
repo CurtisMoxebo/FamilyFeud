@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Room } from '../types';
+import { Room, TeamsAssignedPayload } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
 import { FastMoneyHostBoard } from '../components/FastMoneyHostBoard';
+import { MainGameTeamsStage } from '../components/MainGameTeamsStage';
 import {
   Tv,
   Users,
@@ -23,6 +24,7 @@ import {
 export interface HostBoardProps {
   roomCode: string;
   initialRoom?: Room | null;
+  initialTeamsAssigned?: TeamsAssignedPayload | null;
   apiBaseUrl?: string;
   onStartGame?: () => void;
 }
@@ -30,6 +32,7 @@ export interface HostBoardProps {
 export const HostBoard: React.FC<HostBoardProps> = ({
   roomCode,
   initialRoom = null,
+  initialTeamsAssigned = null,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -43,10 +46,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Live real-time socket connection for host display (US-04, US-05, US-08 & US-10)
+  // Live real-time socket connection for host display (US-04, US-05, US-08, US-10 & US-11)
   const {
     roomState,
     startGame,
+    teamsAssigned: socketTeamsAssigned,
     fastMoneyHostState,
     timerTick,
     duplicateWarning,
@@ -63,6 +67,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     isHost: true,
     autoJoin: true,
   });
+
+  const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
 
   const joinUrl =
     typeof window !== 'undefined'
@@ -184,6 +190,45 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const playerCount = roomState?.playerCount ?? connectedPlayers.length;
   const maxPlayers = roomState?.maxPlayers ?? (isFastMoney ? 2 : 10);
 
+  // Main Game Teams Stage (US-11)
+  const activeTeams =
+    teamsAssigned ??
+    (!isFastMoney &&
+    (roomState?.status === 'ACTIVE' || room.status === 'ACTIVE') &&
+    players.some((p) => p.team === 'TEAM_1' || p.team === 'TEAM_2')
+      ? {
+          roomCode: room.roomCode,
+          team1: players
+            .filter((p) => p.team === 'TEAM_1')
+            .map((p, idx) => ({
+              id: p.id,
+              nickname: p.nickname,
+              team: 'TEAM_1' as const,
+              battingOrder: idx + 1,
+            })),
+          team2: players
+            .filter((p) => p.team === 'TEAM_2')
+            .map((p, idx) => ({
+              id: p.id,
+              nickname: p.nickname,
+              team: 'TEAM_2' as const,
+              battingOrder: idx + 1,
+            })),
+        }
+      : null);
+
+  if (!isFastMoney && activeTeams) {
+    return (
+      <MainGameTeamsStage
+        roomCode={room.roomCode}
+        roomName={room.roomName}
+        team1={activeTeams.team1}
+        team2={activeTeams.team2}
+        onLeave={() => navigate('/')}
+      />
+    );
+  }
+
   // Authoritative start readiness
   const canStart =
     roomState?.canStart ??
@@ -197,8 +242,10 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     : playerCount < 2
     ? t.lobby.mainGameEvenCountRequired
     : playerCount % 2 !== 0
-    ? t.lobby.mainGameCurrentWaiting.replace('{count}', String(playerCount))
-    : t.lobby.mainGameEvenCountRequired;
+    ? t.lobby.oddPlayerCountWarning
+        .replace('{count}', String(playerCount))
+        .replace('{target}', String(playerCount + 1))
+    : roomState?.startDisabledReason ?? t.lobby.mainGameEvenCountRequired;
 
   return (
     <div className="w-full max-w-4xl flex flex-col items-center gap-8">

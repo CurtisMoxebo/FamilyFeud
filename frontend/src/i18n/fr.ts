@@ -79,6 +79,8 @@ export const fr: TranslationDictionary = {
     startGameWithCount: 'Lancer la partie ({count} joueurs)',
     mainGameEvenCountRequired: 'Nombre pair de joueurs requis (2, 4, 6, 8, 10) pour commencer',
     mainGameCurrentWaiting: 'En attente d’un nombre pair de joueurs (actuel : {count})',
+    oddPlayerCountWarning:
+      'Impossible de commencer avec un nombre impair de joueurs ({count}). Connectez 1 joueur de plus pour atteindre {target}.',
     fastMoneyWaiting: 'En attente de 2 joueurs (actuel : {count}/2)',
     statusHost: 'Hôte',
     statusReady: 'Prêt',
@@ -126,6 +128,19 @@ export const fr: TranslationDictionary = {
     grandTotal: 'Total Général',
     targetGoal: 'Objectif : 200 pts',
     startP2RevealBtn: 'Lancer la révélation Joueur 2',
+  },
+  mainGame: {
+    team1: 'Équipe 1',
+    team2: 'Équipe 2',
+    teamsAssignedTitle: 'Équipes réparties !',
+    teamsAssignedSubtitle: 'Les joueurs ont été répartis aléatoirement en deux équipes équilibrées.',
+    youAreOnTeam: 'Vous êtes dans l\'{team} !',
+    teammatesTitle: 'Vos coéquipiers',
+    battingOrder: 'Ordre #{order}',
+    playerOrder: 'Joueur #{order}',
+    versus: 'VS',
+    teamRoster: 'Composition {team}',
+    readyForFaceOff: 'Préparez-vous pour le Face-à-face !',
   },
 };
 

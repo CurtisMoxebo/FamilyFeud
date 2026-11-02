@@ -12,6 +12,7 @@ import {
   BoardRevealPayload,
   DuplicateAnswerWarningPayload,
   GameOverPayload,
+  TeamsAssignedPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -58,6 +59,9 @@ export function useSocket(options?: UseSocketOptions) {
     phase: string;
   } | null>(null);
   const [gameOver, setGameOver] = useState<GameOverPayload | null>(null);
+
+  // Main Game Teams Assignment (US-11)
+  const [teamsAssigned, setTeamsAssigned] = useState<TeamsAssignedPayload | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -180,6 +184,7 @@ export function useSocket(options?: UseSocketOptions) {
     setDuplicateWarning(null);
     setBoardReveal(null);
     setP1RevealCompleted(null);
+    setTeamsAssigned(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -238,6 +243,12 @@ export function useSocket(options?: UseSocketOptions) {
       setGameOver(null);
       setP1RevealCompleted(null);
       setDuplicateWarning(null);
+      setTeamsAssigned(null);
+    });
+
+    // Main Game Teams Assignment (US-11)
+    socket.on('teams_assigned', (payload: TeamsAssignedPayload) => {
+      setTeamsAssigned(payload);
     });
 
     // Fast Money Speed Round Listeners (US-07 & US-09)
@@ -313,6 +324,7 @@ export function useSocket(options?: UseSocketOptions) {
     roomState,
     roomError,
     gameStarted,
+    teamsAssigned,
     fastMoneyP1State,
     fastMoneyP2State,
     fastMoneyHostState,

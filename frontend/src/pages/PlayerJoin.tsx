@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Room } from '../types';
+import { Room, TeamsAssignedPayload } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
 import { FastMoneyController } from '../components/FastMoneyController';
 import { FastMoneyIsolation } from '../components/FastMoneyIsolation';
+import { MainGamePlayerView } from '../components/MainGamePlayerView';
 import {
   User,
   ArrowRight,
@@ -21,6 +22,7 @@ import {
 export interface PlayerJoinProps {
   roomCode: string;
   initialRoom?: Room | null;
+  initialTeamsAssigned?: TeamsAssignedPayload | null;
   apiBaseUrl?: string;
   onJoined?: (playerData: { room: Room; nickname: string }) => void;
 }
@@ -28,6 +30,7 @@ export interface PlayerJoinProps {
 export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   roomCode,
   initialRoom = null,
+  initialTeamsAssigned = null,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -39,15 +42,21 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   const [room, setRoom] = useState<Room | null>(initialRoom);
   const [isLoading, setIsLoading] = useState<boolean>(!initialRoom);
   const [error, setError] = useState<string | null>(null);
-  const [nickname, setNickname] = useState<string>('');
+  const [nickname, setNickname] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(`feud_nickname_${roomCode.toUpperCase()}`) || '';
+    }
+    return '';
+  });
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const [isJoined, setIsJoined] = useState<boolean>(false);
 
-  // Live real-time socket connection for mobile player (US-04)
+  // Live real-time socket connection for mobile player (US-04 & US-11)
   const {
     roomState,
     roomError,
+    teamsAssigned: socketTeamsAssigned,
     fastMoneyP1State,
     fastMoneyP2State,
     timerTick,
@@ -59,6 +68,8 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     submitFastMoneyAnswer,
     passFastMoneyQuestion,
   } = useSocket();
+
+  const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
 
   useEffect(() => {
     if (initialRoom) {
@@ -269,6 +280,67 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           onLeave={() => navigate('/')}
         />
       );
+    }
+
+    // Main Game Team Assignment Screen (US-11)
+    const activeTeams =
+      teamsAssigned ??
+      (!isFastMoney &&
+      (roomState?.status === 'ACTIVE' || room.status === 'ACTIVE') &&
+      playersList.some((p) => p.team === 'TEAM_1' || p.team === 'TEAM_2')
+        ? {
+            roomCode: room.roomCode,
+            team1: playersList
+              .filter((p) => p.team === 'TEAM_1')
+              .map((p, idx) => ({
+                id: p.id,
+                nickname: p.nickname,
+                team: 'TEAM_1' as const,
+                battingOrder: idx + 1,
+              })),
+            team2: playersList
+              .filter((p) => p.team === 'TEAM_2')
+              .map((p, idx) => ({
+                id: p.id,
+                nickname: p.nickname,
+                team: 'TEAM_2' as const,
+                battingOrder: idx + 1,
+              })),
+          }
+        : null);
+
+    if (!isFastMoney && activeTeams) {
+      const trimmedNick = nickname.trim().toLowerCase();
+      const inTeam1 = activeTeams.team1.find(
+        (p) =>
+          (p.nickname && p.nickname.toLowerCase() === trimmedNick) ||
+          (currentPlayer && p.id === currentPlayer.id)
+      );
+      const inTeam2 = activeTeams.team2.find(
+        (p) =>
+          (p.nickname && p.nickname.toLowerCase() === trimmedNick) ||
+          (currentPlayer && p.id === currentPlayer.id)
+      );
+
+      if (inTeam1 || inTeam2) {
+        const isTeam1 = Boolean(inTeam1);
+        const myAssignedPlayer = (inTeam1 || inTeam2)!;
+        const myTeam = isTeam1 ? activeTeams.team1 : activeTeams.team2;
+        const opponentTeam = isTeam1 ? activeTeams.team2 : activeTeams.team1;
+
+        return (
+          <MainGamePlayerView
+            roomCode={room.roomCode}
+            roomName={room.roomName}
+            playerNickname={nickname.trim()}
+            assignedPlayer={myAssignedPlayer}
+            myTeam={myTeam}
+            opponentTeam={opponentTeam}
+            teamNumber={isTeam1 ? 1 : 2}
+            onLeave={() => navigate('/')}
+          />
+        );
+      }
     }
     return (
       <div

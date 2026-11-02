@@ -232,3 +232,17 @@ export interface DuplicateAnswerWarningPayload {
   duplicateWithAnswer?: string;
   reason?: 'EXACT_RAW' | 'SEMANTIC_MATCH';
 }
+
+export interface AssignedTeamPlayer {
+  id: string;
+  nickname?: string;
+  team: 'TEAM_1' | 'TEAM_2';
+  battingOrder: number;
+}
+
+export interface TeamsAssignedPayload {
+  roomCode: string;
+  team1: AssignedTeamPlayer[];
+  team2: AssignedTeamPlayer[];
+}
+

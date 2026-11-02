@@ -10,6 +10,13 @@ import {
   registerFastMoneyHandlers,
 } from './fastMoneyHandler';
 import { FastMoneyQuestionItem } from '../services/fastMoneySession';
+import {
+  partitionTeams,
+  persistTeamAssignments,
+  validateTeamCount,
+  PartitionResult,
+  AssignedPlayer,
+} from '../services/teamService';
 
 export interface JoinRoomPayload {
   roomCode: string;
@@ -65,6 +72,12 @@ export interface GameStartedPayload {
   };
 }
 
+export interface TeamsAssignedPayload {
+  roomCode: string;
+  team1: AssignedPlayer[];
+  team2: AssignedPlayer[];
+}
+
 /**
  * Calculates whether a room can start based on gameMode capacity and player count.
  */
@@ -82,23 +95,12 @@ export function calculateCanStart(
     };
   }
 
-  // MAIN_GAME rules: 2 to 10 players, must be even
-  if (connectedCount < 2) {
+  // MAIN_GAME rules: 2 to 10 players, must be even (US-11)
+  const validation = validateTeamCount(connectedCount);
+  if (!validation.isValid) {
     return {
       canStart: false,
-      startDisabledReason: `At least 2 players required (current: ${connectedCount})`,
-    };
-  }
-  if (connectedCount > 10) {
-    return {
-      canStart: false,
-      startDisabledReason: 'Maximum 10 players allowed',
-    };
-  }
-  if (connectedCount % 2 !== 0) {
-    return {
-      canStart: false,
-      startDisabledReason: `Waiting for an even number of players (current: ${connectedCount})`,
+      startDisabledReason: validation.error,
     };
   }
 
@@ -294,7 +296,12 @@ export function registerLobbyHandlers(
     'start_game',
     async (
       data?: { roomCode?: string },
-      callback?: (res: { success: boolean; error?: string; game?: GameStartedPayload }) => void
+      callback?: (res: {
+        success: boolean;
+        error?: string;
+        game?: GameStartedPayload;
+        teams?: { team1: AssignedPlayer[]; team2: AssignedPlayer[] };
+      }) => void
     ) => {
       try {
         const rawCode = data?.roomCode || socket.data?.roomCode;
@@ -347,6 +354,14 @@ export function registerLobbyHandlers(
           return;
         }
 
+        // For MAIN_GAME: Partition teams and persist team assignments (US-11)
+        let partitionResult: PartitionResult | undefined;
+        if (room.gameMode === 'MAIN_GAME') {
+          const connectedPlayers = room.players.filter((p) => p.isConnected);
+          partitionResult = partitionTeams(connectedPlayers);
+          await persistTeamAssignments(db, partitionResult.allAssigned);
+        }
+
         // 1. Create Game record in MySQL
         const game = await db.game.create({
           data: {
@@ -374,7 +389,20 @@ export function registerLobbyHandlers(
           include: { players: true },
         });
 
-        // 4. Construct payload and broadcast to room
+        // 4. If MAIN_GAME, broadcast teams_assigned event (US-11)
+        if (room.gameMode === 'MAIN_GAME' && partitionResult) {
+          const teamsAssignedPayload: TeamsAssignedPayload = {
+            roomCode: normalizedCode,
+            team1: partitionResult.team1,
+            team2: partitionResult.team2,
+          };
+          io.to(`room:${normalizedCode}`).emit('teams_assigned', teamsAssignedPayload);
+          logger.info(
+            `[MAIN_GAME:TEAMS_ASSIGNED] Room ${normalizedCode} broadcast teams_assigned: Team 1 (${partitionResult.team1.length}), Team 2 (${partitionResult.team2.length})`
+          );
+        }
+
+        // 5. Construct payload and broadcast to room
         const gameStartedPayload: GameStartedPayload = {
           gameId: game.id,
           roomCode: room.roomCode,
@@ -392,7 +420,7 @@ export function registerLobbyHandlers(
 
         io.to(`room:${normalizedCode}`).emit('game_started', gameStartedPayload);
 
-        // 5. Broadcast refreshed room state
+        // 6. Broadcast refreshed room state
         const state = buildRoomStateUpdate(updatedRoom);
         io.to(`room:${normalizedCode}`).emit('room_state_update', state);
 
@@ -429,7 +457,15 @@ export function registerLobbyHandlers(
           }
         }
 
-        if (callback) callback({ success: true, game: gameStartedPayload });
+        if (callback) {
+          callback({
+            success: true,
+            game: gameStartedPayload,
+            teams: partitionResult
+              ? { team1: partitionResult.team1, team2: partitionResult.team2 }
+              : undefined,
+          });
+        }
       } catch (error) {
         logger.error('Error handling start_game socket event', error);
         const err: RoomErrorPayload = {

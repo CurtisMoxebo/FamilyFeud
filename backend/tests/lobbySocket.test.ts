@@ -166,7 +166,8 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
       expect(calculateCanStart('MAIN_GAME', 2)).toEqual({ canStart: true });
       expect(calculateCanStart('MAIN_GAME', 3)).toEqual({
         canStart: false,
-        startDisabledReason: 'Waiting for an even number of players (current: 3)',
+        startDisabledReason:
+          'Cannot start with an odd number of players (3). Connect 1 more player to reach 4.',
       });
       expect(calculateCanStart('MAIN_GAME', 4)).toEqual({ canStart: true });
       expect(calculateCanStart('MAIN_GAME', 10)).toEqual({ canStart: true });
@@ -278,7 +279,9 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
       const state3 = await update3Promise;
       expect(state3.playerCount).toBe(3);
       expect(state3.canStart).toBe(false);
-      expect(state3.startDisabledReason).toContain('Waiting for an even number of players (current: 3)');
+      expect(state3.startDisabledReason).toBe(
+        'Cannot start with an odd number of players (3). Connect 1 more player to reach 4.'
+      );
 
       // Player 4 joins (Count = 4 -> canStart = true)
       const p4 = await connectClient(port);
