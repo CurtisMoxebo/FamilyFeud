@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Room, TeamsAssignedPayload } from '../types';
+import { Room, TeamsAssignedPayload, FaceOffSessionState } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
 import { FastMoneyController } from '../components/FastMoneyController';
 import { FastMoneyIsolation } from '../components/FastMoneyIsolation';
 import { MainGamePlayerView } from '../components/MainGamePlayerView';
+import { MainGameFaceOffController } from '../components/MainGameFaceOffController';
 import {
   User,
   ArrowRight,
@@ -23,6 +24,7 @@ export interface PlayerJoinProps {
   roomCode: string;
   initialRoom?: Room | null;
   initialTeamsAssigned?: TeamsAssignedPayload | null;
+  initialFaceOffState?: FaceOffSessionState | null;
   apiBaseUrl?: string;
   onJoined?: (playerData: { room: Room; nickname: string }) => void;
 }
@@ -31,6 +33,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   roomCode,
   initialRoom = null,
   initialTeamsAssigned = null,
+  initialFaceOffState = null,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -67,9 +70,17 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     sendPlayerReady,
     submitFastMoneyAnswer,
     passFastMoneyQuestion,
+    faceOffState: socketFaceOffState,
+    buzzerLocked,
+    buzzerRejected,
+    faceOffTimeout,
+    sendFaceOffReady,
+    pressBuzzer,
+    submitFaceOffAnswer,
   } = useSocket();
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
+  const faceOffState = initialFaceOffState ?? socketFaceOffState;
 
   useEffect(() => {
     if (initialRoom) {
@@ -277,6 +288,35 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           snapshot={fastMoneyP2State}
           timerTick={timerTick}
           onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
+          onLeave={() => navigate('/')}
+        />
+      );
+    }
+
+    // Main Game Face-Off Controller (US-12)
+    if (!isFastMoney && faceOffState) {
+      return (
+        <MainGameFaceOffController
+          snapshot={faceOffState}
+          timerTick={timerTick}
+          buzzerLocked={buzzerLocked}
+          buzzerRejected={buzzerRejected}
+          timeoutResult={faceOffTimeout}
+          currentNickname={nickname.trim()}
+          currentPlayerId={currentPlayer?.id}
+          roomCode={room.roomCode}
+          roomName={room.roomName}
+          onReady={() => sendFaceOffReady && sendFaceOffReady(roomCode, currentPlayer?.id || 'contender')}
+          onBuzz={() => pressBuzzer && pressBuzzer(roomCode, currentPlayer?.id || 'contender')}
+          onSubmitAnswer={(rawAnswer) =>
+            submitFaceOffAnswer &&
+            submitFaceOffAnswer(
+              roomCode,
+              currentPlayer?.id || 'respondent',
+              faceOffState.question?.id || 'q',
+              rawAnswer
+            )
+          }
           onLeave={() => navigate('/')}
         />
       );

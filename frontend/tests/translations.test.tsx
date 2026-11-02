@@ -277,6 +277,67 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       );
     });
 
+    it('defines US-12 Face-Off duel dictionary keys and interpolation strings for all supported languages', () => {
+      for (const lang of supportedLanguages) {
+        const mg = translations[lang].mainGame;
+        expect(mg.faceOffTitle).toBeTruthy();
+        expect(mg.roundNumber).toBeTruthy();
+        expect(mg.faceOffContenders).toBeTruthy();
+        expect(mg.imReady).toBeTruthy();
+        expect(mg.waitingForOpponent).toBeTruthy();
+        expect(mg.bothReady).toBeTruthy();
+        expect(mg.buzzerBtn).toBeTruthy();
+        expect(mg.buzzerLocked).toBeTruthy();
+        expect(mg.buzzerWinner).toBeTruthy();
+        expect(mg.spectatorCheer).toBeTruthy();
+        expect(mg.faceOffTimeRemaining).toBeTruthy();
+        expect(mg.faceOffInputPlaceholder).toBeTruthy();
+        expect(mg.submitAnswer).toBeTruthy();
+        expect(mg.answeringTurn).toBeTruthy();
+        expect(mg.timeUpHandOff).toBeTruthy();
+        expect(mg.timeUpTeammate).toBeTruthy();
+        expect(mg.deadlockReset).toBeTruthy();
+      }
+
+      // Exact values
+      expect(translations.EN.mainGame.buzzerBtn).toBe('BUZZ!');
+      expect(translations.EN.mainGame.buzzerLocked).toBe('LOCKED OUT');
+      expect(translations.EN.mainGame.imReady).toBe("I'm Ready!");
+
+      expect(translations.FR.mainGame.buzzerBtn).toBe('BUZZER !');
+      expect(translations.FR.mainGame.buzzerLocked).toBe('VERROUILLÉ');
+      expect(translations.FR.mainGame.imReady).toBe('Je suis prêt !');
+
+      expect(translations.ES.mainGame.buzzerBtn).toBe('¡ZUMBADOR!');
+      expect(translations.ES.mainGame.buzzerLocked).toBe('BLOQUEADO');
+      expect(translations.ES.mainGame.imReady).toBe('¡Estoy listo!');
+
+      // Interpolation checks
+      expect(translations.EN.mainGame.waitingForOpponent.replace('{opponent}', 'Sarah')).toBe(
+        'Waiting for Sarah...'
+      );
+      expect(translations.FR.mainGame.waitingForOpponent.replace('{opponent}', 'Sarah')).toBe(
+        'En attente de Sarah...'
+      );
+      expect(translations.ES.mainGame.waitingForOpponent.replace('{opponent}', 'Sarah')).toBe(
+        'Esperando a Sarah...'
+      );
+
+      expect(translations.EN.mainGame.buzzerWinner.replace('{name}', 'Alex')).toBe('Alex buzzed first!');
+      expect(translations.FR.mainGame.buzzerWinner.replace('{name}', 'Alex')).toBe('Alex a buzzé en premier !');
+      expect(translations.ES.mainGame.buzzerWinner.replace('{name}', 'Alex')).toBe('¡Alex tocó primero!');
+
+      expect(translations.EN.mainGame.timeUpHandOff.replace('{next}', 'David')).toBe(
+        "Time's up! Turn passed to David"
+      );
+      expect(translations.FR.mainGame.timeUpHandOff.replace('{next}', 'David')).toBe(
+        'Temps écoulé ! La main passe à David'
+      );
+      expect(translations.ES.mainGame.timeUpHandOff.replace('{next}', 'David')).toBe(
+        '¡Tiempo agotado! Turno para David'
+      );
+    });
+
     it('gracefully falls back to English when rendered outside of LanguageProvider', () => {
       const { result } = renderHook(() => useTranslation());
 

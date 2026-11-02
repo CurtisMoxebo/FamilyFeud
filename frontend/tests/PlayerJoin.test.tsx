@@ -5,7 +5,7 @@ import React from 'react';
 import { PlayerJoin } from '../src/pages/PlayerJoin';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
-import { Room, RoomStateUpdate, TeamsAssignedPayload } from '../src/types';
+import { Room, RoomStateUpdate, TeamsAssignedPayload, FaceOffSessionState } from '../src/types';
 import * as socketHook from '../src/hooks/useSocket';
 
 describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
@@ -54,6 +54,17 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     revealP2FastMoneyAnswer: vi.fn(),
     revealP2FastMoneyPoints: vi.fn(),
     requestReplay: vi.fn(),
+    faceOffState: null,
+    buzzerLocked: null,
+    buzzerRejected: null,
+    faceOffTimeout: null,
+    faceOffReset: null,
+    faceOffAnswer: null,
+    faceOffError: null,
+    sendFaceOffReady: vi.fn(),
+    pressBuzzer: vi.fn(),
+    submitFaceOffAnswer: vi.fn(),
+    clearFaceOffState: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {
@@ -824,5 +835,90 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       const leaveBtn = screen.getByTestId('player-leave-btn');
       expect(leaveBtn).toBeInTheDocument();
       await user.click(leaveBtn);
+    });
+
+    it('satisfies US-12: transitions joined contender to MainGameFaceOffController when faceOffState is active', async () => {
+      const user = userEvent.setup();
+      const mainGameRoomEN: Room = {
+        id: 'room-main-fo',
+        roomCode: 'FEUD-7777',
+        roomName: 'Face-Off Controller Duel',
+        language: 'EN',
+        gameMode: 'MAIN_GAME',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+      };
+
+      const mockFaceOffState: FaceOffSessionState = {
+        roomCode: 'FEUD-7777',
+        gameId: 'game-fo77',
+        roundNumber: 1,
+        language: 'EN',
+        phase: 'BUZZER_ACTIVE',
+        question: {
+          id: 'q-77',
+          questionText: 'Name something you find in the refrigerator',
+          answers: [{ id: 'a1', answerText: 'MILK', points: 40, rankOrder: 1 }],
+        },
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 }],
+        team1Contender: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isReady: true },
+        team2Contender: { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isReady: true },
+        buzzerLocked: false,
+        buzzedPlayerId: null,
+        buzzedPlayerNickname: null,
+        buzzedPlayerTeam: null,
+        buzzedAtTimestamp: null,
+        activeRespondentId: null,
+        attemptedPlayerIds: [],
+        initialBuzzerWinnerId: null,
+        timerDurationSeconds: 15,
+        remainingSeconds: 15,
+        endsAt: null,
+        isTimerRunning: false,
+      };
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        socketId: 'mock-socket-alice',
+        roomState: {
+          roomCode: 'FEUD-7777',
+          roomName: 'Face-Off Controller Duel',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'ACTIVE',
+          playerCount: 2,
+          maxPlayers: 10,
+          canStart: true,
+          players: [
+            { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isReady: true, isConnected: true },
+            { id: 'p2', nickname: 'Bob', team: 'TEAM_2', isReady: true, isConnected: true },
+          ],
+        },
+        faceOffState: mockFaceOffState,
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-7777" initialRoom={mainGameRoomEN} />);
+
+      // Join as Alice (Contender 1)
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Alice');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      // Transitions to Face-Off controller
+      await waitFor(() => {
+        expect(screen.getByTestId('main-game-face-off-controller')).toBeInTheDocument();
+      });
+
+      // Contender role badge
+      expect(screen.getByTestId('role-contender-badge')).toHaveTextContent('Contender');
+
+      // Question text visible
+      expect(screen.getByTestId('controller-question-text')).toHaveTextContent(
+        'Name something you find in the refrigerator'
+      );
+
+      // Buzzer button rendered
+      expect(screen.getByTestId('face-off-buzzer-btn')).toHaveTextContent('BUZZ!');
     });
   });

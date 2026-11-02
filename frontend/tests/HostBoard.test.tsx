@@ -5,7 +5,7 @@ import React from 'react';
 import { HostBoard } from '../src/pages/HostBoard';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
-import { Room, RoomStateUpdate, TeamsAssignedPayload } from '../src/types';
+import { Room, RoomStateUpdate, TeamsAssignedPayload, FaceOffSessionState } from '../src/types';
 import * as socketHook from '../src/hooks/useSocket';
 
 describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US-04)', () => {
@@ -54,6 +54,17 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     revealP2FastMoneyAnswer: vi.fn(),
     revealP2FastMoneyPoints: vi.fn(),
     requestReplay: vi.fn(),
+    faceOffState: null,
+    buzzerLocked: null,
+    buzzerRejected: null,
+    faceOffTimeout: null,
+    faceOffReset: null,
+    faceOffAnswer: null,
+    faceOffError: null,
+    sendFaceOffReady: vi.fn(),
+    pressBuzzer: vi.fn(),
+    submitFaceOffAnswer: vi.fn(),
+    clearFaceOffState: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {
@@ -520,5 +531,59 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     // Footer banner
     expect(screen.getByTestId('face-off-banner')).toHaveTextContent('Get ready for the Face-Off!');
+  });
+
+  it('satisfies US-12: renders MainGameFaceOffBoard when faceOffState is active in Main Game room', () => {
+    const mainGameRoomEN: Room = {
+      id: 'room-main-fo',
+      roomCode: 'FEUD-5555',
+      roomName: 'Face-Off Championship',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    };
+
+    const mockFaceOffState: FaceOffSessionState = {
+      roomCode: 'FEUD-5555',
+      gameId: 'game-fo55',
+      roundNumber: 1,
+      language: 'EN',
+      phase: 'BUZZER_ACTIVE',
+      question: {
+        id: 'q-55',
+        questionText: 'Name something you find in a garage',
+        answers: [{ id: 'a1', answerText: 'CAR', points: 50, rankOrder: 1 }],
+      },
+      team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 }],
+      team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 }],
+      team1Contender: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isReady: true },
+      team2Contender: { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isReady: true },
+      buzzerLocked: false,
+      buzzedPlayerId: null,
+      buzzedPlayerNickname: null,
+      buzzedPlayerTeam: null,
+      buzzedAtTimestamp: null,
+      activeRespondentId: null,
+      attemptedPlayerIds: [],
+      initialBuzzerWinnerId: null,
+      timerDurationSeconds: 15,
+      remainingSeconds: 15,
+      endsAt: null,
+      isTimerRunning: false,
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      faceOffState: mockFaceOffState,
+    });
+
+    renderWithProviders(<HostBoard roomCode="FEUD-5555" initialRoom={mainGameRoomEN} />, '/host/FEUD-5555');
+
+    // Face-Off board rendered
+    expect(screen.getByTestId('main-game-face-off-board')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-question-text')).toHaveTextContent('Name something you find in a garage');
+    expect(screen.getByTestId('c1-nickname')).toHaveTextContent('Alice');
+    expect(screen.getByTestId('c2-nickname')).toHaveTextContent('Bob');
   });
 });

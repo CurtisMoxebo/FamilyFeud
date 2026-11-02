@@ -13,6 +13,12 @@ import {
   DuplicateAnswerWarningPayload,
   GameOverPayload,
   TeamsAssignedPayload,
+  FaceOffSessionState,
+  BuzzerLockedPayload,
+  BuzzerRejectedPayload,
+  FaceOffTimeoutPayload,
+  FaceOffResetPayload,
+  FaceOffAnswerSubmittedPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -62,6 +68,15 @@ export function useSocket(options?: UseSocketOptions) {
 
   // Main Game Teams Assignment (US-11)
   const [teamsAssigned, setTeamsAssigned] = useState<TeamsAssignedPayload | null>(null);
+
+  // Main Game Face-Off States (US-12)
+  const [faceOffState, setFaceOffState] = useState<FaceOffSessionState | null>(null);
+  const [buzzerLocked, setBuzzerLocked] = useState<BuzzerLockedPayload | null>(null);
+  const [buzzerRejected, setBuzzerRejected] = useState<BuzzerRejectedPayload | null>(null);
+  const [faceOffTimeout, setFaceOffTimeout] = useState<FaceOffTimeoutPayload | null>(null);
+  const [faceOffReset, setFaceOffReset] = useState<FaceOffResetPayload | null>(null);
+  const [faceOffAnswer, setFaceOffAnswer] = useState<FaceOffAnswerSubmittedPayload | null>(null);
+  const [faceOffError, setFaceOffError] = useState<{ code: string; message: string } | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -167,6 +182,53 @@ export function useSocket(options?: UseSocketOptions) {
     }
   }, []);
 
+  // Main Game Face-Off Actions (US-12)
+  const sendFaceOffReady = useCallback((roomCode: string, playerId: string) => {
+    setFaceOffError(null);
+    if (socketRef.current) {
+      socketRef.current.emit('face_off_ready', { roomCode, playerId });
+    }
+  }, []);
+
+  const pressBuzzer = useCallback(
+    (roomCode: string, playerId: string, clientTimestamp?: number) => {
+      setFaceOffError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('press_buzzer', {
+          roomCode,
+          playerId,
+          clientTimestamp: clientTimestamp || Date.now(),
+        });
+      }
+    },
+    []
+  );
+
+  const submitFaceOffAnswer = useCallback(
+    (roomCode: string, playerId: string, questionId: string, rawAnswer: string) => {
+      setFaceOffError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('submit_face_off_answer', {
+          roomCode,
+          playerId,
+          questionId,
+          rawAnswer,
+        });
+      }
+    },
+    []
+  );
+
+  const clearFaceOffState = useCallback(() => {
+    setFaceOffState(null);
+    setBuzzerLocked(null);
+    setBuzzerRejected(null);
+    setFaceOffTimeout(null);
+    setFaceOffReset(null);
+    setFaceOffAnswer(null);
+    setFaceOffError(null);
+  }, []);
+
   const leaveRoom = useCallback(() => {
     if (socketRef.current) {
       socketRef.current.emit('leave_room');
@@ -185,6 +247,13 @@ export function useSocket(options?: UseSocketOptions) {
     setBoardReveal(null);
     setP1RevealCompleted(null);
     setTeamsAssigned(null);
+    setFaceOffState(null);
+    setBuzzerLocked(null);
+    setBuzzerRejected(null);
+    setFaceOffTimeout(null);
+    setFaceOffReset(null);
+    setFaceOffAnswer(null);
+    setFaceOffError(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -312,6 +381,35 @@ export function useSocket(options?: UseSocketOptions) {
       setGameOver(payload);
     });
 
+    // Main Game Face-Off Listeners (US-12)
+    socket.on('face_off_state', (state: FaceOffSessionState) => {
+      setFaceOffState(state);
+    });
+
+    socket.on('buzzer_locked', (payload: BuzzerLockedPayload) => {
+      setBuzzerLocked(payload);
+    });
+
+    socket.on('buzzer_rejected', (payload: BuzzerRejectedPayload) => {
+      setBuzzerRejected(payload);
+    });
+
+    socket.on('face_off_timeout', (payload: FaceOffTimeoutPayload) => {
+      setFaceOffTimeout(payload);
+    });
+
+    socket.on('face_off_reset', (payload: FaceOffResetPayload) => {
+      setFaceOffReset(payload);
+    });
+
+    socket.on('face_off_answer_submitted', (payload: FaceOffAnswerSubmittedPayload) => {
+      setFaceOffAnswer(payload);
+    });
+
+    socket.on('face_off_error', (err: { code: string; message: string }) => {
+      setFaceOffError(err);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -325,6 +423,17 @@ export function useSocket(options?: UseSocketOptions) {
     roomError,
     gameStarted,
     teamsAssigned,
+    faceOffState,
+    buzzerLocked,
+    buzzerRejected,
+    faceOffTimeout,
+    faceOffReset,
+    faceOffAnswer,
+    faceOffError,
+    sendFaceOffReady,
+    pressBuzzer,
+    submitFaceOffAnswer,
+    clearFaceOffState,
     fastMoneyP1State,
     fastMoneyP2State,
     fastMoneyHostState,

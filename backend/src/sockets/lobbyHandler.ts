@@ -9,6 +9,14 @@ import {
   broadcastFastMoneyState,
   registerFastMoneyHandlers,
 } from './fastMoneyHandler';
+import {
+  initFaceOffSession,
+} from '../services/faceOffService';
+import {
+  broadcastFaceOffState,
+  registerMainGameHandlers,
+  handleFaceOffTimeoutBroadcast,
+} from './mainGameHandler';
 import { FastMoneyQuestionItem } from '../services/fastMoneySession';
 import {
   partitionTeams,
@@ -429,6 +437,52 @@ export function registerLobbyHandlers(
         );
 
         // 6. Initialize Fast Money session if mode is FAST_MONEY (US-07)
+        // 7. Initialize Face-Off session if mode is MAIN_GAME (US-12)
+        if (room.gameMode === 'MAIN_GAME' && partitionResult) {
+          const session = initFaceOffSession(normalizedCode, {
+            gameId: game.id,
+            roundNumber: 1,
+            team1Players: partitionResult.team1.map((p) => ({
+              id: p.id,
+              nickname: p.nickname || 'Contender',
+              team: 'TEAM_1' as const,
+              battingOrder: p.battingOrder,
+            })),
+            team2Players: partitionResult.team2.map((p) => ({
+              id: p.id,
+              nickname: p.nickname || 'Contender',
+              team: 'TEAM_2' as const,
+              battingOrder: p.battingOrder,
+            })),
+            question: {
+              id: questions[0].id,
+              questionText: questions[0].questionText,
+              orderIndex: questions[0].orderIndex,
+              roundNumber: questions[0].roundNumber,
+              answers: questions[0].answers.map((a) => ({
+                id: a.id,
+                answerText: a.answerText,
+                points: a.points,
+                rankOrder: a.rankOrder,
+              })),
+            },
+            language: room.language,
+            timerDurationSeconds: 15,
+            onTick: (secondsRemaining, endsAt) => {
+              io.to(`room:${normalizedCode}`).emit('timer_tick', {
+                roomCode: normalizedCode,
+                secondsRemaining,
+                endsAt,
+              });
+            },
+            onTimeout: (timeoutResult) => {
+              handleFaceOffTimeoutBroadcast(io, normalizedCode, timeoutResult, db);
+            },
+          });
+
+          broadcastFaceOffState(io, session);
+        }
+
         if (room.gameMode === 'FAST_MONEY') {
           const connectedPlayers = updatedRoom.players.filter((p) => p.isConnected);
           if (connectedPlayers.length >= 2) {
@@ -517,6 +571,7 @@ export function setupSocketServer(io: SocketIOServer, db: PrismaClient = default
 
     registerLobbyHandlers(io, socket, db);
     registerFastMoneyHandlers(io, socket, db);
+    registerMainGameHandlers(io, socket, db);
 
     socket.on('disconnect', (reason) => {
       logger.socket('DISCONNECT', socket.id, clientIp, `Reason: ${reason}`);

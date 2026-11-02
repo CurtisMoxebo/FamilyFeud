@@ -3,6 +3,7 @@ import {
   playDing,
   playPointsChime,
   playBuzzerBlip,
+  playFaceOffBuzzer,
   playDuplicateWarning,
   playVictoryFanfare,
   playDefeatSound,
@@ -207,6 +208,21 @@ describe('Frontend Utility Suite: Game Show Sound Effects Synthesizer (soundEffe
     expect(createdGains).toHaveLength(0);
   });
 
+
+  it('satisfies US-12 Scenario 2: playFaceOffBuzzer synthesizes punchy game show buzzer cue', () => {
+    playFaceOffBuzzer();
+
+    expect(createdOscillators).toHaveLength(1);
+    expect(createdGains).toHaveLength(1);
+
+    const osc = createdOscillators[0];
+    expect(osc.type).toBe('sawtooth');
+    expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(220, 0);
+    expect(osc.frequency.setValueAtTime).toHaveBeenCalledWith(180, 0.15);
+    expect(osc.start).toHaveBeenCalledWith(0);
+    expect(osc.stop).toHaveBeenCalledWith(0.35);
+  });
+
   it('handles environment without Web Audio API gracefully without throwing', () => {
     // @ts-ignore
     delete window.AudioContext;
@@ -244,5 +260,6 @@ describe('Frontend Utility Suite: Game Show Sound Effects Synthesizer (soundEffe
     expect(sfx.playDuplicateWarning).toBe(playDuplicateWarning);
     expect(sfx.playVictoryFanfare).toBe(playVictoryFanfare);
     expect(sfx.playDefeatSound).toBe(playDefeatSound);
+    expect(sfx.playFaceOffBuzzer).toBe(playFaceOffBuzzer);
   });
 });
