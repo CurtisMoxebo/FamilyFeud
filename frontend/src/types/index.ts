@@ -173,3 +173,12 @@ export interface BoardRevealPayload {
   isAllRevealed: boolean;
   nextActiveSlotNumber: number | null;
 }
+
+export interface DuplicateAnswerWarningPayload {
+  roomCode: string;
+  rawInput: string;
+  message: string;
+  questionId: string;
+  duplicateWithAnswer?: string;
+  reason?: 'EXACT_RAW' | 'SEMANTIC_MATCH';
+}
