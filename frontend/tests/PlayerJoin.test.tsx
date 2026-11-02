@@ -136,7 +136,9 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03)', () => {
     expect(screen.getByTestId('player-room-language')).toHaveTextContent('Español (ES)');
   });
 
-  it('displays error state when room cannot be found (404)', async () => {
+  it('displays error state when room cannot be found (404) and allows returning home', async () => {
+    const user = userEvent.setup();
+
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: false,
       status: 404,
@@ -153,7 +155,10 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03)', () => {
     });
 
     expect(screen.getByText(/room not found or session has ended/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /back to home/i })).toBeInTheDocument();
+    const backBtn = screen.getByRole('button', { name: /back to home/i });
+    expect(backBtn).toBeInTheDocument();
+
+    await user.click(backBtn);
   });
 });
 

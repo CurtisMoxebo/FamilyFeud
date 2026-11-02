@@ -121,7 +121,9 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02 & US-03)', 
     expect(screen.getByTestId('host-qr-code')).toBeInTheDocument();
   });
 
-  it('displays error state when room cannot be found (404)', async () => {
+  it('displays error state when room cannot be found (404) and allows returning home', async () => {
+    const user = userEvent.setup();
+
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: false,
       status: 404,
@@ -138,6 +140,18 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02 & US-03)', 
     });
 
     expect(screen.getByText(/room not found/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /back to home/i })).toBeInTheDocument();
+    const backBtn = screen.getByRole('button', { name: /back to home/i });
+    expect(backBtn).toBeInTheDocument();
+
+    await user.click(backBtn);
+  });
+
+  it('allows host to leave lobby and return to home page', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    const leaveBtn = screen.getByTestId('host-back-home-btn');
+    expect(leaveBtn).toBeInTheDocument();
+    await user.click(leaveBtn);
   });
 });
