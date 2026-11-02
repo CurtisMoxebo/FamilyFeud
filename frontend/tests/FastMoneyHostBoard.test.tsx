@@ -493,4 +493,127 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       expect(onStartRevealMock).toHaveBeenCalled();
     });
   });
+  describe('US-09: Player 2 Speed Round & Duplicate Answer Alert on Host Board', () => {
+    const p2PlayingSnapshot: HostStateSnapshot = {
+      phase: 'P2_PLAYING',
+      activeQuestionNumber: 1,
+      totalQuestions: 5,
+      answeredCount: 0,
+      remainingSeconds: 75,
+      isTimerRunning: true,
+      currentQuestionText: 'Name a caffeinated beverage',
+      totalScore: 120,
+      p1TotalScore: 120,
+      slots: [
+        { slotNumber: 1, isFilled: false },
+        { slotNumber: 2, isFilled: false },
+        { slotNumber: 3, isFilled: false },
+        { slotNumber: 4, isFilled: false },
+        { slotNumber: 5, isFilled: false },
+      ],
+      p1Slots: [
+        { slotNumber: 1, questionId: 'q-1', questionText: 'Q1', rawAnswer: 'Coffee', pointsAwarded: 40, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+        { slotNumber: 2, questionId: 'q-2', questionText: 'Q2', rawAnswer: 'Sun', pointsAwarded: 50, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+        { slotNumber: 3, questionId: 'q-3', questionText: 'Q3', rawAnswer: 'Lion', pointsAwarded: 30, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+        { slotNumber: 4, questionId: 'q-4', questionText: 'Q4', rawAnswer: '', pointsAwarded: 0, isAnswerRevealed: true, isPointsRevealed: true, isMatched: false },
+        { slotNumber: 5, questionId: 'q-5', questionText: 'Q5', rawAnswer: '', pointsAwarded: 0, isAnswerRevealed: true, isPointsRevealed: true, isMatched: false },
+      ],
+    };
+
+    it('satisfies Scenario 1: initializes 75-second countdown, renders dual columns, and speaks Question 1 via TTS during P2_PLAYING', () => {
+      const speakSpy = vi.spyOn(ttsModule, 'speakQuestion').mockImplementation(() => {});
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={p2PlayingSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={true}
+        />
+      );
+
+      // 75-second authoritative timer
+      const timerEl = screen.getByTestId('fast-money-host-timer');
+      expect(timerEl).toHaveTextContent('75s');
+
+      // Question 1 text in banner and spoken via TTS
+      expect(screen.getByTestId('fast-money-host-question')).toHaveTextContent(
+        'Name a caffeinated beverage'
+      );
+      expect(speakSpy).toHaveBeenCalledWith('Name a caffeinated beverage', 'EN');
+
+      // Dual columns: Player 1 revealed slots on left
+      expect(screen.getByTestId('host-p1-slot-1')).toHaveTextContent('Coffee');
+      expect(screen.getByTestId('host-p1-slot-1')).toHaveTextContent('40');
+
+      // Player 2 concealed slots on right
+      expect(screen.getByTestId('fast-money-slot-1')).toHaveClass('border-blue-400');
+      expect(screen.getByTestId('fast-money-slot-empty-1')).toBeInTheDocument();
+    });
+
+    it('satisfies Scenario 2: displays duplicate alert banner, plays duplicate warning alarm, and speaks TTS', () => {
+      const sfxSpy = vi.spyOn(sfxModule, 'playDuplicateWarning').mockImplementation(() => {});
+      const ttsSpy = vi.spyOn(ttsModule, 'speakDuplicateAlert').mockImplementation(() => {});
+
+      const duplicateWarning = {
+        roomCode: 'FEUD-P201',
+        rawInput: 'coffee',
+        message: 'Answer already given by Player 1! Try again.',
+        questionId: 'q-1',
+        duplicateWithAnswer: 'Coffee',
+        reason: 'EXACT_RAW' as const,
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={p2PlayingSnapshot}
+          duplicateWarning={duplicateWarning}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={true}
+          enableSFX={true}
+        />
+      );
+
+      // Warning visual banner
+      const banner = screen.getByTestId('host-duplicate-warning-banner');
+      expect(banner).toBeInTheDocument();
+      expect(banner).toHaveTextContent('Answer already given by Player 1! Try again.');
+      expect(banner).toHaveTextContent('Player 1 already answered: "Coffee"');
+
+      // Audio alarm and speech alert triggered
+      expect(sfxSpy).toHaveBeenCalled();
+      expect(ttsSpy).toHaveBeenCalledWith('EN');
+    });
+
+    it('updates Player 2 slots as answers are submitted during P2_PLAYING', () => {
+      const advancedSnapshot: HostStateSnapshot = {
+        ...p2PlayingSnapshot,
+        activeQuestionNumber: 2,
+        answeredCount: 1,
+        slots: [
+          { slotNumber: 1, isFilled: true },
+          { slotNumber: 2, isFilled: false },
+          { slotNumber: 3, isFilled: false },
+          { slotNumber: 4, isFilled: false },
+          { slotNumber: 5, isFilled: false },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={advancedSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          enableTTS={false}
+        />
+      );
+
+      // Slot 1 filled
+      expect(screen.getByTestId('fast-money-slot-filled-1')).toBeInTheDocument();
+
+      // Slot 2 active
+      expect(screen.getByTestId('fast-money-slot-2')).toHaveClass('border-blue-400');
+    });
+  });
 });
