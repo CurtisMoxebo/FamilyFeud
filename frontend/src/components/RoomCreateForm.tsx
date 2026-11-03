@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { resumeAudioContext } from '../utils/soundEffects';
 import { Language, GameMode, Room } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
@@ -48,6 +49,7 @@ export const RoomCreateForm: React.FC<RoomCreateFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    resumeAudioContext();
 
     if (!validateInput()) {
       return;

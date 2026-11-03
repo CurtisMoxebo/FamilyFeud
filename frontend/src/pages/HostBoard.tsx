@@ -1,4 +1,5 @@
 import { isTtsMuted, setTtsMuted, cancelSpeech } from '../utils/tts';
+import { resumeAudioContext, registerAutoplayResumeListener } from '../utils/soundEffects';
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -77,8 +78,15 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     setTtsMuted(!nextAudio);
     if (!nextAudio) {
       cancelSpeech();
+    } else {
+      resumeAudioContext();
     }
   };
+
+  useEffect(() => {
+    const cleanup = registerAutoplayResumeListener();
+    return () => cleanup();
+  }, []);
 
   const [room, setRoom] = useState<Room | null>(initialRoom);
   const [isLoading, setIsLoading] = useState<boolean>(!initialRoom);
@@ -197,6 +205,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   };
 
   const handleStartGame = () => {
+    resumeAudioContext();
     if (startGame) {
       startGame(roomCode);
     }

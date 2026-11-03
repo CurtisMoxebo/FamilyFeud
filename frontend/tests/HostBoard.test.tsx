@@ -7,6 +7,7 @@ import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
 import { Room, RoomStateUpdate, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState } from '../src/types';
 import * as socketHook from '../src/hooks/useSocket';
+import * as sfxModule from '../src/utils/soundEffects';
 
 vi.mock('canvas-confetti', () => ({
   default: vi.fn(),
@@ -979,5 +980,33 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     // FastMoneyHostBoard button should be in unmuted / muted state according to localStorage
     const gameAudioToggle = screen.getByTestId('host-audio-toggle');
     expect(gameAudioToggle).toHaveAttribute('title', 'Unmute Sounds & TTS');
+  });
+
+  it('satisfies US-18 Scenario 3: resumes audio context on host start game click and unmute', async () => {
+    const resumeSpy = vi.spyOn(sfxModule, 'resumeAudioContext').mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      roomState: {
+        roomCode: 'FEUD-7890',
+        status: 'LOBBY',
+        playerCount: 2,
+        maxPlayers: 2,
+        canStart: true,
+        players: [
+          { id: 'p1', nickname: 'Alice', isHost: false, role: 'PLAYER_1' },
+          { id: 'p2', nickname: 'Bob', isHost: false, role: 'PLAYER_2' },
+        ],
+      },
+    } as any);
+
+    cleanup();
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    const startBtn = screen.getByTestId('host-start-game-btn');
+    await user.click(startBtn);
+
+    expect(resumeSpy).toHaveBeenCalled();
   });
 });
