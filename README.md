@@ -66,7 +66,7 @@ FamilyFeud/
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # FastMoneyController, FastMoneyHostBoard, FastMoneyIsolation, MainGameTeamsStage, MainGameFaceOffBoard, MainGameFaceOffController, MainGamePlayerView, forms
+│   │   ├── components/      # FastMoneyController, FastMoneyHostBoard, FastMoneyIsolation, MainGameTeamsStage, MainGameFaceOffBoard, MainGameFaceOffController, MainGameTeamGuessingBoard, MainGameTeamController, MainGamePlayerView, forms
 │   │   ├── i18n/            # Modular i18n localization
 │   │   │   ├── en.ts        # English translations
 │   │   │   ├── fr.ts        # French translations

@@ -446,3 +446,121 @@ export interface FaceOffBoardRevealPayload {
   playerTeam: 'TEAM_1' | 'TEAM_2';
   isNumberOneAnswer: boolean;
 }
+
+// US-14: Team Guessing Turn, Board Flips & 3-Strike System Payloads
+export interface TeamGuessingPlayer {
+  id: string;
+  nickname: string;
+  team: 'TEAM_1' | 'TEAM_2';
+  battingOrder: number;
+}
+
+export interface TeamRevealedAnswer {
+  id: string;
+  answerText: string;
+  points: number;
+  rankOrder: number;
+  revealedByPlayerId?: string;
+  revealedByNickname?: string;
+  revealedByTeam?: 'TEAM_1' | 'TEAM_2';
+}
+
+export interface TeamGuessingSessionState {
+  roomCode: string;
+  gameId: string;
+  roundNumber: number;
+  language: string;
+  phase: 'TEAM_GUESSING' | 'ROUND_CLEARED' | 'STEAL_PHASE' | 'RESOLVED';
+  controllingTeam: 'TEAM_1' | 'TEAM_2';
+  controllingTeamName: string;
+  opposingTeam: 'TEAM_1' | 'TEAM_2';
+  opposingTeamName: string;
+  activePlayer: TeamGuessingPlayer | null;
+  activePlayerIndex: number;
+  controllingTeamPlayers: TeamGuessingPlayer[];
+  opposingTeamPlayers: TeamGuessingPlayer[];
+  strikes: number;
+  roundBank: number;
+  revealedAnswers: TeamRevealedAnswer[];
+  totalAnswersCount: number;
+  revealedAnswersCount: number;
+  remainingAnswersCount: number;
+  remainingSeconds: number;
+  endsAt: number | null;
+  isTimerRunning: boolean;
+  question: {
+    id: string;
+    questionText: string;
+    answerCount: number;
+  };
+  winningTeam?: 'TEAM_1' | 'TEAM_2' | null;
+}
+
+export interface StrikeIssuedPayload {
+  roomCode: string;
+  team: 'TEAM_1' | 'TEAM_2';
+  strikeCount: number;
+  maxStrikes: number;
+  player?: {
+    id: string;
+    nickname: string;
+  };
+  rawAnswer?: string;
+  isDuplicate?: boolean;
+  isTimeout?: boolean;
+  isPass?: boolean;
+}
+
+export interface RoundClearedPayload {
+  roomCode: string;
+  winningTeam: 'TEAM_1' | 'TEAM_2';
+  totalRoundPoints: number;
+}
+
+export interface TransitionStealPhasePayload {
+  roomCode: string;
+  controllingTeam: 'TEAM_1' | 'TEAM_2';
+  opposingTeam: 'TEAM_1' | 'TEAM_2';
+  roundBank: number;
+  reason?: string;
+}
+
+export interface TeamTurnStartedPayload {
+  roomCode: string;
+  activePlayer: TeamGuessingPlayer | null;
+  endsAt?: number;
+  duration?: number;
+}
+
+export interface TeamGuessResultPayload {
+  roomCode: string;
+  outcome: 'CORRECT_GUESS' | 'ROUND_CLEARED' | 'STRIKE' | 'STEAL_PHASE_TRIGGERED';
+  guessResult: {
+    playerId: string;
+    playerNickname: string;
+    playerTeam: 'TEAM_1' | 'TEAM_2';
+    rawAnswer: string;
+    isMatched: boolean;
+    points: number;
+    rankOrder?: number;
+    isDuplicate?: boolean;
+  };
+  revealedAnswer?: TeamRevealedAnswer;
+  strikeCount: number;
+  isStrike: boolean;
+  roundBank: number;
+  message: string;
+}
+
+export interface MainGameBoardRevealPayload {
+  roomCode: string;
+  slotRank?: number;
+  rankOrder?: number;
+  answerText: string;
+  points: number;
+  roundBank?: number;
+  playerId?: string;
+  playerNickname?: string;
+  playerTeam?: 'TEAM_1' | 'TEAM_2';
+  isAllRevealed?: boolean;
+}

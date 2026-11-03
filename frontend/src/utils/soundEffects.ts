@@ -329,8 +329,57 @@ export function playFaceOffBuzzer(): void {
     console.warn('[SFX:WARN] Failed to synthesize Face-Off Buzzer sound:', err);
   }
 }
+
+/**
+ * US-14 Scenario 2 & 4: Classic Game Show Strike Buzzer (X, XX, XXX)
+ * Synthesizes harsh, punchy dual-sawtooth strike buzzer pulses using Web Audio API.
+ * Emits `count` distinct audible buzzes (e.g., 1 for X, 2 for XX, 3 for XXX).
+ */
+export function playStrikeBuzzer(count: number = 1): void {
+  if (isSoundMuted) return;
+
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const pulseDuration = 0.28;
+    const gap = 0.12;
+    const safeCount = Math.max(1, Math.min(3, count));
+
+    for (let i = 0; i < safeCount; i++) {
+      const pulseStart = now + i * (pulseDuration + gap);
+
+      // Low dual-sawtooth oscillators (110 Hz & 116 Hz)
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(110, pulseStart);
+      osc2.frequency.setValueAtTime(116, pulseStart);
+
+      gain.gain.setValueAtTime(0.35, pulseStart);
+      gain.gain.exponentialRampToValueAtTime(0.001, pulseStart + pulseDuration);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(pulseStart);
+      osc2.start(pulseStart);
+      osc1.stop(pulseStart + pulseDuration);
+      osc2.stop(pulseStart + pulseDuration);
+    }
+  } catch (err) {
+    console.warn('[SFX:WARN] Failed to synthesize Strike Buzzer sound:', err);
+  }
+}
+
 export const sfx = {
   playFaceOffBuzzer,
+  playStrikeBuzzer,
   playDing,
   playPointsChime,
   playBuzzerBlip,

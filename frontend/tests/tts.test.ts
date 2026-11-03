@@ -14,6 +14,10 @@ import {
   speakPlayOrPassDecision,
   getPlayOrPassPhrase,
   PLAY_OR_PASS_PHRASES,
+  speakBoardCleared,
+  ROUND_CLEARED_PHRASES,
+  speakStealPhase,
+  STEAL_PHASE_PHRASES,
 } from '../src/utils/tts';
 
 describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
@@ -299,6 +303,47 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(PLAY_OR_PASS_PHRASES.EN.pass('Team 2')).toBe('Control passes to Team 2!');
       expect(PLAY_OR_PASS_PHRASES.FR.play('Équipe 1')).toBe("L'Équipe 1 va jouer !");
       expect(PLAY_OR_PASS_PHRASES.ES.play('Equipo 1')).toBe('¡Equipo 1 jugará!');
+    });
+  });
+
+  describe('US-14: speakBoardCleared & speakStealPhase', () => {
+    it('speaks board cleared announcements across EN, FR, and ES', () => {
+      speakBoardCleared('Team 1', 'EN');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Team 1 cleared the board!');
+      expect(mockSpeak.mock.calls[0][0].lang).toBe('en-US');
+
+      mockSpeak.mockClear();
+      speakBoardCleared('Équipe 1', 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe("L'Équipe 1 a vidé le tableau !");
+      expect(mockSpeak.mock.calls[0][0].lang).toBe('fr-FR');
+
+      mockSpeak.mockClear();
+      speakBoardCleared('Equipo 1', 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('¡El Equipo 1 despejó el tablero!');
+      expect(mockSpeak.mock.calls[0][0].lang).toBe('es-ES');
+    });
+
+    it('speaks steal phase announcements across EN, FR, and ES', () => {
+      speakStealPhase('Team 2', 'EN');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Three strikes! Team 2 has a chance to steal!');
+
+      mockSpeak.mockClear();
+      speakStealPhase('Équipe 2', 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe("Trois fautes ! L'Équipe 2 a une chance de voler les points !");
+
+      mockSpeak.mockClear();
+      speakStealPhase('Equipo 2', 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('¡Tres fallos! ¡El Equipo 2 tiene la oportunidad de robar!');
+    });
+
+    it('provides ROUND_CLEARED_PHRASES and STEAL_PHASE_PHRASES mappings directly', () => {
+      expect(ROUND_CLEARED_PHRASES.EN('Team 1')).toBe('Team 1 cleared the board!');
+      expect(ROUND_CLEARED_PHRASES.FR('Équipe 1')).toBe("L'Équipe 1 a vidé le tableau !");
+      expect(ROUND_CLEARED_PHRASES.ES('Equipo 1')).toBe('¡El Equipo 1 despejó el tablero!');
+
+      expect(STEAL_PHASE_PHRASES.EN('Team 2')).toBe('Three strikes! Team 2 has a chance to steal!');
+      expect(STEAL_PHASE_PHRASES.FR('Équipe 2')).toBe("Trois fautes ! L'Équipe 2 a une chance de voler les points !");
+      expect(STEAL_PHASE_PHRASES.ES('Equipo 2')).toBe('¡Tres fallos! ¡El Equipo 2 tiene la oportunidad de robar!');
     });
   });
 });

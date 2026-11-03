@@ -7,6 +7,7 @@ import {
   playDuplicateWarning,
   playVictoryFanfare,
   playDefeatSound,
+  playStrikeBuzzer,
   setMuted,
   isMuted,
   getAudioContext,
@@ -251,6 +252,7 @@ describe('Frontend Utility Suite: Game Show Sound Effects Synthesizer (soundEffe
       expect.stringContaining('[SFX:WARN]'),
       expect.any(Error)
     );
+    ctx.createOscillator = vi.fn(() => new MockOscillator() as unknown as OscillatorNode);
   });
 
   it('exports convenient sfx bundle object', () => {
@@ -261,5 +263,33 @@ describe('Frontend Utility Suite: Game Show Sound Effects Synthesizer (soundEffe
     expect(sfx.playVictoryFanfare).toBe(playVictoryFanfare);
     expect(sfx.playDefeatSound).toBe(playDefeatSound);
     expect(sfx.playFaceOffBuzzer).toBe(playFaceOffBuzzer);
+    expect(sfx.playStrikeBuzzer).toBe(playStrikeBuzzer);
+  });
+
+  it('US-14: synthesizes dual-sawtooth strike buzzer with pulse count', () => {
+    createdOscillators = [];
+    createdGains = [];
+
+    // Strike 1 (single pulse, 2 detuned oscillators)
+    playStrikeBuzzer(1);
+    expect(createdOscillators.length).toBe(2);
+    expect(createdOscillators[0].type).toBe('sawtooth');
+    expect(createdOscillators[1].type).toBe('sawtooth');
+
+    // Strike 2 (two pulses, 4 oscillators)
+    createdOscillators = [];
+    playStrikeBuzzer(2);
+    expect(createdOscillators.length).toBe(4);
+
+    // Strike 3 (three pulses, 6 oscillators)
+    createdOscillators = [];
+    playStrikeBuzzer(3);
+    expect(createdOscillators.length).toBe(6);
+
+    // Muted check
+    createdOscillators = [];
+    setMuted(true);
+    playStrikeBuzzer(3);
+    expect(createdOscillators.length).toBe(0);
   });
 });

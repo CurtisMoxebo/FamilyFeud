@@ -170,6 +170,22 @@ export const fr: TranslationDictionary = {
     controlPassesTo: "La main passe à l'équipe {team} !",
     waitingForWinnerChoice: 'En attente du choix de {winner} (Jouer ou Passer)...',
     cardRevealed: 'Carte n°{rank} révélée : {answer} ({points} pts)',
+    // US-14: Team Guessing Turn, Board Flips & 3-Strike System
+    teamGuessingTitle: "Tour de devinettes d'équipe",
+    yourTurnToGuess: "C'est à votre tour de deviner !",
+    waitingForTeammate: 'En attente de la réponse de {name}...',
+    controllingTeamPlaying: "L'{team} joue ce tableau !",
+    roundBankTitle: 'Cagnotte de la manche',
+    strikeTitle: 'Faute',
+    strikesCount: '{count} Faute(s)',
+    duplicateAnswerWarning: 'Doublon ! Cette réponse est déjà sur le tableau !',
+    notOnBoard: "Ce n'est pas sur le tableau !",
+    threeStrikes: 'Trois Fautes !',
+    chanceToSteal: "L'{team} a une chance de VOLER les points !",
+    roundClearedTitle: 'Tableau vidé !',
+    roundClearedSubtitle: "L'{team} a vidé le tableau et remporte {points} points !",
+    passTurnBtn: 'Passer son tour',
+    teamGuessInputPlaceholder: 'Devinez une réponse du tableau...',
   },
 };
 

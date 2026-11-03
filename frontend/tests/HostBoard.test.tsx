@@ -5,7 +5,7 @@ import React from 'react';
 import { HostBoard } from '../src/pages/HostBoard';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
-import { Room, RoomStateUpdate, TeamsAssignedPayload, FaceOffSessionState } from '../src/types';
+import { Room, RoomStateUpdate, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState } from '../src/types';
 import * as socketHook from '../src/hooks/useSocket';
 
 describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US-04)', () => {
@@ -71,6 +71,16 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     faceOffBoardReveal: null,
     choosePlayPass: vi.fn(),
     submitFaceOffGuess: vi.fn(),
+    teamGuessingState: null,
+    strikeIssued: null,
+    roundCleared: null,
+    transitionStealPhase: null,
+    teamTurnStarted: null,
+    teamGuessResult: null,
+    mainGameBoardReveal: null,
+    submitTeamGuess: vi.fn(),
+    passTeamTurn: vi.fn(),
+    getTeamGuessingState: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {
@@ -668,5 +678,76 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     // Shows Pass or Play banner
     expect(screen.getByTestId('face-off-pass-play-banner')).toBeInTheDocument();
     expect(screen.getByText(/Waiting for Alice to choose Play or Pass/i)).toBeInTheDocument();
+  });
+
+  it('satisfies US-14: renders MainGameTeamGuessingBoard when teamGuessingState is active', () => {
+    const mainGameRoomEN: Room = {
+      id: 'room-tg-1',
+      roomCode: 'FEUD-7777',
+      roomName: 'Team Turn Show',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    };
+
+    const mockTeamGuessingState: TeamGuessingSessionState = {
+      roomCode: 'FEUD-7777',
+      gameId: 'game-tg1',
+      roundNumber: 1,
+      language: 'EN',
+      phase: 'TEAM_GUESSING',
+      question: {
+        id: 'q-tg1',
+        questionText: 'Name something in your refrigerator',
+        answerCount: 4,
+      },
+      controllingTeam: 'TEAM_1',
+      controllingTeamName: 'Team 1',
+      opposingTeam: 'TEAM_2',
+      opposingTeamName: 'Team 2',
+      controllingTeamPlayers: [
+        { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+        { id: 'p2', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2 },
+      ],
+      opposingTeamPlayers: [
+        { id: 'p3', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 },
+      ],
+      activePlayerIndex: 1,
+      activePlayer: { id: 'p2', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2 },
+      strikes: 1,
+      roundBank: 45,
+      remainingSeconds: 12,
+      endsAt: Date.now() + 12000,
+      isTimerRunning: true,
+      revealedAnswers: [
+        {
+          id: 'a1',
+          answerText: 'MILK',
+          points: 45,
+          rankOrder: 1,
+          revealedByPlayerId: 'p1',
+          revealedByNickname: 'Alice',
+          revealedByTeam: 'TEAM_1',
+        },
+      ],
+      totalAnswersCount: 4,
+      revealedAnswersCount: 1,
+      remainingAnswersCount: 3,
+      winningTeam: null,
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      teamGuessingState: mockTeamGuessingState,
+    });
+
+    renderWithProviders(<HostBoard roomCode="FEUD-7777" initialRoom={mainGameRoomEN} />, '/host/FEUD-7777');
+
+    expect(screen.getByTestId('main-game-team-guessing-board')).toBeInTheDocument();
+    expect(screen.getByText(/"Name something in your refrigerator"/i)).toBeInTheDocument();
+    expect(screen.getByTestId('round-bank-display')).toHaveTextContent('45');
+    expect(screen.getByTestId('strike-box-1')).toHaveTextContent('X');
+    expect(screen.getByTestId('team-board-card-1')).toHaveTextContent('MILK');
   });
 });
