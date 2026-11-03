@@ -116,11 +116,22 @@ export interface FullGameState {
   timerTick?: { roomCode?: string; secondsRemaining: number; endsAt?: number } | null;
 }
 
+export interface ReconnectSessionPayload {
+  roomCode: string;
+  playerId: string;
+  sessionToken: string;
+}
+
 export interface ReconnectAcknowledgedPayload {
   success: boolean;
   role: 'HOST' | 'PLAYER';
   roomCode: string;
   gameState: FullGameState;
+  player?: {
+    id: string;
+    nickname: string;
+    team: string;
+  };
   message?: string;
 }
 
@@ -537,6 +548,151 @@ export function registerLobbyHandlers(
         socket.emit('room_error', {
           code: 'SERVER_ERROR',
           message: 'Internal server error while recovering host session.',
+        });
+        if (callback) callback({ success: false, error: 'Internal server error.' });
+      }
+    }
+  );
+
+  // Handle reconnect_session event (US-20 Scenario 2 & 3)
+  socket.on(
+    'reconnect_session',
+    async (
+      data: ReconnectSessionPayload,
+      callback?: (res: {
+        success: boolean;
+        error?: string;
+        role?: 'PLAYER';
+        gameState?: FullGameState;
+        player?: { id: string; nickname: string; team: string };
+      }) => void
+    ) => {
+      try {
+        if (!data || !data.roomCode || !data.playerId || !data.sessionToken) {
+          const errMsg = 'Missing roomCode, playerId, or sessionToken.';
+          socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(data.roomCode);
+        const isValid = sessionRecoveryService.validatePlayerSession(
+          normalizedCode,
+          data.playerId,
+          data.sessionToken
+        );
+
+        if (!isValid) {
+          const errMsg = 'Invalid or expired player session token.';
+          logger.warn(
+            `[RECONNECT:PLAYER] Rejected player reconnection for player ${data.playerId} in room ${normalizedCode}: invalid session token`
+          );
+          socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const player = await db.player.findUnique({
+          where: { id: data.playerId },
+        });
+
+        if (!player) {
+          const errMsg = 'Player record not found for session reconnection.';
+          socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        // 1. Update player status in DB
+        await db.player.update({
+          where: { id: data.playerId },
+          data: { isConnected: true },
+        });
+
+        // 2. Update socket mapping and cancel grace timer in memory
+        sessionRecoveryService.updatePlayerSocket(data.playerId, socket.id);
+
+        // 3. Attach socket to channels
+        socket.join(`room:${normalizedCode}`);
+        socket.join(`player:${data.playerId}`);
+        socket.data = { roomCode: normalizedCode, playerId: data.playerId, isHost: false };
+
+        // 4. Assemble full game state
+        const gameState = await buildFullGameState(normalizedCode, db);
+        if (!gameState) {
+          const errMsg = 'Room session not found for player recovery.';
+          socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        logger.info(
+          `[RECONNECT:PLAYER] Player ${player.nickname} (${player.id}) successfully reconnected to room ${normalizedCode}`
+        );
+
+        // 5. Broadcast refreshed room state to the room
+        io.to(`room:${normalizedCode}`).emit('room_state_update', gameState.room);
+
+        // 6. Emit tailored snapshots based on game mode and phase
+        const fastMoneySession = getFastMoneySession(normalizedCode);
+        if (fastMoneySession) {
+          if (fastMoneySession.player1Id === data.playerId) {
+            socket.emit('fast_money_p1_state', fastMoneySession.getPlayer1Snapshot());
+          } else if (fastMoneySession.player2Id === data.playerId) {
+            socket.emit('fast_money_p2_state', fastMoneySession.getPlayer2Snapshot());
+          }
+        }
+
+        if (gameState.faceOffState) {
+          socket.emit('face_off_state', gameState.faceOffState);
+        }
+        if (gameState.teamGuessingState) {
+          socket.emit('team_guessing_state', gameState.teamGuessingState);
+        }
+        if (gameState.teamsAssigned) {
+          socket.emit('teams_assigned', gameState.teamsAssigned);
+        }
+        if (gameState.scoreboardState) {
+          socket.emit('scoreboard_update', gameState.scoreboardState);
+        }
+        if (gameState.timerTick) {
+          socket.emit('timer_tick', gameState.timerTick);
+        }
+
+        // 7. Emit reconnect acknowledgment
+        const ackPayload: ReconnectAcknowledgedPayload = {
+          success: true,
+          role: 'PLAYER',
+          roomCode: normalizedCode,
+          gameState,
+          player: {
+            id: player.id,
+            nickname: player.nickname,
+            team: player.team,
+          },
+        };
+
+        socket.emit('reconnect_acknowledged', ackPayload);
+
+        if (callback) {
+          callback({
+            success: true,
+            role: 'PLAYER',
+            gameState,
+            player: {
+              id: player.id,
+              nickname: player.nickname,
+              team: player.team,
+            },
+          });
+        }
+      } catch (err: any) {
+        logger.error(
+          `[RECONNECT:PLAYER] Unexpected error during player reconnection: ${err?.message || err}`
+        );
+        socket.emit('room_error', {
+          code: 'SERVER_ERROR',
+          message: 'Internal server error while recovering player session.',
         });
         if (callback) callback({ success: false, error: 'Internal server error.' });
       }

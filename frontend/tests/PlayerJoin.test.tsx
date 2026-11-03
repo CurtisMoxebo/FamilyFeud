@@ -23,6 +23,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     playerSession: null,
     hostSecret: null,
     reconnectHost: vi.fn(),
+    reconnectSession: vi.fn(),
     socket: null,
     isConnected: true,
     socketId: 'mock-player-socket',

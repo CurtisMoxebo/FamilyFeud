@@ -144,6 +144,20 @@ export function useSocket(options?: UseSocketOptions) {
     []
   );
 
+  const reconnectSession = useCallback(
+    (roomCode: string, playerId: string, sessionToken: string) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('reconnect_session', {
+          roomCode,
+          playerId,
+          sessionToken,
+        });
+      }
+    },
+    []
+  );
+
   const joinRoom = useCallback(
     (payload: { roomCode: string; nickname?: string; isHost?: boolean }) => {
       setRoomError(null);
@@ -457,12 +471,30 @@ export function useSocket(options?: UseSocketOptions) {
             });
             return;
           }
+          socket.emit('join_room', {
+            roomCode: options.roomCode,
+            nickname: options.nickname,
+            isHost: true,
+          });
+        } else {
+          // Player reconnection flow (US-20 Scenario 2 & 3)
+          const storedSession = getPlayerSession(options.roomCode);
+          if (storedSession && storedSession.sessionToken && storedSession.playerId) {
+            socket.emit('reconnect_session', {
+              roomCode: options.roomCode,
+              playerId: storedSession.playerId,
+              sessionToken: storedSession.sessionToken,
+            });
+            return;
+          }
+          if (options.nickname) {
+            socket.emit('join_room', {
+              roomCode: options.roomCode,
+              nickname: options.nickname,
+              isHost: false,
+            });
+          }
         }
-        socket.emit('join_room', {
-          roomCode: options.roomCode,
-          nickname: options.nickname,
-          isHost: options.isHost,
-        });
       }
     });
 
@@ -682,6 +714,18 @@ export function useSocket(options?: UseSocketOptions) {
         if (gs.scoreboardState) setScoreboardState(gs.scoreboardState);
         if (gs.fastMoneyHostState) setFastMoneyHostState(gs.fastMoneyHostState);
         if (gs.timerTick) setTimerTick(gs.timerTick);
+
+        if (payload.role === 'PLAYER' && payload.player) {
+          const currentSession = getPlayerSession(payload.roomCode);
+          const creds = {
+            roomCode: payload.roomCode,
+            playerId: payload.player.id,
+            sessionToken: currentSession?.sessionToken || '',
+            nickname: payload.player.nickname,
+          };
+          savePlayerSession(creds);
+          setPlayerSession(creds);
+        }
       }
     });
 
@@ -766,5 +810,6 @@ export function useSocket(options?: UseSocketOptions) {
     leaveRoom,
     clearError,
     reconnectHost,
+    reconnectSession,
   };
 }

@@ -712,6 +712,11 @@ export interface ReconnectAcknowledgedPayload {
   role: 'HOST' | 'PLAYER';
   roomCode: string;
   gameState: FullGameState;
+  player?: {
+    id: string;
+    nickname: string;
+    team: string;
+  };
   message?: string;
 }
 

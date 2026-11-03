@@ -28,6 +28,7 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     playerSession: null,
     hostSecret: null,
     reconnectHost: vi.fn(),
+    reconnectSession: vi.fn(),
     socket: null,
     isConnected: true,
     socketId: 'host-socket',

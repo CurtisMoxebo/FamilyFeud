@@ -33,6 +33,7 @@ describe('US-20 Step 2: HostBoard Reconnection & State Recovery Suite', () => {
     playerSession: null,
     hostSecret: 'secret-123',
     reconnectHost: vi.fn(),
+    reconnectSession: vi.fn(),
     socket: null,
     isConnected: true,
     socketId: 'host-socket-reconnected',
