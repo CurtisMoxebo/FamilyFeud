@@ -5,7 +5,7 @@ import { MainGameTeamController } from '../src/components/MainGameTeamController
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { TeamGuessingSessionState } from '../src/types';
 
-describe('US-14 MainGameTeamController Component Tests', () => {
+describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
   const baseSnapshot: TeamGuessingSessionState = {
     roomCode: 'FEUD-5555',
     gameId: 'game-55',
@@ -27,7 +27,10 @@ describe('US-14 MainGameTeamController Component Tests', () => {
     ],
     opposingTeamPlayers: [
       { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+      { id: 'p4', nickname: 'David', team: 'TEAM_2', battingOrder: 2 },
     ],
+    stealSpokesperson: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+    stealSpokespersonId: 'p3',
     activePlayerIndex: 0,
     activePlayer: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
     strikes: 1,
@@ -250,6 +253,155 @@ describe('US-14 MainGameTeamController Component Tests', () => {
     expect(screen.getByTestId('mobile-steal-phase-banner')).toBeInTheDocument();
     expect(screen.getByText(/Three Strikes!/i)).toBeInTheDocument();
     expect(screen.getByText(/Team 2 has a chance to STEAL!/i)).toBeInTheDocument();
+  });
+
+  /* -------------------------------------------------------------
+   * US-15 Scenario 4: Steal Phase Teammate Views & Spokesperson Arbiter
+   * ------------------------------------------------------------- */
+  it('satisfies Scenario 4: designated spokesperson has active steal input box and submit button', () => {
+    const onSubmitStealGuess = vi.fn();
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 65,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      currentNickname: 'Charlie',
+      currentPlayerId: 'p3', // Spokesperson of Team 2
+      onSubmitStealGuess,
+    });
+
+    // Header prompt
+    expect(screen.getByTestId('spokesperson-steal-banner')).toBeInTheDocument();
+    expect(screen.getByText(/CHANCE TO STEAL! You have 15 seconds to submit your team's answer/i)).toBeInTheDocument();
+
+    // Active input box & submit button
+    const stealInput = screen.getByTestId('spokesperson-steal-input') as HTMLInputElement;
+    expect(stealInput).toBeInTheDocument();
+    expect(stealInput.placeholder).toBe('Enter official steal answer...');
+
+    const submitBtn = screen.getByTestId('spokesperson-submit-steal-btn');
+    expect(submitBtn).toHaveTextContent('Submit Steal Answer');
+
+    // Submit valid steal answer
+    fireEvent.change(stealInput, { target: { value: 'BUTTER' } });
+    fireEvent.click(submitBtn);
+
+    expect(onSubmitStealGuess).toHaveBeenCalledWith('BUTTER');
+    expect(stealInput.value).toBe('');
+
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+  });
+
+  it('satisfies Scenario 4: non-spokesperson stealing teammate sees consult prompt without active input', () => {
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 65,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      currentNickname: 'David',
+      currentPlayerId: 'p4', // Teammate on Team 2, but Charlie is spokesperson
+    });
+
+    expect(screen.getByTestId('teammate-consult-banner')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Consult together! Charlie has the floor to submit your team's steal answer/i)
+    ).toBeInTheDocument();
+
+    // No input forms
+    expect(screen.queryByTestId('spokesperson-steal-form')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-guess-form')).not.toBeInTheDocument();
+  });
+
+  it('satisfies Scenario 4: defending team players see fingers crossed prompt without active input', () => {
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 65,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      currentNickname: 'Alice',
+      currentPlayerId: 'p1', // Team 1 player (at 3 strikes)
+    });
+
+    expect(screen.getByTestId('defending-team-banner')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Fingers crossed! Waiting to see if the opposing team steals your points.../i)
+    ).toBeInTheDocument();
+
+    expect(screen.queryByTestId('spokesperson-steal-form')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-guess-form')).not.toBeInTheDocument();
+  });
+
+  it('satisfies Scenarios 1 & 2: displays mobile steal resolution banner on stealResolved', () => {
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'RESOLVED',
+      winningTeam: 'TEAM_2',
+      roundBank: 65,
+    };
+
+    const { rerender } = renderComponent({
+      snapshot: stealSnapshot,
+      currentNickname: 'Charlie',
+      currentPlayerId: 'p3',
+      stealResolved: {
+        roomCode: 'FEUD-5555',
+        success: true,
+        outcome: 'STEAL_SUCCESS',
+        winningTeam: 'TEAM_2',
+        pointsAwarded: 65,
+        roundBank: 65,
+        stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        remainingAnswers: [],
+        message: 'Steal successful!',
+      },
+    });
+
+    expect(screen.getByTestId('mobile-steal-resolved-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-steal-outcome-text')).toHaveTextContent(
+      'Steal Successful! Team 2 stole 65 points!'
+    );
+
+    // Failed steal banner
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamController
+          snapshot={stealSnapshot}
+          currentNickname="Alice"
+          currentPlayerId="p1"
+          roomCode="FEUD-5555"
+          roomName="Family Feud Championship"
+          stealResolved={{
+            roomCode: 'FEUD-5555',
+            success: false,
+            outcome: 'STEAL_FAILED',
+            winningTeam: 'TEAM_1',
+            pointsAwarded: 65,
+            roundBank: 65,
+            stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+            remainingAnswers: [],
+            message: 'Steal failed!',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    expect(screen.getByTestId('mobile-steal-outcome-text')).toHaveTextContent(
+      'Steal Failed! Team 1 retains 65 points!'
+    );
   });
 
   it('invokes onLeave when leave button is clicked', () => {
