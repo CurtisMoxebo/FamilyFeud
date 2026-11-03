@@ -116,7 +116,7 @@ export const MainGameVictoryModal: React.FC<MainGameVictoryModalProps> = ({
                 type="button"
                 data-testid="play-again-btn"
                 onClick={onReplay}
-                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black text-base shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="w-full sm:w-auto flex-1 touch-target min-h-touch inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black text-base shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
                 <RefreshCw className="w-5 h-5" />
                 <span>{t.mainGame.playAgainBtn}</span>
@@ -126,7 +126,7 @@ export const MainGameVictoryModal: React.FC<MainGameVictoryModalProps> = ({
                 type="button"
                 data-testid="exit-room-btn"
                 onClick={onLeave}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-base hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="w-full sm:w-auto touch-target min-h-touch inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-base hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
                 <LogOut className="w-5 h-5" />
                 <span>{t.mainGame.exitRoomBtn}</span>
@@ -142,7 +142,7 @@ export const MainGameVictoryModal: React.FC<MainGameVictoryModalProps> = ({
                   type="button"
                   data-testid="exit-room-btn"
                   onClick={onLeave}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  className="w-full sm:w-auto touch-target min-h-touch inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm hover:scale-105 active:scale-95 transition-all cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>{t.mainGame.exitRoomBtn}</span>

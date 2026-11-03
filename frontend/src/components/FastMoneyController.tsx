@@ -7,6 +7,7 @@ import {
   GameOverPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
+import { triggerHaptic } from '../utils/haptics';
 import {
   Timer,
   Zap,
@@ -83,14 +84,8 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
       // Clear input field (DoD Requirement)
       setAnswerText('');
 
-      // Trigger mobile haptic feedback if supported (DoD Requirement)
-      if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate([100, 50, 100]);
-        } catch {
-          // Ignore if vibration is restricted or unsupported
-        }
-      }
+      // Trigger mobile haptic feedback via shared US-22 haptics engine
+      triggerHaptic('strike');
 
       // Trigger shake animation (DoD Requirement)
       setIsShaking(true);
@@ -183,7 +178,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="fast-money-game-over-screen"
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         {isVic ? (
           <div data-testid="player-victory-view" className="flex flex-col items-center">
@@ -264,7 +259,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid={isPlayer2 ? 'p2-ready-screen' : 'p1-ready-screen'}
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500/20 to-yellow-400/30 text-feud-gold mx-auto flex items-center justify-center mb-5 ring-4 ring-feud-gold/30 shadow-lg shadow-feud-gold/20">
           <Zap className="w-10 h-10 animate-bounce" />
@@ -298,7 +293,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           }}
           disabled={isPaused}
           data-testid={isPlayer2 ? 'p2-ready-btn' : 'p1-ready-btn'}
-          className="w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full touch-target min-h-touch py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap className="w-6 h-6 fill-slate-950" />
           <span>{t.fastMoney.imReady}</span>
@@ -321,7 +316,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="p1-reveal-screen"
-        className="max-w-md w-full flex flex-col gap-4 animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe flex flex-col gap-4 animate-fade-in"
       >
         {/* Header: Synchronized Cumulative Total Score */}
         <div className="flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-feud-gold/30 shadow-lg">
@@ -442,7 +437,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="p2-reveal-spectator-screen"
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-16 h-16 rounded-full bg-feud-gold/20 text-feud-gold mx-auto flex items-center justify-center mb-4">
           <Sparkles className="w-10 h-10 text-feud-gold animate-spin" />
@@ -492,7 +487,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="fast-money-turn-complete"
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-400 mx-auto flex items-center justify-center mb-4">
           <CheckCircle2 className="w-10 h-10" />
@@ -541,7 +536,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   return (
     <div
       data-testid="fast-money-playing-screen"
-      className="max-w-md w-full flex flex-col gap-4 animate-fade-in"
+      className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe flex flex-col gap-4 animate-fade-in"
     >
       {/* Inline styles for shake animation */}
       <style>{`
@@ -644,7 +639,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               enterKeyHint="send"
               maxLength={50}
               disabled={isPaused || snapshot.canSubmit === false}
-              className={`w-full px-4 py-3.5 rounded-2xl bg-slate-900/90 text-white placeholder-slate-500 font-bold text-lg text-center focus:outline-none transition-all disabled:opacity-50 border ${
+              className={`w-full min-h-touch px-4 py-3.5 rounded-2xl bg-slate-900/90 text-white placeholder-slate-500 font-bold text-lg text-center focus:outline-none transition-all disabled:opacity-50 border ${
                 isShaking
                   ? 'border-red-500 ring-2 ring-red-500/50 bg-red-950/30'
                   : 'border-slate-700 focus:ring-2 focus:ring-feud-gold/50 focus:border-feud-gold'
@@ -660,7 +655,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               onClick={handlePass}
               disabled={isPaused || snapshot.canPass === false}
               data-testid="fast-money-pass-btn"
-              className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <SkipForward className="w-4 h-4 fill-slate-950" />
               <span>{t.fastMoney.passButton}</span>
@@ -671,7 +666,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               type="submit"
               disabled={isPaused || !answerText.trim() || snapshot.canSubmit === false}
               data-testid="fast-money-submit-btn"
-              className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
               <span>{t.fastMoney.submitButton}</span>

@@ -34,7 +34,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
     return (
       <div
         data-testid="player2-ready-screen"
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500/20 to-yellow-400/30 text-feud-gold mx-auto flex items-center justify-center mb-5 ring-4 ring-feud-gold/30 shadow-lg shadow-feud-gold/20">
           <Zap className="w-10 h-10 animate-bounce" />
@@ -74,7 +74,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
           }}
           disabled={isPaused}
           data-testid="p2-ready-btn"
-          className="w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full touch-target min-h-touch py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap className="w-6 h-6 fill-slate-950" />
           <span>{t.fastMoney.imReady}</span>
@@ -91,7 +91,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
     return (
       <div
         data-testid="player2-reveal-screen"
-        className="max-w-md w-full flex flex-col gap-4 animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe flex flex-col gap-4 animate-fade-in"
       >
         {/* Header: Synchronized Live Total Score */}
         <div className="flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-indigo-500/30 shadow-lg">
@@ -189,7 +189,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
   return (
     <div
       data-testid="player2-isolation-screen"
-      className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-indigo-500/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in relative overflow-hidden"
+      className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-indigo-500/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in relative overflow-hidden"
     >
       {/* Decorative background glow */}
       <div className="absolute -top-12 -left-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />

@@ -57,7 +57,7 @@ export const MainGamePlayerView: React.FC<MainGamePlayerViewProps> = ({
   return (
     <div
       data-testid="player-main-game-team-screen"
-      className="w-full max-w-md flex flex-col items-center animate-fadeIn"
+      className="w-full max-w-md max-w-[100%] overflow-x-hidden pb-safe flex flex-col items-center animate-fadeIn"
     >
       {/* Designated Team Assignment Hero Card */}
       <div
@@ -229,7 +229,7 @@ export const MainGamePlayerView: React.FC<MainGamePlayerViewProps> = ({
           type="button"
           onClick={onLeave}
           data-testid="player-leave-btn"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors cursor-pointer"
+          className="touch-target min-h-touch inline-flex items-center justify-center gap-2 text-xs font-semibold text-slate-400 hover:text-white px-4 py-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>{t.lobby.backHome}</span>

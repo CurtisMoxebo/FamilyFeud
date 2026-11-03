@@ -10,6 +10,7 @@ import {
   StealResolvedPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
+import { triggerHaptic } from '../utils/haptics';
 import {
   Clock,
   Send,
@@ -74,6 +75,8 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const lastStrikeTimestamp = useRef<number>(0);
   const prevStrikesRef = useRef<number>(snapshot.strikes);
+  const prevRevealedCountRef = useRef<number>(snapshot.revealedAnswers.length);
+  const handledResolutionRef = useRef<string | null>(null);
 
   // Dismiss mobile strike alert immediately if strike is retracted by Host Override (US-21 Scenario 2)
   useEffect(() => {
@@ -144,12 +147,13 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     }
   }, [isActiveGuesser, isSpokesperson, snapshot.activePlayer?.id, snapshot.phase]);
 
-  // Strike alert banner listener
+  // Strike alert banner & double-pulse haptic feedback listener (US-22)
   useEffect(() => {
     if (strikeIssued && strikeIssued.strikeCount > 0) {
       const now = Date.now();
       if (!lastStrikeTimestamp.current || now - lastStrikeTimestamp.current > 300) {
         lastStrikeTimestamp.current = now;
+        triggerHaptic('strike');
         setLocalStrikeAlert({
           count: strikeIssued.strikeCount,
           message: strikeIssued.isDuplicate
@@ -166,6 +170,41 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       }
     }
   }, [strikeIssued, t.mainGame.duplicateAnswerWarning, t.mainGame.notOnBoard]);
+
+  // US-22: Celebratory haptic feedback on answer reveal, board clear, or steal resolution
+  useEffect(() => {
+    if (
+      snapshot.revealedAnswers.length > prevRevealedCountRef.current &&
+      snapshot.phase === 'TEAM_GUESSING' &&
+      isControllingTeam
+    ) {
+      triggerHaptic('success');
+    }
+    prevRevealedCountRef.current = snapshot.revealedAnswers.length;
+  }, [snapshot.revealedAnswers.length, snapshot.phase, isControllingTeam]);
+
+  useEffect(() => {
+    if (roundCleared && isControllingTeam) {
+      const key = `cleared-${snapshot.roundNumber}`;
+      if (handledResolutionRef.current !== key) {
+        handledResolutionRef.current = key;
+        triggerHaptic('success');
+      }
+    }
+  }, [roundCleared, isControllingTeam, snapshot.roundNumber]);
+
+  useEffect(() => {
+    if (stealResolved) {
+      const key = `steal-${snapshot.roundNumber}-${stealResolved.winningTeam}`;
+      if (handledResolutionRef.current !== key) {
+        handledResolutionRef.current = key;
+        const didMyTeamWin =
+          (stealResolved.success && !isControllingTeam) ||
+          (!stealResolved.success && isControllingTeam);
+        triggerHaptic(didMyTeamWin ? 'success' : 'strike');
+      }
+    }
+  }, [stealResolved, isControllingTeam, snapshot.roundNumber]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,7 +270,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
 
   return (
     <div
-      className="w-full max-w-lg mx-auto flex flex-col min-h-[90vh] text-white select-none relative pb-6"
+      className="w-full max-w-lg max-w-[100%] overflow-x-hidden mx-auto flex flex-col min-h-[85dvh] text-white select-none relative pb-6 pb-safe"
       data-testid="main-game-team-controller"
     >
       {/* Top Mobile Bar */}
@@ -239,8 +278,9 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         <div className="flex items-center gap-2">
           {onLeave && (
             <button
+              type="button"
               onClick={onLeave}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+              className="touch-target min-h-touch min-w-touch flex items-center justify-center p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
               title="Leave Room"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -601,7 +641,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               disabled={isPaused || isSubmitting}
               maxLength={40}
               data-testid="player-guess-input"
-              className="w-full bg-slate-950 border border-indigo-500/40 rounded-xl px-4 py-3 text-white placeholder-slate-500 text-sm font-semibold focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30 transition-all uppercase disabled:opacity-50"
+              className="w-full min-h-touch bg-slate-950 border border-indigo-500/40 rounded-xl px-4 py-3 text-white placeholder-slate-500 text-base font-semibold focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30 transition-all uppercase disabled:opacity-50"
             />
           </div>
 
@@ -610,7 +650,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               type="submit"
               disabled={isPaused || isSubmitting || !guessInput.trim()}
               data-testid="player-submit-guess-btn"
-              className="col-span-2 py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 text-slate-950 font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
+              className="col-span-2 touch-target min-h-touch py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 text-slate-950 font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
             >
               <Send className="w-4 h-4" />
               <span>{t.mainGame.submitAnswer}</span>
@@ -621,7 +661,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               onClick={handlePass}
               disabled={isPaused || isSubmitting}
               data-testid="player-pass-turn-btn"
-              className="col-span-1 py-3 px-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase flex items-center justify-center gap-1 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="col-span-1 touch-target min-h-touch py-3 px-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase flex items-center justify-center gap-1 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <SkipForward className="w-3.5 h-3.5" />
               <span>{t.mainGame.passTurnBtn}</span>
@@ -647,7 +687,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               disabled={isPaused || isSubmitting}
               maxLength={40}
               data-testid="spokesperson-steal-input"
-              className="w-full bg-slate-950 border-2 border-yellow-400/80 rounded-xl px-4 py-3.5 text-white placeholder-slate-400 text-base font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-all uppercase shadow-inner disabled:opacity-50"
+              className="w-full min-h-touch bg-slate-950 border-2 border-yellow-400/80 rounded-xl px-4 py-3.5 text-white placeholder-slate-400 text-base font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-all uppercase shadow-inner disabled:opacity-50"
             />
           </div>
 
@@ -655,7 +695,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             type="submit"
             disabled={isPaused || isSubmitting || !guessInput.trim()}
             data-testid="spokesperson-submit-steal-btn"
-            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-slate-950 font-black text-base uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full touch-target min-h-touch py-3.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-slate-950 font-black text-base uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Zap className="w-5 h-5 fill-slate-950" />
             <span>{t.mainGame.submitStealAnswer}</span>
