@@ -410,7 +410,10 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       expect(onRevealAnswerMock).toHaveBeenCalledWith(3);
     });
 
-    it('toggles audio on and off with audio toggle button', () => {
+    it('satisfies US-17 Scenario 4: toggles audio on and off, persists in localStorage, and calls cancelSpeech', () => {
+      const cancelSpy = vi.spyOn(ttsModule, 'cancelSpeech');
+      localStorage.clear();
+
       render(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
@@ -424,6 +427,62 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
 
       fireEvent.click(audioBtn);
       expect(audioBtn).toHaveAttribute('title', 'Unmute Sounds & TTS');
+      expect(localStorage.getItem('family_feud_tts_muted')).toBe('true');
+      expect(cancelSpy).toHaveBeenCalled();
+
+      fireEvent.click(audioBtn);
+      expect(audioBtn).toHaveAttribute('title', 'Mute Sounds & TTS');
+      expect(localStorage.getItem('family_feud_tts_muted')).toBe('false');
+    });
+
+    it('satisfies US-17 Scenario 4: initializes in muted state when saved in localStorage', () => {
+      localStorage.setItem('family_feud_tts_muted', 'true');
+      render(
+        <FastMoneyHostBoard
+          snapshot={revealHostSnapshot}
+          roomName="Family Feud Duel"
+          enableTTS={true}
+        />
+      );
+
+      const audioBtn = screen.getByTestId('host-audio-toggle');
+      expect(audioBtn).toHaveAttribute('title', 'Unmute Sounds & TTS');
+      localStorage.clear();
+    });
+
+    it('satisfies US-17 Scenario 2: cancels pending utterance on rapid question transition or pass', () => {
+      const cancelSpy = vi.spyOn(ttsModule, 'cancelSpeech');
+      const speakSpy = vi.spyOn(ttsModule, 'speakQuestion').mockImplementation(() => {});
+
+      const { rerender } = render(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...readyHostSnapshot,
+            phase: 'P1_PLAYING',
+            currentQuestionText: 'Question 1: Name a fruit',
+          }}
+          roomName="Family Feud Duel"
+          enableTTS={true}
+        />
+      );
+
+      expect(speakSpy).toHaveBeenCalledWith('Question 1: Name a fruit', 'EN');
+
+      // Rapid transition: player passes or answers, next question appears immediately
+      rerender(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...readyHostSnapshot,
+            phase: 'P1_PLAYING',
+            currentQuestionText: 'Question 2: Name an animal',
+          }}
+          roomName="Family Feud Duel"
+          enableTTS={true}
+        />
+      );
+
+      expect(cancelSpy).toHaveBeenCalled();
+      expect(speakSpy).toHaveBeenCalledWith('Question 2: Name an animal', 'EN');
     });
 
     it('toggles auto-pacing mode and executes automatic step progression with 1.5s delay', () => {

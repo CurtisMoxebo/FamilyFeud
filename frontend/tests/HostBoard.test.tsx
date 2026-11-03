@@ -912,4 +912,22 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     await user.click(nextRoundBtn);
     expect(advanceNextRoundMock).toHaveBeenCalledWith('FEUD-7777');
   });
+
+  it('satisfies US-17 Scenario 4: renders host audio toggle button in lobby and toggles mute preference', async () => {
+    localStorage.clear();
+    const user = userEvent.setup();
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />, '/host/FEUD-7890');
+
+    const audioToggle = screen.getByTestId('host-audio-toggle');
+    expect(audioToggle).toBeInTheDocument();
+    expect(audioToggle).toHaveAttribute('title', 'Mute Sounds & TTS');
+
+    await user.click(audioToggle);
+    expect(localStorage.getItem('family_feud_tts_muted')).toBe('true');
+    expect(audioToggle).toHaveAttribute('title', 'Unmute Sounds & TTS');
+
+    await user.click(audioToggle);
+    expect(localStorage.getItem('family_feud_tts_muted')).toBe('false');
+    expect(audioToggle).toHaveAttribute('title', 'Mute Sounds & TTS');
+  });
 });

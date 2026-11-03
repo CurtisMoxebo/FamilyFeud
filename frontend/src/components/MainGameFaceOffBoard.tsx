@@ -1,5 +1,5 @@
 import { MainGameScoreboardHeader } from './MainGameScoreboardHeader';
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ScoreboardUpdatePayload,
   FaceOffSessionState,
@@ -15,6 +15,8 @@ import {
   speakQuestion,
   cancelSpeech,
   speakPlayOrPassDecision,
+  isTtsMuted,
+  setTtsMuted,
 } from '../utils/tts';
 import {
   playFaceOffBuzzer,
@@ -29,6 +31,7 @@ import {
   CheckCircle2,
   Lock,
   Volume2,
+  VolumeX,
   AlertTriangle,
   Award,
   Sparkles,
@@ -66,6 +69,17 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
 }) => {
   const { t } = useTranslation();
 
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => !isTtsMuted());
+
+  const handleToggleAudio = () => {
+    const nextAudio = !audioEnabled;
+    setAudioEnabled(nextAudio);
+    setTtsMuted(!nextAudio);
+    if (!nextAudio) {
+      cancelSpeech();
+    }
+  };
+
   // Track the last question read by TTS to avoid re-speaking on every tick
   const lastSpokenQuestionId = useRef<string | null>(null);
   // Track whether buzzer SFX / speech cancellation has fired for current buzzer lockout
@@ -102,10 +116,10 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     if (snapshot.phase === 'BUZZER_ACTIVE' && snapshot.question?.id) {
       if (lastSpokenQuestionId.current !== snapshot.question.id) {
         lastSpokenQuestionId.current = snapshot.question.id;
-        speakQuestion(snapshot.question.questionText, language);
+        if (audioEnabled) { speakQuestion(snapshot.question.questionText, language); }
       }
     }
-  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, language]);
+  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, language, audioEnabled]);
 
   // Scenario 2: Atomic Buzzer Lockout cuts off ongoing TTS and sounds sharp buzzer cue
   useEffect(() => {
@@ -227,7 +241,22 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             </div>
           </div>
 
-          {onLeave && (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleToggleAudio}
+              data-testid="host-audio-toggle"
+              title={audioEnabled ? 'Mute Sounds & TTS' : 'Unmute Sounds & TTS'}
+              className="p-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              {audioEnabled ? (
+                <Volume2 className="w-5 h-5 text-feud-gold" />
+              ) : (
+                <VolumeX className="w-5 h-5 text-slate-500" />
+              )}
+            </button>
+
+            {onLeave && (
             <button
               type="button"
               onClick={onLeave}
@@ -238,6 +267,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
               <span>Leave Lobby</span>
             </button>
           )}
+          </div>
         </div>
 
         {/* Survey Question Banner */}
@@ -261,8 +291,17 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
               className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-blue-950/80 via-slate-900/90 to-slate-950 border-2 border-feud-gold/60 shadow-[0_0_35px_rgba(234,179,8,0.2)] text-center relative overflow-hidden"
             >
               <div className="absolute top-2 right-4 flex items-center gap-1.5 text-xs font-bold text-feud-gold uppercase tracking-wider">
-                <Volume2 className="w-4 h-4 animate-pulse" />
-                <span>Host TTS</span>
+                {audioEnabled ? (
+                  <>
+                    <Volume2 className="w-4 h-4 animate-pulse" />
+                    <span>Host TTS</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-4 h-4 text-slate-500" />
+                    <span className="text-slate-500">Host TTS (Muted)</span>
+                  </>
+                )}
               </div>
 
               <span className="text-xs font-extrabold text-feud-gold-light uppercase tracking-widest block mb-2">
