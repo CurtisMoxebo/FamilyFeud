@@ -1116,16 +1116,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         passTeamTurn: mockPassTeamTurn,
       } as any);
 
-            const testRoom: Room = {
-        id: 'room-9999',
-        roomCode: 'FEUD-9999',
-        roomName: 'Match Over Test',
-        language: 'EN',
-        gameMode: 'MAIN_GAME',
-        status: 'ACTIVE',
-        createdAt: new Date().toISOString(),
-      };
-      renderWithProviders(<PlayerJoin roomCode="FEUD-9999" initialRoom={testRoom} />);
+      renderWithProviders(<PlayerJoin roomCode="FEUD-9999" initialRoom={mainGameRoomEN} />);
 
       const input = screen.getByTestId('player-nickname-input');
       await user.type(input, 'Alice');
@@ -1174,7 +1165,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         matchOver: mockMatchOver,
       } as any);
 
-            const testRoom: Room = {
+      const testRoom: Room = {
         id: 'room-9999',
         roomCode: 'FEUD-9999',
         roomName: 'Match Over Test',

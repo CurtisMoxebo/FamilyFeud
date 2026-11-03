@@ -457,5 +457,97 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
       expect(result.current.opponentTurnPrompt).toBeNull();
       expect(result.current.faceOffBoardReveal).toBeNull();
     });
+
+    it('satisfies US-16: handles scoreboard update, match over, sudden death, next round, and actions', () => {
+      const { result } = renderHook(() => useSocket());
+
+      const mockScoreboard = {
+        roomCode: 'FEUD-9999',
+        team1GrandTotal: 250,
+        team2GrandTotal: 180,
+        activeRoundBank: 35,
+        currentRoundNumber: 2,
+        totalRounds: 3,
+        phase: 'ROUND_IN_PROGRESS',
+      };
+
+      act(() => {
+        eventHandlers['scoreboard_update'](mockScoreboard);
+      });
+      expect(result.current.scoreboardState).toEqual(mockScoreboard);
+
+      const mockMatchOver = {
+        roomCode: 'FEUD-9999',
+        winningTeam: 'TEAM_1' as const,
+        team1GrandTotal: 340,
+        team2GrandTotal: 210,
+        totalRounds: 3,
+      };
+
+      act(() => {
+        eventHandlers['match_over'](mockMatchOver);
+      });
+      expect(result.current.matchOver).toEqual(mockMatchOver);
+
+      const mockSuddenDeath = {
+        roomCode: 'FEUD-9999',
+        team1GrandTotal: 200,
+        team2GrandTotal: 200,
+        roundNumber: 4,
+        message: 'Sudden death!',
+      };
+
+      act(() => {
+        eventHandlers['sudden_death_initiated'](mockSuddenDeath);
+      });
+      expect(result.current.suddenDeathInitiated).toEqual(mockSuddenDeath);
+
+      const mockNextRound = {
+        roomCode: 'FEUD-9999',
+        roundNumber: 2,
+        totalRounds: 3,
+        team1Contender: { id: 'p1', nickname: 'Alice', team: 'TEAM_1' as const, battingOrder: 2 },
+        team2Contender: { id: 'p2', nickname: 'Bob', team: 'TEAM_2' as const, battingOrder: 2 },
+        question: { id: 'q2', questionText: 'Next Q', answerCount: 4 },
+        isSuddenDeath: false,
+        scoreboard: mockScoreboard as any,
+      };
+
+      act(() => {
+        eventHandlers['next_round_started'](mockNextRound);
+      });
+      expect(result.current.nextRoundStarted).toEqual(mockNextRound);
+
+      // Advance next round emit
+      act(() => {
+        result.current.advanceNextRound('FEUD-9999');
+      });
+      expect(mockSocket.emit).toHaveBeenCalledWith('advance_next_round', { roomCode: 'FEUD-9999' });
+
+      // Get scoreboard state emit
+      act(() => {
+        result.current.getScoreboardState('FEUD-9999');
+      });
+      expect(mockSocket.emit).toHaveBeenCalledWith('get_scoreboard_state', { roomCode: 'FEUD-9999' });
+
+      // Clear match over
+      act(() => {
+        result.current.clearMatchOver();
+      });
+      expect(result.current.matchOver).toBeNull();
+
+      // On game_replayed, clears matchOver and suddenDeathInitiated
+      act(() => {
+        eventHandlers['match_over'](mockMatchOver);
+        eventHandlers['sudden_death_initiated'](mockSuddenDeath);
+      });
+      expect(result.current.matchOver).toEqual(mockMatchOver);
+
+      act(() => {
+        eventHandlers['game_replayed']();
+      });
+      expect(result.current.matchOver).toBeNull();
+      expect(result.current.suddenDeathInitiated).toBeNull();
+    });
   });
 });
