@@ -41,6 +41,8 @@ import {
 export interface MainGameFaceOffBoardProps {
   snapshot: FaceOffSessionState;
   timerTick?: TimerTickPayload | null;
+  isPaused?: boolean;
+  pausedRemainingSeconds?: number;
   buzzerLocked?: BuzzerLockedPayload | null;
   timeoutResult?: FaceOffTimeoutPayload | null;
   promptPassPlay?: PromptPassPlayPayload | null;
@@ -56,6 +58,8 @@ export interface MainGameFaceOffBoardProps {
 export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   snapshot,
   timerTick,
+  isPaused = false,
+  pausedRemainingSeconds,
   buzzerLocked,
   timeoutResult,
   promptPassPlay,
@@ -87,7 +91,9 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
 
   // Derive remaining seconds for authoritative countdown
   const currentSeconds =
-    timerTick && timerTick.secondsRemaining !== undefined
+    isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
+      ? pausedRemainingSeconds
+      : timerTick && timerTick.secondsRemaining !== undefined
       ? timerTick.secondsRemaining
       : snapshot.remainingSeconds;
 

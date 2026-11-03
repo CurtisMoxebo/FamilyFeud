@@ -83,6 +83,9 @@ export interface TranslationDictionary {
     statusReady: string;
     statusWaiting: string;
     statusDisconnected: string;
+    removePlayer: string;
+    kickedTitle: string;
+    kickedDefaultMessage: string;
     backHome: string;
   };
   fastMoney: {
@@ -207,5 +210,19 @@ export interface TranslationDictionary {
     suddenDeathSubtitle: string;
     playAgainBtn: string;
     exitRoomBtn: string;
+  };
+  admin: {
+    pauseTimer: string;
+    resumeTimer: string;
+    gamePausedBanner: string;
+    gamePausedSubtitle: string;
+    playerInputsLocked: string;
+    spacebarShortcutHint: string;
+    manualOverride: string;
+    overrideAccept: string;
+    closeOverride: string;
+    judgeOverrideSubtitle: string;
+    creditTeamLabel: string;
+    overrideConfirmedToast: string;
   };
 }

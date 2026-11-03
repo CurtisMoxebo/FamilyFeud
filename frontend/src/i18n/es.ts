@@ -86,6 +86,9 @@ export const es: TranslationDictionary = {
     statusReady: 'Listo',
     statusWaiting: 'Esperando',
     statusDisconnected: 'Desconectado',
+    removePlayer: 'Eliminar',
+    kickedTitle: 'Eliminado del juego',
+    kickedDefaultMessage: 'Has sido eliminado del juego por el anfitrión.',
     backHome: 'Volver al inicio',
   },
   fastMoney: {
@@ -210,6 +213,20 @@ export const es: TranslationDictionary = {
     suddenDeathSubtitle: 'Una sola pregunta. ¡La respuesta #1 gana todo el juego!',
     playAgainBtn: 'Jugar de nuevo',
     exitRoomBtn: 'Salir de la sala',
+  },
+  admin: {
+    pauseTimer: 'Pausar temporizador',
+    resumeTimer: 'Reanudar',
+    gamePausedBanner: 'JUEGO EN PAUSA',
+    gamePausedSubtitle: 'El anfitrión ha pausado el temporizador.',
+    playerInputsLocked: 'Las entradas están desactivadas hasta que se reanude el juego.',
+    spacebarShortcutHint: 'Espacio',
+    manualOverride: 'Anulación manual',
+    overrideAccept: 'Anular y aceptar',
+    closeOverride: 'Cerrar',
+    judgeOverrideSubtitle: 'Selecciona una casilla sin revelar abajo para aceptar la respuesta y retirar un fallo.',
+    creditTeamLabel: 'Acreditar puntos a:',
+    overrideConfirmedToast: 'Anulación del juez: ¡Casilla #{rank} ("{answer}") aceptada (+{points} pts)!',
   },
 };
 

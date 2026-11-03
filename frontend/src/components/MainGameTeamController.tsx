@@ -27,6 +27,8 @@ import {
 export interface MainGameTeamControllerProps {
   snapshot: TeamGuessingSessionState;
   timerTick?: TimerTickPayload | null;
+  isPaused?: boolean;
+  pausedRemainingSeconds?: number;
   strikeIssued?: StrikeIssuedPayload | null;
   roundCleared?: RoundClearedPayload | null;
   transitionStealPhase?: TransitionStealPhasePayload | null;
@@ -45,6 +47,8 @@ export interface MainGameTeamControllerProps {
 export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   snapshot,
   timerTick,
+  isPaused = false,
+  pausedRemainingSeconds,
   strikeIssued,
   roundCleared,
   transitionStealPhase,
@@ -69,10 +73,21 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const lastStrikeTimestamp = useRef<number>(0);
+  const prevStrikesRef = useRef<number>(snapshot.strikes);
+
+  // Dismiss mobile strike alert immediately if strike is retracted by Host Override (US-21 Scenario 2)
+  useEffect(() => {
+    if (snapshot.strikes < prevStrikesRef.current) {
+      setLocalStrikeAlert(null);
+    }
+    prevStrikesRef.current = snapshot.strikes;
+  }, [snapshot.strikes]);
 
   // Authoritative remaining seconds
   const currentSeconds =
-    timerTick && timerTick.secondsRemaining !== undefined
+    isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
+      ? pausedRemainingSeconds
+      : timerTick && timerTick.secondsRemaining !== undefined
       ? timerTick.secondsRemaining
       : snapshot.remainingSeconds;
 
@@ -155,7 +170,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleaned = guessInput.trim();
-    if (!cleaned || isSubmitting || !isActiveGuesser || snapshot.phase !== 'TEAM_GUESSING') {
+    if (isPaused || !cleaned || isSubmitting || !isActiveGuesser || snapshot.phase !== 'TEAM_GUESSING') {
       return;
     }
 
@@ -172,7 +187,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   const handleStealSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleaned = guessInput.trim();
-    if (!cleaned || isSubmitting || !isSpokesperson || snapshot.phase !== 'STEAL_PHASE') {
+    if (isPaused || !cleaned || isSubmitting || !isSpokesperson || snapshot.phase !== 'STEAL_PHASE') {
       return;
     }
 
@@ -187,7 +202,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   };
 
   const handlePass = () => {
-    if (isSubmitting || !isActiveGuesser || snapshot.phase !== 'TEAM_GUESSING') {
+    if (isPaused || isSubmitting || !isActiveGuesser || snapshot.phase !== 'TEAM_GUESSING') {
       return;
     }
     setIsSubmitting(true);
@@ -583,17 +598,17 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               value={guessInput}
               onChange={(e) => setGuessInput(e.target.value)}
               placeholder={t.mainGame.teamGuessInputPlaceholder}
-              disabled={isSubmitting}
+              disabled={isPaused || isSubmitting}
               maxLength={40}
               data-testid="player-guess-input"
-              className="w-full bg-slate-950 border border-indigo-500/40 rounded-xl px-4 py-3 text-white placeholder-slate-500 text-sm font-semibold focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30 transition-all uppercase"
+              className="w-full bg-slate-950 border border-indigo-500/40 rounded-xl px-4 py-3 text-white placeholder-slate-500 text-sm font-semibold focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30 transition-all uppercase disabled:opacity-50"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <button
               type="submit"
-              disabled={isSubmitting || !guessInput.trim()}
+              disabled={isPaused || isSubmitting || !guessInput.trim()}
               data-testid="player-submit-guess-btn"
               className="col-span-2 py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 text-slate-950 font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
             >
@@ -604,9 +619,9 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             <button
               type="button"
               onClick={handlePass}
-              disabled={isSubmitting}
+              disabled={isPaused || isSubmitting}
               data-testid="player-pass-turn-btn"
-              className="col-span-1 py-3 px-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase flex items-center justify-center gap-1 transition-all cursor-pointer disabled:opacity-40"
+              className="col-span-1 py-3 px-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase flex items-center justify-center gap-1 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <SkipForward className="w-3.5 h-3.5" />
               <span>{t.mainGame.passTurnBtn}</span>
@@ -629,16 +644,16 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               value={guessInput}
               onChange={(e) => setGuessInput(e.target.value)}
               placeholder={t.mainGame.stealInputPlaceholder}
-              disabled={isSubmitting}
+              disabled={isPaused || isSubmitting}
               maxLength={40}
               data-testid="spokesperson-steal-input"
-              className="w-full bg-slate-950 border-2 border-yellow-400/80 rounded-xl px-4 py-3.5 text-white placeholder-slate-400 text-base font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-all uppercase shadow-inner"
+              className="w-full bg-slate-950 border-2 border-yellow-400/80 rounded-xl px-4 py-3.5 text-white placeholder-slate-400 text-base font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-all uppercase shadow-inner disabled:opacity-50"
             />
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting || !guessInput.trim()}
+            disabled={isPaused || isSubmitting || !guessInput.trim()}
             data-testid="spokesperson-submit-steal-btn"
             className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-slate-950 font-black text-base uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >

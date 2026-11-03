@@ -234,6 +234,7 @@ export class FastMoneySession {
     new Map();
 
   private phase: FastMoneyPhase = 'P1_READY';
+  private pausedRemainingSeconds: number | null = null;
 
   constructor(options: FastMoneySessionOptions) {
     if (!options.questions || options.questions.length === 0) {
@@ -550,6 +551,7 @@ export class FastMoneySession {
    * Terminates turn automatically when timer reaches 0 or all questions answered.
    */
   public expireTimer(): void {
+    this.pausedRemainingSeconds = null;
     if (this.phase === 'P1_PLAYING') {
       this.phase = 'P1_FINISHED';
       this.currentQuestion = null;
@@ -557,6 +559,49 @@ export class FastMoneySession {
       this.phase = 'P2_FINISHED';
       this.p2CurrentQuestion = null;
     }
+  }
+
+  /**
+   * Authoritatively pauses the active Fast Money countdown timer without time loss (US-21 Scenario 1).
+   */
+  public pauseTimer(): number {
+    if (this.phase !== 'P1_PLAYING' && this.phase !== 'P2_PLAYING') {
+      return 0;
+    }
+    if (this.pausedRemainingSeconds !== null) {
+      return this.pausedRemainingSeconds;
+    }
+    const remaining = Math.max(1, this.getRemainingSeconds());
+    this.pausedRemainingSeconds = remaining;
+    if (this.phase === 'P1_PLAYING') {
+      this.timerEndsAt = null;
+    } else {
+      this.p2TimerEndsAt = null;
+    }
+    return remaining;
+  }
+
+  /**
+   * Resumes a paused Fast Money countdown timer from the exact frozen seconds (US-21 Scenario 1).
+   */
+  public resumeTimer(overrideRemainingSeconds?: number): number {
+    const fallback =
+      this.phase === 'P2_PLAYING' ? this.p2TimerDurationSeconds : this.timerDurationSeconds;
+    const remaining =
+      overrideRemainingSeconds ?? this.pausedRemainingSeconds ?? fallback;
+    this.pausedRemainingSeconds = null;
+
+    if (this.phase === 'P1_PLAYING') {
+      this.timerEndsAt = Date.now() + remaining * 1000;
+    } else if (this.phase === 'P2_PLAYING') {
+      this.p2TimerEndsAt = Date.now() + remaining * 1000;
+    }
+
+    return remaining;
+  }
+
+  public isPaused(): boolean {
+    return this.pausedRemainingSeconds !== null;
   }
 
   // --- Internal Queue Advancers ---
@@ -610,6 +655,9 @@ export class FastMoneySession {
   }
 
   private assertTurnActive(playerId: string): void {
+    if (this.pausedRemainingSeconds !== null) {
+      throw new Error('Game is currently paused by the host');
+    }
     if (this.phase === 'P1_PLAYING') {
       if (playerId !== this.player1Id) {
         throw new Error(`Unauthorized player: ${playerId}`);
@@ -982,6 +1030,7 @@ export class FastMoneySession {
     this.evaluations.clear();
     this.timerStartedAt = null;
     this.timerEndsAt = null;
+    this.pausedRemainingSeconds = null;
     this.attemptCounter = 0;
 
     this.p2UnattemptedQueue = [];
@@ -1026,6 +1075,7 @@ export class FastMoneySession {
     }
 
     if (this.phase === 'P1_PLAYING') {
+      if (this.pausedRemainingSeconds !== null) return this.pausedRemainingSeconds;
       if (!this.timerEndsAt) return this.timerDurationSeconds;
       const remainingMs = this.timerEndsAt - Date.now();
       return Math.max(0, Math.ceil(remainingMs / 1000));
@@ -1036,6 +1086,7 @@ export class FastMoneySession {
     }
 
     if (this.phase === 'P2_PLAYING') {
+      if (this.pausedRemainingSeconds !== null) return this.pausedRemainingSeconds;
       if (!this.p2TimerEndsAt) return this.p2TimerDurationSeconds;
       const remainingMs = this.p2TimerEndsAt - Date.now();
       return Math.max(0, Math.ceil(remainingMs / 1000));
@@ -1144,7 +1195,10 @@ export class FastMoneySession {
    * Sanitized snapshot for Player 1's interactive mobile controller.
    */
   public getPlayer1Snapshot(): Player1StateSnapshot {
-    const isPlaying = this.phase === 'P1_PLAYING' && this.getRemainingSeconds() > 0;
+    const isPlaying =
+      this.phase === 'P1_PLAYING' &&
+      this.pausedRemainingSeconds === null &&
+      this.getRemainingSeconds() > 0;
     const currentQ = this.currentQuestion;
 
     let questionNumber = 1;
@@ -1252,7 +1306,7 @@ export class FastMoneySession {
           : `GAME OVER! Final Score: ${grandTotal} / 200`
         : '🎧 Player 1 is currently playing! Look away from the host screen',
       remainingSeconds: remaining,
-      isTimerRunning: isPlaying && remaining > 0,
+      isTimerRunning: isPlaying && this.pausedRemainingSeconds === null && remaining > 0,
       totalScore: isP2Reveal || isGameOver ? grandTotal : p1TotalScore,
       p1TotalScore,
       p2TotalScore,
@@ -1276,8 +1330,12 @@ export class FastMoneySession {
       answeredCount: isPlaying || isFinished ? this.p2Submissions.size : undefined,
       passedCount: isPlaying || isFinished ? this.getPassedCount(this.player2Id) : undefined,
       totalQuestions: isPlaying || isFinished ? this.questions.length : undefined,
-      canSubmit: isPlaying ? this.p2CurrentQuestion !== null && remaining > 0 : undefined,
-      canPass: isPlaying ? this.p2CurrentQuestion !== null && remaining > 0 : undefined,
+      canSubmit: isPlaying
+        ? this.p2CurrentQuestion !== null && this.pausedRemainingSeconds === null && remaining > 0
+        : undefined,
+      canPass: isPlaying
+        ? this.p2CurrentQuestion !== null && this.pausedRemainingSeconds === null && remaining > 0
+        : undefined,
     };
   }
 
@@ -1329,7 +1387,9 @@ export class FastMoneySession {
     const activeP2RevealSlotNumber = this.getActiveP2RevealSlotNumber();
 
     const isTimerRunning =
-      (this.phase === 'P1_PLAYING' || this.phase === 'P2_PLAYING') && this.getRemainingSeconds() > 0;
+      (this.phase === 'P1_PLAYING' || this.phase === 'P2_PLAYING') &&
+      this.pausedRemainingSeconds === null &&
+      this.getRemainingSeconds() > 0;
 
     return {
       phase: this.phase,

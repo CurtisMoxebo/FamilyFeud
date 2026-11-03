@@ -86,6 +86,9 @@ export const en: TranslationDictionary = {
     statusReady: 'Ready',
     statusWaiting: 'Waiting',
     statusDisconnected: 'Disconnected',
+    removePlayer: 'Remove',
+    kickedTitle: 'Removed from Game',
+    kickedDefaultMessage: 'You have been removed from the game by the host.',
     backHome: 'Back to Home',
   },
   fastMoney: {
@@ -210,6 +213,20 @@ export const en: TranslationDictionary = {
     suddenDeathSubtitle: 'One question. One #1 answer wins the entire game!',
     playAgainBtn: 'Play Again',
     exitRoomBtn: 'Exit Room',
+  },
+  admin: {
+    pauseTimer: 'Pause Timer',
+    resumeTimer: 'Resume',
+    gamePausedBanner: 'GAME PAUSED',
+    gamePausedSubtitle: 'The host has paused the countdown timer.',
+    playerInputsLocked: 'Inputs are disabled until the host resumes the game.',
+    spacebarShortcutHint: 'Spacebar',
+    manualOverride: 'Manual Override',
+    overrideAccept: 'Override & Accept',
+    closeOverride: 'Close Override',
+    judgeOverrideSubtitle: 'Select an unrevealed survey slot below to accept a valid answer and retract any strike.',
+    creditTeamLabel: 'Credit Points To:',
+    overrideConfirmedToast: 'Judge Override: Card #{rank} ("{answer}") accepted (+{points} pts)!',
   },
 };
 

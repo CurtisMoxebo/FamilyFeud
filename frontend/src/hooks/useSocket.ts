@@ -5,6 +5,7 @@ import {
   savePlayerSession,
   getHostSecret,
   getPlayerSession,
+  clearPlayerSession,
   PlayerSessionCredentials,
 } from '../utils/sessionStorage';
 import {
@@ -45,6 +46,14 @@ import {
   NextRoundStartedPayload,
   ReconnectAcknowledgedPayload,
   PlayerLeftAlertPayload,
+  PlayerKickedPayload,
+  GamePausedPayload,
+  GameResumedPayload,
+  StrikeCancelledPayload,
+  AdminErrorPayload,
+  HostOverrideAnswerOption,
+  HostOverrideOptionsPayload,
+  AnswerOverridePayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -129,6 +138,11 @@ export function useSocket(options?: UseSocketOptions) {
     return getHostSecret(options?.roomCode);
   });
   const [playerLeftAlert, setPlayerLeftAlert] = useState<PlayerLeftAlertPayload | null>(null);
+  const [kickedInfo, setKickedInfo] = useState<PlayerKickedPayload | null>(null);
+  const [gamePaused, setGamePaused] = useState<GamePausedPayload | null>(null);
+  const [adminError, setAdminError] = useState<AdminErrorPayload | null>(null);
+  const [hostOverrideOptions, setHostOverrideOptions] = useState<HostOverrideAnswerOption[]>([]);
+  const [answerOverrideAck, setAnswerOverrideAck] = useState<AnswerOverridePayload | null>(null);
 
 
   const socketRef = useRef<Socket | null>(null);
@@ -443,6 +457,8 @@ export function useSocket(options?: UseSocketOptions) {
     setFaceOffReset(null);
     setFaceOffAnswer(null);
     setFaceOffError(null);
+    setHostOverrideOptions([]);
+    setAnswerOverrideAck(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -531,6 +547,8 @@ export function useSocket(options?: UseSocketOptions) {
       setSuddenDeathInitiated(null);
       setP1RevealCompleted(null);
       setDuplicateWarning(null);
+      setHostOverrideOptions([]);
+      setAnswerOverrideAck(null);
     });
 
     // Main Game Teams Assignment (US-11)
@@ -651,6 +669,9 @@ export function useSocket(options?: UseSocketOptions) {
     // Main Game Team Guessing Listeners (US-14)
     socket.on('team_guessing_state', (state: TeamGuessingSessionState) => {
       setTeamGuessingState(state);
+      if (state.phase === 'TEAM_GUESSING' && state.strikes < 3) {
+        setTransitionStealPhase(null);
+      }
     });
 
     socket.on('strike_issued', (payload: StrikeIssuedPayload) => {
@@ -695,6 +716,8 @@ export function useSocket(options?: UseSocketOptions) {
 
     socket.on('next_round_started', (payload: NextRoundStartedPayload) => {
       setNextRoundStarted(payload);
+      setHostOverrideOptions([]);
+      setAnswerOverrideAck(null);
     });
     socket.on('session_granted', (payload: PlayerSessionCredentials) => {
       savePlayerSession(payload);
@@ -735,11 +758,133 @@ export function useSocket(options?: UseSocketOptions) {
       setPlayerLeftAlert(payload);
     });
 
+    socket.on('player_kicked', (payload: PlayerKickedPayload) => {
+      setKickedInfo(payload);
+      clearPlayerSession(payload.roomCode);
+    });
+
+    socket.on('game_paused', (payload: GamePausedPayload) => {
+      setGamePaused(payload);
+      if (typeof payload.remainingTime === 'number' && payload.remainingTime > 0) {
+        setTimerTick({
+          secondsRemaining: payload.remainingTime,
+          endsAt: 0,
+        });
+      }
+    });
+
+    socket.on('game_resumed', (payload: GameResumedPayload) => {
+      setGamePaused(null);
+      if (payload && typeof payload.remainingTime === 'number' && payload.remainingTime > 0) {
+        setTimerTick({
+          secondsRemaining: payload.remainingTime,
+          endsAt: Date.now() + payload.remainingTime * 1000,
+        });
+      }
+    });
+
+    socket.on('admin_error', (payload: AdminErrorPayload) => {
+      setAdminError(payload);
+    });
+
+    socket.on('strike_cancelled', (payload: StrikeCancelledPayload) => {
+      setStrikeIssued(null);
+      if (payload.strikeCount < 3) {
+        setTransitionStealPhase(null);
+      }
+      setTeamGuessingState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          strikes: payload.strikeCount,
+          phase:
+            prev.phase === 'STEAL_PHASE' && payload.strikeCount < 3
+              ? 'TEAM_GUESSING'
+              : prev.phase,
+        };
+      });
+    });
+
+    socket.on('host_override_options', (payload: HostOverrideOptionsPayload) => {
+      if (payload && Array.isArray(payload.answers)) {
+        setHostOverrideOptions(payload.answers);
+      }
+    });
+
+    socket.on('answer_override_acknowledged', (payload: AnswerOverridePayload) => {
+      setAnswerOverrideAck(payload);
+    });
+
 
     return () => {
       socket.disconnect();
     };
   }, [options?.autoJoin, options?.roomCode, options?.nickname, options?.isHost]);
+
+  const kickPlayer = useCallback(
+    (playerId: string) => {
+      const socket = socketRef.current;
+      const code = options?.roomCode || roomState?.roomCode;
+      if (!socket || !code || !playerId) return;
+      const secret = getHostSecret(code);
+      socket.emit('host_kick_player', {
+        roomCode: code,
+        playerId,
+        hostSecret: secret || undefined,
+      });
+    },
+    [options?.roomCode, roomState?.roomCode]
+  );
+
+  const pauseGame = useCallback(() => {
+    const socket = socketRef.current;
+    const code = options?.roomCode || roomState?.roomCode;
+    if (!socket || !code) return;
+    const secret = getHostSecret(code);
+    socket.emit('host_pause_game', {
+      roomCode: code,
+      hostSecret: secret || undefined,
+    });
+  }, [options?.roomCode, roomState?.roomCode]);
+
+  const resumeGame = useCallback(() => {
+    const socket = socketRef.current;
+    const code = options?.roomCode || roomState?.roomCode;
+    if (!socket || !code) return;
+    const secret = getHostSecret(code);
+    socket.emit('host_resume_game', {
+      roomCode: code,
+      hostSecret: secret || undefined,
+    });
+  }, [options?.roomCode, roomState?.roomCode]);
+
+  const overrideAnswer = useCallback(
+    (rankOrder: number, points?: number, teamId?: 'TEAM_1' | 'TEAM_2') => {
+      const socket = socketRef.current;
+      const code = options?.roomCode || roomState?.roomCode;
+      if (!socket || !code) return;
+      const secret = getHostSecret(code);
+      socket.emit('host_override_answer', {
+        roomCode: code,
+        rankOrder,
+        points,
+        teamId,
+        hostSecret: secret || undefined,
+      });
+    },
+    [options?.roomCode, roomState?.roomCode]
+  );
+
+  const requestOverrideOptions = useCallback(() => {
+    const socket = socketRef.current;
+    const code = options?.roomCode || roomState?.roomCode;
+    if (!socket || !code) return;
+    const secret = getHostSecret(code);
+    socket.emit('host_get_override_answers', {
+      roomCode: code,
+      hostSecret: secret || undefined,
+    });
+  }, [options?.roomCode, roomState?.roomCode]);
 
   return {
     socket: socketRef.current,
@@ -819,5 +964,18 @@ export function useSocket(options?: UseSocketOptions) {
     reconnectSession,
     playerLeftAlert,
     clearPlayerLeftAlert: () => setPlayerLeftAlert(null),
+    kickedInfo,
+    clearKickedInfo: () => setKickedInfo(null),
+    gamePaused,
+    adminError,
+    clearAdminError: () => setAdminError(null),
+    kickPlayer,
+    pauseGame,
+    resumeGame,
+    overrideAnswer,
+    hostOverrideOptions,
+    answerOverrideAck,
+    clearAnswerOverrideAck: () => setAnswerOverrideAck(null),
+    requestOverrideOptions,
   };
 }

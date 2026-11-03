@@ -32,6 +32,8 @@ import {
   handleTeamGuessingTimeoutBroadcast,
   handleStealResolvedBroadcast,
 } from './mainGameHandler';
+import { registerAdminHandlers } from './adminHandler';
+import { hostAdminService } from '../services/hostAdminService';
 import { FastMoneyQuestionItem } from '../services/fastMoneySession';
 import {
   partitionTeams,
@@ -649,6 +651,13 @@ export function registerLobbyHandlers(
         }
         if (gameState.teamGuessingState) {
           socket.emit('team_guessing_state', gameState.teamGuessingState);
+          const activeTeamSession = getTeamGuessingSession(normalizedCode);
+          if (activeTeamSession) {
+            socket.emit('host_override_options', {
+              roomCode: normalizedCode,
+              answers: activeTeamSession.getHostAnswerOptions(),
+            });
+          }
         }
         if (gameState.scoreboardState) {
           socket.emit('scoreboard_update', gameState.scoreboardState);
@@ -658,6 +667,15 @@ export function registerLobbyHandlers(
         }
         if (gameState.timerTick) {
           socket.emit('timer_tick', gameState.timerTick);
+        }
+
+        const hostPauseState = hostAdminService.getPauseState(normalizedCode);
+        if (hostPauseState && hostPauseState.isPaused) {
+          socket.emit('game_paused', {
+            roomCode: normalizedCode,
+            remainingTime: hostPauseState.remainingSeconds,
+            pausedByHost: true,
+          });
         }
 
         if (callback) {
@@ -781,6 +799,15 @@ export function registerLobbyHandlers(
         }
         if (gameState.timerTick) {
           socket.emit('timer_tick', gameState.timerTick);
+        }
+
+        const playerPauseState = hostAdminService.getPauseState(normalizedCode);
+        if (playerPauseState && playerPauseState.isPaused) {
+          socket.emit('game_paused', {
+            roomCode: normalizedCode,
+            remainingTime: playerPauseState.remainingSeconds,
+            pausedByHost: true,
+          });
         }
 
         // 7. Emit reconnect acknowledgment
@@ -1131,6 +1158,7 @@ export function setupSocketServer(io: SocketIOServer, db: PrismaClient = default
     registerLobbyHandlers(io, socket, db);
     registerFastMoneyHandlers(io, socket, db);
     registerMainGameHandlers(io, socket, db);
+    registerAdminHandlers(io, socket, db);
 
     socket.on('disconnect', (reason) => {
       logger.socket('DISCONNECT', socket.id, clientIp, `Reason: ${reason}`);

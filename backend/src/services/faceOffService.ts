@@ -192,6 +192,8 @@ export class FaceOffSession {
   public remainingSeconds = 15;
   public endsAt: number | null = null;
   public isTimerRunning = false;
+  public isPaused = false;
+  private remainingSecondsOnPause: number | null = null;
   public submittedAnswer: string | null = null;
 
   // US-13 Scoring & Pass/Play State
@@ -329,6 +331,10 @@ export class FaceOffSession {
     reason?: 'BUZZER_LOCKED' | 'NOT_ACTIVE' | 'NOT_A_CONTENDER';
     result?: BuzzerLockedResult;
   } {
+    if (this.isPaused) {
+      return { accepted: false, reason: 'NOT_ACTIVE' };
+    }
+
     if (this.buzzerLocked) {
       return { accepted: false, reason: 'BUZZER_LOCKED' };
     }
@@ -385,11 +391,12 @@ export class FaceOffSession {
   /**
    * Starts or restarts the 15-second authoritative countdown timer.
    */
-  public startAuthoritativeTimer(): void {
+  public startAuthoritativeTimer(customDurationSeconds?: number): void {
     this.stopTimer();
 
-    this.remainingSeconds = this.timerDurationSeconds;
-    this.endsAt = Date.now() + this.timerDurationSeconds * 1000;
+    const duration = customDurationSeconds ?? this.timerDurationSeconds;
+    this.remainingSeconds = duration;
+    this.endsAt = Date.now() + duration * 1000;
     this.isTimerRunning = true;
 
     this.timerInterval = setInterval(() => {
@@ -404,6 +411,36 @@ export class FaceOffSession {
         this.handleTimeout();
       }
     }, 1000);
+  }
+
+  /**
+   * Pauses the active countdown timer (US-21 Scenario 1).
+   */
+  public pauseTimer(): number {
+    let remaining = this.remainingSeconds;
+    if (this.endsAt) {
+      remaining = Math.max(0, Math.ceil((this.endsAt - Date.now()) / 1000));
+    }
+    if (remaining <= 0) {
+      remaining = this.timerDurationSeconds;
+    }
+    this.remainingSecondsOnPause = remaining;
+    this.isPaused = true;
+    this.stopTimer();
+    this.endsAt = null;
+    this.remainingSeconds = remaining;
+    return remaining;
+  }
+
+  /**
+   * Resumes the countdown timer (US-21 Scenario 1).
+   */
+  public resumeTimer(): number {
+    const remaining = this.remainingSecondsOnPause ?? this.timerDurationSeconds;
+    this.isPaused = false;
+    this.remainingSecondsOnPause = null;
+    this.startAuthoritativeTimer(remaining);
+    return remaining;
   }
 
   /**
@@ -584,6 +621,10 @@ export class FaceOffSession {
       rankOrder?: number;
     }>
   ): Promise<FaceOffAnswerEvaluationResult> {
+    if (this.isPaused) {
+      throw new Error('Game is currently paused by the host.');
+    }
+
     if (this.phase !== 'ANSWERING' && this.phase !== 'OPPONENT_GUESS') {
       throw new Error(`Face-off is not in an answering phase (current: ${this.phase}).`);
     }
@@ -1008,6 +1049,10 @@ export class FaceOffSession {
     error?: string;
     rawAnswer?: string;
   } {
+    if (this.isPaused) {
+      return { success: false, error: 'Game is currently paused by the host.' };
+    }
+
     if (this.phase !== 'ANSWERING') {
       return { success: false, error: 'Face-off is not in answering phase.' };
     }

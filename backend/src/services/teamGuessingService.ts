@@ -46,6 +46,14 @@ export interface TeamRevealedAnswer {
   revealedByTeam?: TeamId;
 }
 
+export interface HostOverrideAnswerOption {
+  id: string;
+  rankOrder: number;
+  answerText: string;
+  points: number;
+  isRevealed: boolean;
+}
+
 export interface TeamGuessResult {
   playerId: string;
   playerNickname: string;
@@ -194,6 +202,11 @@ export class TeamGuessingSession {
   public prismaClient: PrismaClient = defaultPrisma;
 
   public timerDurationSeconds: number = 15;
+  public isPaused: boolean = false;
+  public get isTimerRunning(): boolean {
+    return this.timer !== null;
+  }
+  private remainingSecondsOnPause: number | null = null;
   private timer: NodeJS.Timeout | null = null;
   private timerInterval: NodeJS.Timeout | null = null;
   private endsAt: number | null = null;
@@ -297,13 +310,14 @@ export class TeamGuessingSession {
   }
 
   /**
-   * Starts or restarts the authoritative 15-second turn countdown timer.
+   * Starts or restarts the authoritative turn countdown timer.
    */
-  public startAuthoritativeTimer(): void {
+  public startAuthoritativeTimer(customDurationSeconds?: number): void {
     this.stopTimer();
 
-    this.remainingSeconds = this.timerDurationSeconds;
-    this.endsAt = Date.now() + this.timerDurationSeconds * 1000;
+    const duration = customDurationSeconds ?? this.timerDurationSeconds;
+    this.remainingSeconds = duration;
+    this.endsAt = Date.now() + duration * 1000;
 
     this.timerInterval = setInterval(() => {
       if (this.endsAt) {
@@ -322,11 +336,143 @@ export class TeamGuessingSession {
 
     this.timer = setTimeout(() => {
       this.handleTimeout();
-    }, this.timerDurationSeconds * 1000);
+    }, duration * 1000);
 
     logger.info(
-      `[TEAM_GUESS:TIMER_START] Room ${this.roomCode} 15s turn started for ${this.activePlayer.nickname} (${this.controllingTeam})`
+      `[TEAM_GUESS:TIMER_START] Room ${this.roomCode} ${duration}s turn started for ${this.activePlayer ? this.activePlayer.nickname : 'Active Player'} (${this.controllingTeam})`
     );
+  }
+
+  /**
+   * Pauses the active countdown timer, freezing remaining seconds (US-21 Scenario 1).
+   */
+  public pauseTimer(): number {
+    let remaining = this.remainingSeconds;
+    if (this.endsAt) {
+      remaining = Math.max(0, Math.ceil((this.endsAt - Date.now()) / 1000));
+    }
+    if (remaining <= 0) {
+      remaining = this.timerDurationSeconds;
+    }
+    this.remainingSecondsOnPause = remaining;
+    this.isPaused = true;
+    this.stopTimer();
+    this.remainingSeconds = remaining;
+    return remaining;
+  }
+
+  /**
+   * Resumes the countdown timer with frozen remaining seconds (US-21 Scenario 1).
+   */
+  public resumeTimer(): number {
+    const remaining = this.remainingSecondsOnPause ?? this.timerDurationSeconds;
+    this.isPaused = false;
+    this.remainingSecondsOnPause = null;
+    if (this.phase === 'STEAL_PHASE') {
+      this.startStealTimer(remaining);
+    } else {
+      this.startAuthoritativeTimer(remaining);
+    }
+    return remaining;
+  }
+
+  /**
+   * Manually accepts an answer and flips the card on host override (US-21 Scenario 2).
+   */
+  public overrideAcceptAnswer(
+    rankOrder: number,
+    pointsOverride?: number,
+    teamOverride?: TeamId
+  ): {
+    revealedAnswer: TeamRevealedAnswer;
+    strikeCount: number;
+    roundBank: number;
+    pointsAwarded: number;
+    controllingTeam: TeamId;
+    isBoardCleared: boolean;
+  } | null {
+    const matchedAnswer = this.question.answers.find((a) => a.rankOrder === rankOrder);
+    if (!matchedAnswer) return null;
+
+    const isAlreadyRevealed = this.revealedAnswers.some((a) => a.rankOrder === rankOrder);
+    if (isAlreadyRevealed) return null;
+
+    const points = pointsOverride ?? matchedAnswer.points;
+    const team = teamOverride ?? this.controllingTeam;
+
+    const revealedItem: TeamRevealedAnswer = {
+      id: matchedAnswer.id,
+      answerText: matchedAnswer.answerText,
+      points,
+      rankOrder: matchedAnswer.rankOrder,
+      revealedByPlayerId: 'HOST_OVERRIDE',
+      revealedByNickname: 'Host Override',
+      revealedByTeam: team,
+    };
+
+    this.revealedAnswers.push(revealedItem);
+    this.roundBank += points;
+
+    const wasStealPhase = this.phase === 'STEAL_PHASE';
+    const wasTimerRunning = this.timer !== null;
+
+    // Retract strike if strikes > 0 (Scenario 2: "and cancels any strike issued")
+    if (this.strikes > 0) {
+      this.strikes = Math.max(0, this.strikes - 1);
+      if (wasStealPhase && this.strikes < 3) {
+        this.phase = 'TEAM_GUESSING';
+      }
+    }
+
+    const isBoardCleared = this.revealedAnswers.length >= this.question.answers.length;
+    if (isBoardCleared) {
+      this.stopTimer();
+      this.phase = 'ROUND_CLEARED';
+      this.winningTeam = team;
+      if (this.onRoundClearedCallback) {
+        this.onRoundClearedCallback(team, this.roundBank);
+      }
+    } else if (wasStealPhase && this.phase === 'TEAM_GUESSING') {
+      this.stopTimer();
+      this.advanceTurn();
+      if (this.isPaused) {
+        this.remainingSecondsOnPause = this.timerDurationSeconds;
+        this.remainingSeconds = this.timerDurationSeconds;
+      } else if (wasTimerRunning || this.autoStartStealTimer) {
+        this.startAuthoritativeTimer();
+      }
+    } else if (this.phase === 'TEAM_GUESSING') {
+      if (this.isPaused) {
+        this.remainingSecondsOnPause = this.timerDurationSeconds;
+        this.remainingSeconds = this.timerDurationSeconds;
+      } else if (wasTimerRunning) {
+        this.startAuthoritativeTimer();
+      }
+    }
+
+    return {
+      revealedAnswer: revealedItem,
+      strikeCount: this.strikes,
+      roundBank: this.roundBank,
+      pointsAwarded: points,
+      controllingTeam: team,
+      isBoardCleared,
+    };
+  }
+
+  /**
+   * Returns all survey answers with reveal flags strictly for the authorized Host display (US-21 Scenario 2).
+   */
+  public getHostAnswerOptions(): HostOverrideAnswerOption[] {
+    return [...this.question.answers]
+      .sort((a, b) => a.rankOrder - b.rankOrder)
+      .map((a) => ({
+        id: a.id,
+        rankOrder: a.rankOrder,
+        answerText: a.answerText,
+        points: a.points,
+        isRevealed: this.revealedAnswers.some((r) => r.rankOrder === a.rankOrder),
+      }));
   }
 
   /**
@@ -361,6 +507,10 @@ export class TeamGuessingSession {
       rankOrder?: number;
     }>
   ): Promise<TeamGuessEvaluationResult> {
+    if (this.isPaused) {
+      throw new Error('Game is currently paused by the host.');
+    }
+
     if (this.phase !== 'TEAM_GUESSING') {
       throw new Error(`Team guessing is not in progress (current phase: ${this.phase}).`);
     }
@@ -691,6 +841,10 @@ export class TeamGuessingSession {
    * Player voluntarily passes their turn, triggering a strike and advancing.
    */
   public passTurn(playerId: string): TeamGuessEvaluationResult {
+    if (this.isPaused) {
+      throw new Error('Game is currently paused by the host.');
+    }
+
     if (this.phase !== 'TEAM_GUESSING') {
       throw new Error(`Cannot pass turn when phase is ${this.phase}.`);
     }
@@ -718,11 +872,12 @@ export class TeamGuessingSession {
   /**
    * Starts the authoritative 15-second countdown timer for the Steal Phase (US-15).
    */
-  public startStealTimer(): void {
+  public startStealTimer(customDurationSeconds?: number): void {
     this.stopTimer();
 
-    this.remainingSeconds = this.timerDurationSeconds;
-    this.endsAt = Date.now() + this.timerDurationSeconds * 1000;
+    const duration = customDurationSeconds ?? this.timerDurationSeconds;
+    this.remainingSeconds = duration;
+    this.endsAt = Date.now() + duration * 1000;
 
     this.timerInterval = setInterval(() => {
       if (this.endsAt) {
@@ -741,7 +896,7 @@ export class TeamGuessingSession {
 
     this.timer = setTimeout(() => {
       this.handleStealTimeout();
-    }, this.timerDurationSeconds * 1000);
+    }, duration * 1000);
 
     logger.info(
       `[STEAL:TIMER_START] Room ${this.roomCode} 15s steal timer started for spokesperson ${this.stealSpokesperson?.nickname} (${this.opposingTeam})`
@@ -798,6 +953,10 @@ export class TeamGuessingSession {
       rankOrder?: number;
     }>
   ): Promise<StealEvaluationResult> {
+    if (this.isPaused) {
+      throw new Error('Game is currently paused by the host.');
+    }
+
     if (this.phase !== 'STEAL_PHASE') {
       throw new Error(`Steal phase is not active (current phase: ${this.phase}).`);
     }

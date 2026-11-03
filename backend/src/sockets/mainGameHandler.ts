@@ -21,6 +21,8 @@ import {
 import { generateAndSaveGameQuestions, saveQuestionsForGame } from '../services/questionService';
 import { SupportedLanguage } from '../services/geminiService';
 import { normalizeRoomCode } from '../utils/roomCode';
+import { hostAdminService } from '../services/hostAdminService';
+import { sessionRecoveryService } from '../services/sessionRecoveryService';
 import { logger } from '../utils/logger';
 import {
   getMatchScoreboard,
@@ -229,6 +231,13 @@ export function broadcastTeamGuessingState(
   session: TeamGuessingSession
 ): void {
   io.to(`room:${session.roomCode}`).emit('team_guessing_state', session.getState());
+  const hostSocketId = sessionRecoveryService.getHostSocket(session.roomCode);
+  if (hostSocketId) {
+    io.to(hostSocketId).emit('host_override_options', {
+      roomCode: session.roomCode,
+      answers: session.getHostAnswerOptions(),
+    });
+  }
 }
 
 /**
@@ -564,6 +573,12 @@ export function registerMainGameHandlers(
       }
 
       const normalizedCode = normalizeRoomCode(roomCode);
+      if (hostAdminService.isRoomPaused(normalizedCode)) {
+        const errMsg = 'Game is currently paused by the host.';
+        socket.emit('face_off_error', { code: 'GAME_PAUSED', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+        return;
+      }
       const session = getFaceOffSession(normalizedCode);
       if (!session) {
         if (callback) callback({ success: false, error: 'No active face-off session found' });
@@ -633,6 +648,15 @@ export function registerMainGameHandlers(
         }
 
         const normalizedCode = normalizeRoomCode(roomCode);
+        if (hostAdminService.isRoomPaused(normalizedCode)) {
+          socket.emit('buzzer_rejected', {
+            roomCode: normalizedCode,
+            playerId,
+            reason: 'GAME_PAUSED',
+          });
+          if (callback) callback({ accepted: false, reason: 'GAME_PAUSED' });
+          return;
+        }
         const session = getFaceOffSession(normalizedCode);
         if (!session) {
           if (callback) callback({ accepted: false, reason: 'NO_SESSION' });
@@ -835,6 +859,12 @@ export function registerMainGameHandlers(
         }
 
         const normalizedCode = normalizeRoomCode(roomCode);
+        if (hostAdminService.isRoomPaused(normalizedCode)) {
+          const errMsg = 'Game is currently paused by the host.';
+          socket.emit('face_off_error', { code: 'GAME_PAUSED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
         const session = getFaceOffSession(normalizedCode);
         if (!session) {
           if (callback) callback({ success: false, error: 'No active face-off session found' });
@@ -893,6 +923,12 @@ export function registerMainGameHandlers(
         }
 
         const normalizedCode = normalizeRoomCode(roomCode);
+        if (hostAdminService.isRoomPaused(normalizedCode)) {
+          const errMsg = 'Game is currently paused by the host.';
+          socket.emit('face_off_error', { code: 'GAME_PAUSED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
         const session = getFaceOffSession(normalizedCode);
         if (!session) {
           if (callback) callback({ success: false, error: 'No active face-off session found' });
@@ -1013,6 +1049,12 @@ export function registerMainGameHandlers(
         }
 
         const normalizedCode = normalizeRoomCode(roomCode);
+        if (hostAdminService.isRoomPaused(normalizedCode)) {
+          const errMsg = 'Game is currently paused by the host.';
+          socket.emit('team_guess_error', { code: 'GAME_PAUSED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
         const session = getTeamGuessingSession(normalizedCode);
         if (!session) {
           if (callback) callback({ success: false, error: 'No active team guessing session found' });
@@ -1205,6 +1247,12 @@ export function registerMainGameHandlers(
         }
 
         const normalizedCode = normalizeRoomCode(roomCode);
+        if (hostAdminService.isRoomPaused(normalizedCode)) {
+          const errMsg = 'Game is currently paused by the host.';
+          socket.emit('team_guess_error', { code: 'GAME_PAUSED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
         const session = getTeamGuessingSession(normalizedCode);
         if (!session) {
           if (callback) callback({ success: false, error: 'No active team guessing session found' });
@@ -1320,6 +1368,12 @@ export function registerMainGameHandlers(
         }
 
         const normalizedCode = normalizeRoomCode(roomCode);
+        if (hostAdminService.isRoomPaused(normalizedCode)) {
+          const errMsg = 'Game is currently paused by the host.';
+          socket.emit('steal_error', { code: 'GAME_PAUSED', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
         const session = getTeamGuessingSession(normalizedCode);
         if (!session) {
           if (callback) callback({ success: false, error: 'No active team guessing session found' });

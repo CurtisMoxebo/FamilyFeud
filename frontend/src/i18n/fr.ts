@@ -86,6 +86,9 @@ export const fr: TranslationDictionary = {
     statusReady: 'Prêt',
     statusWaiting: 'En attente',
     statusDisconnected: 'Déconnecté',
+    removePlayer: 'Retirer',
+    kickedTitle: 'Retiré de la partie',
+    kickedDefaultMessage: 'Vous avez été retiré de la partie par l\'hôte.',
     backHome: 'Retour à l’accueil',
   },
   fastMoney: {
@@ -210,6 +213,20 @@ export const fr: TranslationDictionary = {
     suddenDeathSubtitle: 'Une seule question. La réponse n°1 décide de la victoire !',
     playAgainBtn: 'Rejouer',
     exitRoomBtn: 'Quitter la salle',
+  },
+  admin: {
+    pauseTimer: 'Mettre en pause',
+    resumeTimer: 'Reprendre',
+    gamePausedBanner: 'PARTIE EN PAUSE',
+    gamePausedSubtitle: "L'hôte a mis le chronomètre en pause.",
+    playerInputsLocked: "Les saisies sont désactivées jusqu'à la reprise.",
+    spacebarShortcutHint: 'Espace',
+    manualOverride: 'Validation manuelle',
+    overrideAccept: 'Forcer et accepter',
+    closeOverride: 'Fermer',
+    judgeOverrideSubtitle: "Sélectionnez une réponse non révélée ci-dessous pour l'accepter et annuler une croix.",
+    creditTeamLabel: 'Créditer les points à :',
+    overrideConfirmedToast: 'Validation juge : Carte n°{rank} (« {answer} ») acceptée (+{points} pts) !',
   },
 };
 

@@ -154,6 +154,25 @@ class SessionRecoveryService {
   }
 
   /**
+   * Removes a player session and cancels any active grace timer (US-21 Scenario 3).
+   */
+  public removePlayerSession(playerId: string): void {
+    const session = this.playerSessions.get(playerId);
+    if (session) {
+      if (session.graceTimer) {
+        clearTimeout(session.graceTimer);
+        session.graceTimer = undefined;
+      }
+      this.playerSessions.delete(playerId);
+      const code = normalizeRoomCode(session.roomCode);
+      const playerIds = this.roomPlayerIndex.get(code);
+      if (playerIds) {
+        playerIds.delete(playerId);
+      }
+    }
+  }
+
+  /**
    * Starts a disconnect grace period timer for a disconnected player (US-20 Scenario 4).
    */
   public startGraceTimer(

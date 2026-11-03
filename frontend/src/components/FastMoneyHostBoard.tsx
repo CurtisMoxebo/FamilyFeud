@@ -48,6 +48,8 @@ export interface FastMoneyHostBoardProps {
   timerTick?: TimerTickPayload | null;
   duplicateWarning?: DuplicateAnswerWarningPayload | null;
   gameOver?: GameOverPayload | null;
+  isPaused?: boolean;
+  pausedRemainingSeconds?: number;
   language?: string;
   roomName?: string;
   roomCode?: string;
@@ -67,6 +69,8 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   timerTick = null,
   duplicateWarning = null,
   gameOver = null,
+  isPaused = false,
+  pausedRemainingSeconds,
   language = 'EN',
   roomName = 'Family Feud',
   roomCode = '',
@@ -119,7 +123,9 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   const isGameOver = phase === 'GAME_OVER' || !!gameOver;
 
   const remainingSeconds =
-    timerTick && typeof timerTick.secondsRemaining === 'number'
+    isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
+      ? pausedRemainingSeconds
+      : timerTick && typeof timerTick.secondsRemaining === 'number'
       ? timerTick.secondsRemaining
       : snapshot?.remainingSeconds ?? (isP2Playing ? 75 : 60);
 
@@ -444,7 +450,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
 
   // 8. Auto-Pacing Execution Engine for P1 Reveal
   useEffect(() => {
-    if (!isAutoPacing || !isP1RevealPhase || !activeRevealSlotNumber) {
+    if (isPaused || !isAutoPacing || !isP1RevealPhase || !activeRevealSlotNumber) {
       if (autoPacingTimeoutRef.current) {
         clearTimeout(autoPacingTimeoutRef.current);
       }
@@ -469,11 +475,11 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
         clearTimeout(autoPacingTimeoutRef.current);
       }
     };
-  }, [isAutoPacing, isP1RevealPhase, activeRevealSlotNumber, p1Slots, onRevealAnswer, onRevealPoints]);
+  }, [isPaused, isAutoPacing, isP1RevealPhase, activeRevealSlotNumber, p1Slots, onRevealAnswer, onRevealPoints]);
 
   // 9. Auto-Pacing Execution Engine for P2 Reveal with 1.5s Suspense Pause (US-10 Scenario 1)
   useEffect(() => {
-    if (!isAutoPacingP2 || !isP2RevealPhase || !activeP2RevealSlotNumber) {
+    if (isPaused || !isAutoPacingP2 || !isP2RevealPhase || !activeP2RevealSlotNumber) {
       return;
     }
 
@@ -496,6 +502,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       }
     };
   }, [
+    isPaused,
     isAutoPacingP2,
     isP2RevealPhase,
     activeP2RevealSlotNumber,
