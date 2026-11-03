@@ -15,7 +15,7 @@ An interactive, real-time multiplayer web application bringing the classic telev
   - Intelligent two-tier answer validation: instant local exact match first, followed by Gemini semantic evaluation (tolerant of typos, synonyms, colloquialisms, and regional phrasing).
 - **Two Complete Game Show Modes**:
   - **Fast Money**: 2 players, 5 questions, 60s & 75s countdowns, pass & return mechanic, duplicate answer detection ("Try again"), sequential reveal, and a 200-point combined victory target.
-  - **Main Game**: 2 to 10 players (even count), auto-balanced into two teams, 1-on-1 buzzer face-offs, pass or play decisions, sequential team guessing, 3-strike counter, and dramatic steal attempts.
+  - **Main Game**: 2 to 10 players (even count), auto-balanced into two teams, 1-on-1 buzzer face-offs, pass or play decisions, sequential team guessing, 3-strike counter, dramatic steal attempts, persistent real-time grand total scoreboards, sudden death tie-breaking, and seamless match replay.
 - **Zero-Friction Joining**: Scan a high-contrast QR code or share a direct URL. No app store downloads or user account registration required.
 - **Code-First Database**: Full persistence via **Prisma ORM** with modular schemas and version-controlled migrations on MySQL.
 - **Resilient Networking**: Automatic host and player reconnection within a 30-second grace window to protect ongoing games against screen locks or Wi-Fi drops.
@@ -66,7 +66,7 @@ FamilyFeud/
 │   └── .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # FastMoneyController, FastMoneyHostBoard, FastMoneyIsolation, MainGameTeamsStage, MainGameFaceOffBoard, MainGameFaceOffController, MainGameTeamGuessingBoard, MainGameTeamController, MainGamePlayerView, forms
+│   │   ├── components/      # FastMoneyController, FastMoneyHostBoard, FastMoneyIsolation, MainGameTeamsStage, MainGameFaceOffBoard, MainGameFaceOffController, MainGameTeamGuessingBoard, MainGameTeamController, MainGameScoreboardHeader, MainGameVictoryModal, MainGamePlayerView, forms
 │   │   ├── i18n/            # Modular i18n localization
 │   │   │   ├── en.ts        # English translations
 │   │   │   ├── fr.ts        # French translations
@@ -187,7 +187,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 676 regression tests** (432 backend, 244 frontend) pass cleanly with **>90% code coverage** across 51 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 717 regression tests** (453 backend, 264 frontend) pass cleanly with **>90% code coverage** across 55 suites:
 
 ```bash
 # Run all regression tests across the whole project
