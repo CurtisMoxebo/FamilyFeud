@@ -102,6 +102,53 @@ describe('US-20: Session Recovery Service & Token Architecture Suite (Step 1)', 
       expect(session?.isConnected).toBe(true);
     });
 
+    it('clears active grace timer on updatePlayerSocket when player re-attaches', () => {
+      sessionRecoveryService.createPlayerSession('REC-01', 'p-grace-update', 'Dave');
+      sessionRecoveryService.startGraceTimer('p-grace-update', 10000, () => {});
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-update')).toBe(true);
+
+      sessionRecoveryService.updatePlayerSocket('p-grace-update', 'socket-reconnected');
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-update')).toBe(false);
+      const session = sessionRecoveryService.getPlayerSession('p-grace-update');
+      expect(session?.isConnected).toBe(true);
+      expect(session?.disconnectedAt).toBeUndefined();
+    });
+
+    it('resets existing grace timer when startGraceTimer is called repeatedly', () => {
+      sessionRecoveryService.createPlayerSession('REC-01', 'p-grace-repeat', 'Eve');
+      const timer1 = sessionRecoveryService.startGraceTimer('p-grace-repeat', 10000, () => {});
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-repeat')).toBe(true);
+
+      const timer2 = sessionRecoveryService.startGraceTimer('p-grace-repeat', 10000, () => {});
+      expect(timer2).not.toBeNull();
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-repeat')).toBe(true);
+    });
+
+    it('cancels active grace timer via cancelGraceTimer', () => {
+      sessionRecoveryService.createPlayerSession('REC-01', 'p-grace-cancel', 'Frank');
+      sessionRecoveryService.startGraceTimer('p-grace-cancel', 10000, () => {});
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-cancel')).toBe(true);
+
+      sessionRecoveryService.cancelGraceTimer('p-grace-cancel');
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-cancel')).toBe(false);
+    });
+
+    it('clears active grace timers when clearing room sessions', () => {
+      sessionRecoveryService.createPlayerSession('REC-03', 'p-grace-room', 'Grace');
+      sessionRecoveryService.startGraceTimer('p-grace-room', 10000, () => {});
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-room')).toBe(true);
+
+      sessionRecoveryService.clearRoomSessions('REC-03');
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-room')).toBe(false);
+      expect(sessionRecoveryService.getPlayerSession('p-grace-room')).toBeNull();
+    });
+
+    it('returns false for isPlayerInGracePeriod when player is unknown or has no active timer', () => {
+      expect(sessionRecoveryService.isPlayerInGracePeriod('nonexistent')).toBe(false);
+      sessionRecoveryService.createPlayerSession('REC-01', 'p-no-timer', 'Helen');
+      expect(sessionRecoveryService.isPlayerInGracePeriod('p-no-timer')).toBe(false);
+    });
+
     it('lists all registered sessions for a room and clears properly', () => {
       sessionRecoveryService.createPlayerSession('REC-01', 'p1', 'Alice');
       sessionRecoveryService.createPlayerSession('REC-01', 'p2', 'Bob');
@@ -115,6 +162,26 @@ describe('US-20: Session Recovery Service & Token Architecture Suite (Step 1)', 
       expect(sessionRecoveryService.getHostSecret('REC-01')).toBeNull();
       // Sibling room unaffected
       expect(sessionRecoveryService.getRoomPlayerSessions('REC-02')).toHaveLength(1);
+    });
+
+    it('returns empty list for non-existent room session query', () => {
+      expect(sessionRecoveryService.getRoomPlayerSessions('NON-EXISTENT')).toEqual([]);
+    });
+
+    it('returns null when starting grace timer for an unknown playerId', () => {
+      const timer = sessionRecoveryService.startGraceTimer('unknown-id', 5000, () => {});
+      expect(timer).toBeNull();
+    });
+
+    it('clears all sessions and active grace timers on clearAllSessions', () => {
+      sessionRecoveryService.createHostSecret('REC-CLEAR');
+      sessionRecoveryService.createPlayerSession('REC-CLEAR', 'p-clear', 'ClearMe');
+      sessionRecoveryService.startGraceTimer('p-clear', 10000, () => {});
+
+      sessionRecoveryService.clearAllSessions();
+      expect(sessionRecoveryService.getHostSecret('REC-CLEAR')).toBeNull();
+      expect(sessionRecoveryService.getPlayerSession('p-clear')).toBeNull();
+      expect(sessionRecoveryService.getRoomPlayerSessions('REC-CLEAR')).toEqual([]);
     });
   });
 

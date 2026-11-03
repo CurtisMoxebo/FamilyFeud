@@ -394,6 +394,16 @@ export async function handleAutoForfeitIfActiveTimer(
   return false;
 }
 
+let gracePeriodDurationMs = 30000;
+
+export function setGracePeriodDuration(ms: number): void {
+  gracePeriodDurationMs = ms;
+}
+
+export function getGracePeriodDuration(): number {
+  return gracePeriodDurationMs;
+}
+
 /**
  * Registers WebSocket handlers for lobby roster, joining, and disconnection.
  */
@@ -1074,8 +1084,8 @@ export function registerLobbyHandlers(
           io.to(`room:${roomCode}`).emit('room_state_update', state);
         }
 
-        // US-20 Scenario 4: Start 30-second disconnect grace period
-        sessionRecoveryService.startGraceTimer(playerId, 30000, async () => {
+        // US-20 Scenario 4: Start disconnect grace period
+        sessionRecoveryService.startGraceTimer(playerId, gracePeriodDurationMs, async () => {
           try {
             const session = sessionRecoveryService.getPlayerSession(playerId);
             if (session && session.isConnected) {

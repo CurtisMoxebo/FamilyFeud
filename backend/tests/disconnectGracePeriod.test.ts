@@ -8,6 +8,7 @@ import {
   setupSocketServer,
   PlayerLeftAlertPayload,
   handleAutoForfeitIfActiveTimer,
+  setGracePeriodDuration,
 } from '../src/sockets/lobbyHandler';
 import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import {
@@ -215,24 +216,11 @@ describe('US-20 Step 4: 30-Second Grace Period & Auto-Forfeit Arbiter Suite', ()
     // Set up alert listener on host
     const alertPromise = waitForEvent<PlayerLeftAlertPayload>(hostSocket, 'player_left_alert');
 
+    // Configure test grace duration to 50ms so disconnect handler's actual timer fires
+    setGracePeriodDuration(50);
+
     // Simulate player disconnect
     playerSocket.disconnect();
-
-    // Verify session starts grace timer
-    await new Promise((r) => setTimeout(r, 30));
-    expect(sessionRecoveryService.isPlayerInGracePeriod('gp-p1-id')).toBe(true);
-
-    // Accelerate expiration with 50ms timer
-    sessionRecoveryService.startGraceTimer('gp-p1-id', 50, async () => {
-      const player = await prisma.player.findUnique({ where: { id: 'gp-p1-id' } });
-      const alertPayload: PlayerLeftAlertPayload = {
-        roomCode,
-        playerId: 'gp-p1-id',
-        nickname: player?.nickname || 'Alice',
-        message: `${player?.nickname || 'Alice'} has left the game`,
-      };
-      testIo.to(`room:${roomCode}`).emit('player_left_alert', alertPayload);
-    });
 
     const alert = await alertPromise;
     expect(alert).toBeDefined();
@@ -240,6 +228,9 @@ describe('US-20 Step 4: 30-Second Grace Period & Auto-Forfeit Arbiter Suite', ()
     expect(alert.playerId).toBe('gp-p1-id');
     expect(alert.nickname).toBe('Alice');
     expect(alert.message).toBe('Alice has left the game');
+
+    // Reset default grace duration
+    setGracePeriodDuration(30000);
   });
 
   it('3. Auto-Forfeit Arbiter: Auto-forfeits Fast Money Player 1 turn when grace expires during active turn', async () => {
