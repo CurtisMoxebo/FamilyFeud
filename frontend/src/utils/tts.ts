@@ -166,3 +166,27 @@ export function speakStealPhase(opposingTeamName: string, language: string = 'EN
   const fn = STEAL_PHASE_PHRASES[norm] || STEAL_PHASE_PHRASES.EN;
   speakQuestion(fn(opposingTeamName), language);
 }
+
+export const STEAL_SUCCESS_PHRASES: Record<string, (team: string, points: number) => string> = {
+  EN: (team: string, points: number) => `Steal successful! ${team} stole ${points} points!`,
+  FR: (team: string, points: number) => `Vol réussi ! L'${team} a volé ${points} points !`,
+  ES: (team: string, points: number) => `¡Robo exitoso! ¡El ${team} robó ${points} puntos!`,
+};
+
+export function speakStealSuccess(teamName: string, points: number, language: string = 'EN'): void {
+  const norm = language.toUpperCase();
+  const fn = STEAL_SUCCESS_PHRASES[norm] || STEAL_SUCCESS_PHRASES.EN;
+  speakQuestion(fn(teamName, points), language);
+}
+
+export const STEAL_FAILED_PHRASES: Record<string, (team: string, points: number) => string> = {
+  EN: (team: string, points: number) => `Steal failed! ${team} retains ${points} points!`,
+  FR: (team: string, points: number) => `Vol échoué ! L'${team} conserve ${points} points !`,
+  ES: (team: string, points: number) => `¡Robo fallido! ¡El ${team} retiene ${points} puntos!`,
+};
+
+export function speakStealFailed(teamName: string, points: number, language: string = 'EN'): void {
+  const norm = language.toUpperCase();
+  const fn = STEAL_FAILED_PHRASES[norm] || STEAL_FAILED_PHRASES.EN;
+  speakQuestion(fn(teamName, points), language);
+}

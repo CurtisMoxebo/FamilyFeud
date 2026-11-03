@@ -186,6 +186,17 @@ export const fr: TranslationDictionary = {
     roundClearedSubtitle: "L'{team} a vidé le tableau et remporte {points} points !",
     passTurnBtn: 'Passer son tour',
     teamGuessInputPlaceholder: 'Devinez une réponse du tableau...',
+    // US-15: 3-Strike Steal Phase & Round Resolution
+    stealPhaseTitle: 'Occasion de vol !',
+    spokespersonTurnPrompt: "⚡ OCCASION DE VOLER ! Vous avez 15 secondes pour donner la réponse de votre équipe",
+    teammateConsultPrompt: "🗣️ Concertez-vous ! {spokesperson} a la parole pour proposer la réponse de votre équipe",
+    defendingTeamFingersCrossed: "🤞 Croisons les doigts ! En attente de voir si l'équipe adverse vole vos points...",
+    stealSuccessAnnouncement: "Vol réussi ! L'{team} a volé {points} points !",
+    stealFailedAnnouncement: "Vol échoué ! L'{team} conserve {points} points !",
+    submitStealAnswer: 'Valider la réponse de vol',
+    stealInputPlaceholder: 'Entrez la réponse officielle du vol...',
+    remainingAnswersTitle: 'Réponses restantes non révélées',
+    roundWinnerBanner: "L'{team} remporte la manche !",
   },
 };
 

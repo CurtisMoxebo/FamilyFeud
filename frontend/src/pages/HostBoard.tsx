@@ -63,6 +63,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     roundCleared,
     transitionStealPhase,
     mainGameBoardReveal,
+    stealResolved,
+    roundWinner,
     buzzerLocked,
     faceOffTimeout,
     fastMoneyHostState,
@@ -243,6 +245,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         roundCleared={roundCleared}
         transitionStealPhase={transitionStealPhase}
         boardReveal={mainGameBoardReveal}
+        stealResolved={stealResolved}
+        roundWinner={roundWinner}
         language={room.language}
         roomName={room.roomName}
         roomCode={room.roomCode}

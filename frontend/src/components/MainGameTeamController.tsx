@@ -5,6 +5,7 @@ import {
   StrikeIssuedPayload,
   RoundClearedPayload,
   TransitionStealPhasePayload,
+  StealResolvedPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
@@ -17,6 +18,8 @@ import {
   Trophy,
   SkipForward,
   Users,
+  Zap,
+  ShieldCheck,
 } from 'lucide-react';
 
 export interface MainGameTeamControllerProps {
@@ -25,11 +28,13 @@ export interface MainGameTeamControllerProps {
   strikeIssued?: StrikeIssuedPayload | null;
   roundCleared?: RoundClearedPayload | null;
   transitionStealPhase?: TransitionStealPhasePayload | null;
+  stealResolved?: StealResolvedPayload | null;
   currentNickname: string;
   currentPlayerId?: string;
   roomCode: string;
   roomName: string;
   onSubmitGuess?: (rawAnswer: string) => void;
+  onSubmitStealGuess?: (rawAnswer: string) => void;
   onPassTurn?: () => void;
   onLeave?: () => void;
 }
@@ -40,11 +45,13 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   strikeIssued,
   roundCleared,
   transitionStealPhase,
+  stealResolved,
   currentNickname,
   currentPlayerId,
   roomCode,
   roomName,
   onSubmitGuess,
+  onSubmitStealGuess,
   onPassTurn,
   onLeave,
 }) => {
@@ -80,21 +87,41 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   const opposingTeamName =
     snapshot.opposingTeam === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
 
-  // Active guesser arbiter
+  // Active guesser arbiter for standard turn
   const isActiveGuesser =
     isControllingTeam &&
     ((currentPlayerId && snapshot.activePlayer?.id === currentPlayerId) ||
       snapshot.activePlayer?.nickname.toLowerCase() === trimmedNick);
 
-  // Auto-focus input when active turn begins
+  // US-15 Steal Phase arbiters
+  const isStealPhase = snapshot.phase === 'STEAL_PHASE' || Boolean(transitionStealPhase);
+
+  const stealSpokesperson =
+    transitionStealPhase?.spokesperson ||
+    snapshot.stealSpokesperson ||
+    snapshot.opposingTeamPlayers[0];
+
+  const isSpokesperson =
+    isStealPhase &&
+    !isControllingTeam &&
+    ((currentPlayerId && stealSpokesperson?.id === currentPlayerId) ||
+      stealSpokesperson?.nickname.toLowerCase() === trimmedNick);
+
+  const isStealingTeammate = isStealPhase && !isControllingTeam && !isSpokesperson;
+  const isDefendingTeam = isStealPhase && isControllingTeam;
+
+  // Auto-focus input when active turn or steal turn begins
   useEffect(() => {
-    if (isActiveGuesser && snapshot.phase === 'TEAM_GUESSING') {
+    if (
+      (isActiveGuesser && snapshot.phase === 'TEAM_GUESSING') ||
+      (isSpokesperson && snapshot.phase === 'STEAL_PHASE')
+    ) {
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [isActiveGuesser, snapshot.activePlayer?.id, snapshot.phase]);
+  }, [isActiveGuesser, isSpokesperson, snapshot.activePlayer?.id, snapshot.phase]);
 
   // Strike alert banner listener
   useEffect(() => {
@@ -136,6 +163,23 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     }, 600);
   };
 
+  const handleStealSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleaned = guessInput.trim();
+    if (!cleaned || isSubmitting || !isSpokesperson || snapshot.phase !== 'STEAL_PHASE') {
+      return;
+    }
+
+    setIsSubmitting(true);
+    if (onSubmitStealGuess) {
+      onSubmitStealGuess(cleaned);
+    }
+    setGuessInput('');
+    setTimeout(() => {
+      setIsSubmitting(false);
+    }, 600);
+  };
+
   const handlePass = () => {
     if (isSubmitting || !isActiveGuesser || snapshot.phase !== 'TEAM_GUESSING') {
       return;
@@ -157,6 +201,13 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     4
   );
 
+  const isStealSuccess = stealResolved
+    ? stealResolved.success
+    : Boolean(snapshot.phase === 'RESOLVED' && snapshot.winningTeam === snapshot.opposingTeam);
+
+  const resolvedPoints =
+    stealResolved?.pointsAwarded ?? snapshot.roundBank;
+
   return (
     <div
       className="w-full max-w-lg mx-auto flex flex-col min-h-[90vh] text-white select-none relative pb-6"
@@ -177,7 +228,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                {t.mainGame.teamGuessingTitle}
+                {isStealPhase ? t.mainGame.stealPhaseTitle : t.mainGame.teamGuessingTitle}
               </span>
               <span className="text-xs font-semibold text-slate-400">
                 {t.mainGame.roundNumber.replace('{round}', String(snapshot.roundNumber))}
@@ -258,9 +309,96 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         </div>
       </div>
 
-      {/* Active Turn Status Banner */}
+      {/* Active Turn Status Banner (Scenario 4) */}
       <div className="mb-4">
-        {isActiveGuesser ? (
+        {isStealPhase ? (
+          isSpokesperson ? (
+            /* Scenario 4: Spokesperson Mobile View */
+            <div
+              data-testid="spokesperson-steal-banner"
+              className="p-4 rounded-2xl bg-gradient-to-r from-amber-600/30 via-yellow-600/30 to-amber-600/30 border-2 border-yellow-400 shadow-xl flex items-center justify-between animate-pulse"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-400 text-slate-950 flex items-center justify-center font-black shadow shrink-0">
+                  <Zap className="w-6 h-6 fill-slate-950" />
+                </div>
+                <div>
+                  <span className="text-xs font-black uppercase text-yellow-300 block">
+                    {t.mainGame.stealPhaseTitle}
+                  </span>
+                  <span className="text-xs text-white font-extrabold">
+                    {t.mainGame.spokespersonTurnPrompt}
+                  </span>
+                </div>
+              </div>
+
+              {/* 15s Countdown Badge */}
+              <div
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full font-black text-sm border shrink-0 ${
+                  currentSeconds <= 3
+                    ? 'bg-red-500/20 text-red-400 border-red-500 animate-ping'
+                    : currentSeconds <= 7
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500'
+                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500'
+                }`}
+                data-testid="player-turn-timer"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>{currentSeconds}s</span>
+              </div>
+            </div>
+          ) : isStealingTeammate ? (
+            /* Scenario 4: Non-Spokesperson Stealing Teammate View */
+            <div
+              data-testid="teammate-consult-banner"
+              className="p-4 rounded-2xl bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-purple-900/40 border-2 border-indigo-400/60 shadow-xl flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <Users className="w-7 h-7 text-indigo-300 shrink-0 animate-pulse" />
+                <div>
+                  <span className="text-xs font-bold text-indigo-300 block">
+                    {t.mainGame.teammateConsultPrompt.replace(
+                      '{spokesperson}',
+                      stealSpokesperson?.nickname || 'Spokesperson'
+                    )}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Talk together to find the best unrevealed answer!
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold shrink-0">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{currentSeconds}s</span>
+              </div>
+            </div>
+          ) : isDefendingTeam ? (
+            /* Scenario 4: Defending Team (3-Strike) Fingers Crossed View */
+            <div
+              data-testid="defending-team-banner"
+              className="p-4 rounded-2xl bg-slate-900/95 border-2 border-slate-700 shadow-xl flex items-center justify-between text-slate-300"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl shrink-0">🤞</span>
+                <div>
+                  <span className="text-xs font-extrabold text-slate-200 block">
+                    {t.mainGame.defendingTeamFingersCrossed}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    If they miss, your team keeps all {snapshot.roundBank} points!
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold shrink-0">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{currentSeconds}s</span>
+              </div>
+            </div>
+          ) : null
+        ) : isActiveGuesser ? (
+          /* Standard Guesser Active Banner */
           <div
             data-testid="active-guesser-banner"
             className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-600/30 via-blue-600/30 to-indigo-600/30 border-2 border-indigo-400/60 shadow-lg flex items-center justify-between animate-pulse"
@@ -295,6 +433,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             )}
           </div>
         ) : isControllingTeam ? (
+          /* Waiting Teammate Banner */
           <div
             data-testid="waiting-teammate-banner"
             className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between"
@@ -322,6 +461,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             )}
           </div>
         ) : (
+          /* Opposing Team Waiting Banner */
           <div
             data-testid="opposing-team-banner"
             className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-3 text-slate-300"
@@ -409,7 +549,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         </div>
       </div>
 
-      {/* Interactive Answer Submission / Pass Form for Active Guesser */}
+      {/* Interactive Answer Submission / Pass Form for Active Guesser during TEAM_GUESSING */}
       {isActiveGuesser && snapshot.phase === 'TEAM_GUESSING' ? (
         <form
           onSubmit={handleSubmit}
@@ -455,6 +595,39 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         </form>
       ) : null}
 
+      {/* Scenario 4: Interactive Steal Submission Form (ONLY for designated spokesperson during STEAL_PHASE) */}
+      {isSpokesperson && snapshot.phase === 'STEAL_PHASE' ? (
+        <form
+          onSubmit={handleStealSubmit}
+          className="mt-auto flex flex-col gap-2.5 p-4 rounded-2xl bg-gradient-to-r from-amber-950/90 via-yellow-950/90 to-amber-950/90 border-2 border-yellow-400 shadow-2xl animate-fade-in"
+          data-testid="spokesperson-steal-form"
+        >
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={guessInput}
+              onChange={(e) => setGuessInput(e.target.value)}
+              placeholder={t.mainGame.stealInputPlaceholder}
+              disabled={isSubmitting}
+              maxLength={40}
+              data-testid="spokesperson-steal-input"
+              className="w-full bg-slate-950 border-2 border-yellow-400/80 rounded-xl px-4 py-3.5 text-white placeholder-slate-400 text-base font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-all uppercase shadow-inner"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !guessInput.trim()}
+            data-testid="spokesperson-submit-steal-btn"
+            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-slate-950 font-black text-base uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Zap className="w-5 h-5 fill-slate-950" />
+            <span>{t.mainGame.submitStealAnswer}</span>
+          </button>
+        </form>
+      ) : null}
+
       {/* Immediate Board Cleared Victory Modal */}
       {(snapshot.phase === 'ROUND_CLEARED' || roundCleared) && (
         <div
@@ -475,8 +648,8 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         </div>
       )}
 
-      {/* Steal Phase Transition Banner */}
-      {(snapshot.phase === 'STEAL_PHASE' || transitionStealPhase) && (
+      {/* Steal Phase Transition Banner (Non-spokespersons when bottom form is absent) */}
+      {!isSpokesperson && isStealPhase && (
         <div
           data-testid="mobile-steal-phase-banner"
           className="mt-auto p-4 rounded-2xl bg-gradient-to-r from-red-950/90 via-purple-950/90 to-red-950/90 border-2 border-red-500 shadow-xl flex items-center justify-between animate-pulse"
@@ -485,7 +658,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             <AlertTriangle className="w-8 h-8 text-yellow-400 animate-bounce shrink-0" />
             <div>
               <span className="text-[10px] uppercase font-black tracking-wider text-red-300 block">
-                {t.mainGame.threeStrikes}
+                {t.mainGame.threeStrikes} — {t.mainGame.stealPhaseTitle}
               </span>
               <span className="text-sm font-black text-white">
                 {t.mainGame.chanceToSteal.replace('{team}', opposingTeamName)}
@@ -496,6 +669,40 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             <span className="text-[10px] uppercase font-bold text-yellow-300 block">At Stake</span>
             <span className="text-lg font-black text-yellow-400">{snapshot.roundBank} PTS</span>
           </div>
+        </div>
+      )}
+
+      {/* Steal Resolution Banner (Scenarios 1 & 2) */}
+      {(stealResolved || (snapshot.phase === 'RESOLVED' && snapshot.winningTeam)) && (
+        <div
+          data-testid="mobile-steal-resolved-banner"
+          className="mt-auto p-5 rounded-2xl border-2 shadow-2xl text-center animate-fade-in"
+        >
+          <div
+            className={`w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-2 animate-bounce ${
+              isStealSuccess
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400'
+                : 'bg-amber-500/20 text-amber-400 border border-amber-400'
+            }`}
+          >
+            {isStealSuccess ? <Trophy className="w-6 h-6" /> : <ShieldCheck className="w-6 h-6" />}
+          </div>
+          <h3
+            className={`text-xl font-black uppercase tracking-tight ${
+              isStealSuccess ? 'text-emerald-300' : 'text-yellow-300'
+            }`}
+          >
+            {isStealSuccess ? t.mainGame.stealPhaseTitle : t.mainGame.strikeTitle}
+          </h3>
+          <p className="text-xs text-white font-bold mt-1" data-testid="mobile-steal-outcome-text">
+            {isStealSuccess
+              ? t.mainGame.stealSuccessAnnouncement
+                  .replace('{team}', opposingTeamName)
+                  .replace('{points}', String(resolvedPoints))
+              : t.mainGame.stealFailedAnnouncement
+                  .replace('{team}', controllingTeamName)
+                  .replace('{points}', String(resolvedPoints))}
+          </p>
         </div>
       )}
     </div>

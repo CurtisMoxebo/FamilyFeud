@@ -78,8 +78,11 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     teamTurnStarted: null,
     teamGuessResult: null,
     mainGameBoardReveal: null,
+    stealResolved: null,
+    roundWinner: null,
     submitTeamGuess: vi.fn(),
     passTeamTurn: vi.fn(),
+    submitStealGuess: vi.fn(),
     getTeamGuessingState: vi.fn(),
   };
 

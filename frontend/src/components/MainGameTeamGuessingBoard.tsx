@@ -6,6 +6,9 @@ import {
   RoundClearedPayload,
   TransitionStealPhasePayload,
   MainGameBoardRevealPayload,
+  StealResolvedPayload,
+  RoundWinnerPayload,
+  TeamRevealedAnswer,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
@@ -17,6 +20,8 @@ import {
 import {
   speakBoardCleared,
   speakStealPhase,
+  speakStealSuccess,
+  speakStealFailed,
   cancelSpeech,
 } from '../utils/tts';
 import {
@@ -27,6 +32,8 @@ import {
   Flame,
   AlertTriangle,
   Trophy,
+  Zap,
+  ShieldCheck,
 } from 'lucide-react';
 
 export interface MainGameTeamGuessingBoardProps {
@@ -36,6 +43,8 @@ export interface MainGameTeamGuessingBoardProps {
   roundCleared?: RoundClearedPayload | null;
   transitionStealPhase?: TransitionStealPhasePayload | null;
   boardReveal?: MainGameBoardRevealPayload | null;
+  stealResolved?: StealResolvedPayload | null;
+  roundWinner?: RoundWinnerPayload | null;
   language?: string;
   roomName: string;
   roomCode: string;
@@ -49,6 +58,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   roundCleared,
   transitionStealPhase,
   boardReveal,
+  stealResolved,
+  roundWinner,
   language = 'EN',
   roomName,
   roomCode,
@@ -67,6 +78,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   const lastRevealedAnswerCount = useRef<number>(snapshot.revealedAnswers.length);
   const hasCelebratedClear = useRef<boolean>(false);
   const hasAnnouncedSteal = useRef<boolean>(false);
+  const hasCelebratedStealSuccess = useRef<boolean>(false);
+  const hasAnnouncedStealFailed = useRef<boolean>(false);
 
   // Derive remaining seconds for authoritative countdown
   const currentSeconds =
@@ -78,6 +91,13 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     snapshot.controllingTeam === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
   const opposingTeamName =
     snapshot.opposingTeam === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
+
+  const isStealPhase = snapshot.phase === 'STEAL_PHASE' || Boolean(transitionStealPhase);
+
+  const spokesperson =
+    transitionStealPhase?.spokesperson ||
+    snapshot.stealSpokesperson ||
+    snapshot.opposingTeamPlayers[0];
 
   // Scenario 2 & 4: Trigger Strike Buzzer & Overlay when strikeIssued arrives
   useEffect(() => {
@@ -140,13 +160,94 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     }
   }, [transitionStealPhase, snapshot.phase, opposingTeamName, language]);
 
-  // Total answer count for card grid (defaults to total answers or 6)
+  // US-15 Scenarios 1 & 2: Steal Phase Resolution Celebrations & Audio/TTS Announcements
+  useEffect(() => {
+    if (stealResolved) {
+      if (stealResolved.success && !hasCelebratedStealSuccess.current) {
+        hasCelebratedStealSuccess.current = true;
+        playVictoryFanfare();
+        speakStealSuccess(
+          opposingTeamName,
+          stealResolved.pointsAwarded || snapshot.roundBank,
+          language
+        );
+      } else if (!stealResolved.success && !hasAnnouncedStealFailed.current) {
+        hasAnnouncedStealFailed.current = true;
+        playStrikeBuzzer(1);
+        speakStealFailed(
+          controllingTeamName,
+          stealResolved.pointsAwarded || snapshot.roundBank,
+          language
+        );
+      }
+    }
+  }, [stealResolved, opposingTeamName, controllingTeamName, snapshot.roundBank, language]);
+
+  // Combine revealed answers from snapshot, boardReveal, and steal resolution (Scenario 3)
+  const revealedMap = new Map<number, TeamRevealedAnswer>();
+  snapshot.revealedAnswers.forEach((a) => revealedMap.set(a.rankOrder, a));
+
+  if (boardReveal && boardReveal.rankOrder) {
+    if (!revealedMap.has(boardReveal.rankOrder)) {
+      revealedMap.set(boardReveal.rankOrder, {
+        id: `reveal-${boardReveal.rankOrder}`,
+        answerText: boardReveal.answerText,
+        points: boardReveal.points,
+        rankOrder: boardReveal.rankOrder,
+        revealedByPlayerId: boardReveal.playerId,
+        revealedByNickname: boardReveal.playerNickname,
+        revealedByTeam: boardReveal.playerTeam,
+        isStealMatch: boardReveal.isStealMatch,
+        isRemainingReveal: boardReveal.isRemainingReveal,
+      });
+    }
+  }
+
+  if (stealResolved) {
+    if (stealResolved.matchedAnswer && !revealedMap.has(stealResolved.matchedAnswer.rankOrder)) {
+      revealedMap.set(stealResolved.matchedAnswer.rankOrder, {
+        ...stealResolved.matchedAnswer,
+        isStealMatch: true,
+      });
+    }
+    if (stealResolved.remainingAnswers) {
+      stealResolved.remainingAnswers.forEach((rem) => {
+        if (!revealedMap.has(rem.rankOrder)) {
+          revealedMap.set(rem.rankOrder, {
+            ...rem,
+            isRemainingReveal: true,
+          });
+        }
+      });
+    }
+  }
+
+  // Total answer count for card grid
   const totalSlots = Math.max(
     snapshot.totalAnswersCount,
     snapshot.question.answerCount,
-    snapshot.revealedAnswers.length,
+    revealedMap.size,
     4
   );
+
+  const isStealSuccess = Boolean(
+    stealResolved?.success ||
+      (snapshot.phase === 'RESOLVED' && snapshot.winningTeam === snapshot.opposingTeam)
+  );
+
+  const resolvedPoints =
+    stealResolved?.pointsAwarded ??
+    roundWinner?.pointsAwarded ??
+    snapshot.roundBank;
+
+  const winnerTeamId =
+    stealResolved?.winningTeam ??
+    roundWinner?.winningTeam ??
+    snapshot.winningTeam ??
+    (isStealSuccess ? snapshot.opposingTeam : snapshot.controllingTeam);
+
+  const winningTeamName =
+    winnerTeamId === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
 
   return (
     <div
@@ -217,28 +318,41 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
       {/* Main Game Stage Scoreboard & Centerpieces */}
       <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-        {/* Active Guesser & Timer */}
+        {/* Active Guesser / Steal Spokesperson & Timer */}
         <div className="flex items-center gap-4 bg-slate-900/90 border border-slate-700 px-5 py-3 rounded-2xl shadow-lg w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-black text-white shadow">
-              {snapshot.activePlayer?.battingOrder || 1}
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-white shadow ${
+                isStealPhase ? 'bg-amber-500 animate-pulse' : 'bg-indigo-600'
+              }`}
+            >
+              {isStealPhase ? (
+                <Zap className="w-5 h-5 text-yellow-200" />
+              ) : (
+                snapshot.activePlayer?.battingOrder || 1
+              )}
             </div>
             <div>
               <div className="text-xs uppercase font-semibold text-slate-400">
-                {t.mainGame.answeringTurn.replace(
-                  '{name}',
-                  snapshot.activePlayer?.nickname || 'Teammate'
-                )}
+                {isStealPhase
+                  ? t.mainGame.stealPhaseTitle
+                  : t.mainGame.answeringTurn.replace(
+                      '{name}',
+                      snapshot.activePlayer?.nickname || 'Teammate'
+                    )}
               </div>
-              <div className="text-lg font-black text-white">
-                {snapshot.activePlayer?.nickname || 'Waiting for player...'}
+              <div className="text-lg font-black text-white" data-testid="active-player-display">
+                {isStealPhase
+                  ? `${spokesperson?.nickname || 'Spokesperson'} (${opposingTeamName})`
+                  : snapshot.activePlayer?.nickname || 'Waiting for player...'}
               </div>
             </div>
           </div>
 
-          {/* 15s Timer Ring */}
-          {snapshot.phase === 'TEAM_GUESSING' && (
+          {/* 15s Timer Ring (Active in TEAM_GUESSING & STEAL_PHASE) */}
+          {(snapshot.phase === 'TEAM_GUESSING' || snapshot.phase === 'STEAL_PHASE') && (
             <div
+              data-testid="timer-display"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-black text-sm border shadow-inner ${
                 currentSeconds <= 3
                   ? 'bg-red-500/20 text-red-400 border-red-500 animate-pulse'
@@ -294,15 +408,15 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       </div>
 
-      {/* Answer Board Card Grid (4 to 8 Flip Cards) */}
+      {/* Answer Board Card Grid (4 to 8 Flip Cards) with Steal Match & Board Clearance Highlighting */}
       <main className="relative z-10 w-full max-w-5xl mx-auto flex-1 flex flex-col justify-center">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 p-4 md:p-6 bg-slate-900/80 border-2 border-blue-900/60 rounded-3xl shadow-2xl backdrop-blur-sm">
           {Array.from({ length: totalSlots }).map((_, idx) => {
             const rankOrder = idx + 1;
-            const revealedItem = snapshot.revealedAnswers.find(
-              (ra) => ra.rankOrder === rankOrder
-            );
+            const revealedItem = revealedMap.get(rankOrder);
             const isRevealed = Boolean(revealedItem);
+            const isRemaining = Boolean(revealedItem?.isRemainingReveal);
+            const isStealMatch = Boolean(revealedItem?.isStealMatch);
 
             return (
               <div
@@ -310,21 +424,53 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                 data-testid={`team-board-card-${rankOrder}`}
                 className={`relative min-h-[70px] rounded-2xl border-2 flex items-center px-5 transition-all duration-500 shadow-md ${
                   isRevealed
-                    ? 'bg-gradient-to-r from-blue-700 to-indigo-800 border-yellow-400/70 shadow-[0_4px_20px_rgba(59,130,246,0.3)]'
+                    ? isStealMatch
+                      ? 'bg-gradient-to-r from-emerald-700 via-teal-800 to-emerald-900 border-yellow-300 shadow-[0_4px_25px_rgba(16,185,129,0.5)] animate-pulse'
+                      : isRemaining
+                      ? 'bg-gradient-to-r from-slate-800 to-indigo-950/80 border-amber-500/60 shadow-[0_4px_15px_rgba(245,158,11,0.2)]'
+                      : 'bg-gradient-to-r from-blue-700 to-indigo-800 border-yellow-400/70 shadow-[0_4px_20px_rgba(59,130,246,0.3)]'
                     : 'bg-gradient-to-r from-slate-900 to-slate-800 border-slate-700/80 hover:border-slate-600'
                 }`}
               >
                 {isRevealed && revealedItem ? (
                   <div className="w-full flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-full bg-yellow-400 text-slate-950 font-black flex items-center justify-center text-sm shadow">
+                      <span
+                        className={`w-8 h-8 rounded-full font-black flex items-center justify-center text-sm shadow ${
+                          isStealMatch
+                            ? 'bg-yellow-300 text-slate-950 animate-bounce'
+                            : isRemaining
+                            ? 'bg-amber-400 text-slate-950'
+                            : 'bg-yellow-400 text-slate-950'
+                        }`}
+                      >
                         {rankOrder}
                       </span>
-                      <span className="font-extrabold text-white text-base md:text-lg tracking-wide uppercase">
-                        {revealedItem.answerText}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="font-extrabold text-white text-base md:text-lg tracking-wide uppercase">
+                          {revealedItem.answerText}
+                        </span>
+                        {isRemaining && (
+                          <span className="text-[10px] font-bold text-amber-300/90 uppercase tracking-wider">
+                            {t.mainGame.remainingAnswersTitle}
+                          </span>
+                        )}
+                        {isStealMatch && (
+                          <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider">
+                            ⚡ Stolen Answer!
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="bg-yellow-400 text-slate-950 font-black px-3.5 py-1 rounded-lg text-lg shadow-inner">
+                    <span
+                      className={`font-black px-3.5 py-1 rounded-lg text-lg shadow-inner ${
+                        isStealMatch
+                          ? 'bg-yellow-300 text-slate-950 ring-2 ring-yellow-400'
+                          : isRemaining
+                          ? 'bg-amber-400 text-slate-950'
+                          : 'bg-yellow-400 text-slate-950'
+                      }`}
+                    >
                       {revealedItem.points}
                     </span>
                   </div>
@@ -368,26 +514,100 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       )}
 
-      {/* Scenario 4: Steal Phase Handoff Banner */}
+      {/* Scenario 4: Steal Phase Handoff Banner with Designated Spokesperson & Countdown */}
       {snapshot.phase === 'STEAL_PHASE' && (
         <div
           data-testid="steal-phase-banner"
-          className="relative z-20 w-full max-w-4xl mx-auto mt-4 p-5 rounded-2xl bg-gradient-to-r from-red-900/90 via-purple-900/90 to-red-900/90 border-2 border-red-500 shadow-2xl flex items-center justify-between animate-pulse"
+          className="relative z-20 w-full max-w-5xl mx-auto mt-4 p-5 rounded-2xl bg-gradient-to-r from-red-950 via-purple-950 to-red-950 border-2 border-red-500 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse"
         >
           <div className="flex items-center gap-4">
-            <AlertTriangle className="w-10 h-10 text-yellow-400 animate-bounce" />
+            <AlertTriangle className="w-10 h-10 text-yellow-400 animate-bounce shrink-0" />
             <div>
-              <div className="text-xs uppercase font-black tracking-widest text-red-300">
-                {t.mainGame.threeStrikes}
+              <div className="text-xs uppercase font-black tracking-widest text-red-400">
+                {t.mainGame.threeStrikes} — {t.mainGame.stealPhaseTitle}
               </div>
               <div className="text-xl md:text-2xl font-black text-white">
                 {t.mainGame.chanceToSteal.replace('{team}', opposingTeamName)}
               </div>
+              <div className="text-sm font-semibold text-yellow-300 mt-0.5">
+                {t.mainGame.teammateConsultPrompt.replace(
+                  '{spokesperson}',
+                  spokesperson?.nickname || 'Spokesperson'
+                )}
+              </div>
             </div>
           </div>
-          <div className="text-right">
-            <span className="text-xs uppercase font-bold text-yellow-300 block">Bank At Stake</span>
-            <span className="text-3xl font-black text-yellow-400">{snapshot.roundBank} PTS</span>
+          <div className="flex items-center gap-6 text-right shrink-0">
+            <div>
+              <span className="text-xs uppercase font-bold text-yellow-300 block">Bank At Stake</span>
+              <span className="text-3xl font-black text-yellow-400">{snapshot.roundBank} PTS</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600/30 border border-red-500 text-red-300 font-black text-base shadow">
+              <Clock className="w-4 h-4 text-red-400" />
+              <span>{currentSeconds}s</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scenarios 1 & 2: Steal Resolution Banner (Celebratory Victory or Point Retention) */}
+      {(stealResolved || (snapshot.phase === 'RESOLVED' && snapshot.winningTeam)) && (
+        <div
+          data-testid="steal-resolved-banner"
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in"
+        >
+          <div
+            className={`max-w-2xl w-full p-1 rounded-3xl shadow-2xl ${
+              isStealSuccess
+                ? 'bg-gradient-to-b from-emerald-400 via-teal-500 to-emerald-600 shadow-[0_0_60px_rgba(16,185,129,0.5)]'
+                : 'bg-gradient-to-b from-amber-500 via-yellow-600 to-amber-700 shadow-[0_0_60px_rgba(245,158,11,0.5)]'
+            }`}
+          >
+            <div className="bg-slate-950 rounded-[22px] p-8 text-center flex flex-col items-center">
+              <div
+                className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 border-2 animate-bounce ${
+                  isStealSuccess
+                    ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400'
+                    : 'bg-amber-500/20 border-amber-400 text-amber-400'
+                }`}
+              >
+                {isStealSuccess ? (
+                  <Trophy className="w-12 h-12" />
+                ) : (
+                  <ShieldCheck className="w-12 h-12" />
+                )}
+              </div>
+              <h2
+                className={`text-3xl md:text-5xl font-black uppercase tracking-tight mb-2 ${
+                  isStealSuccess ? 'text-emerald-300' : 'text-yellow-300'
+                }`}
+              >
+                {isStealSuccess
+                  ? t.mainGame.stealPhaseTitle
+                  : t.mainGame.strikeTitle}
+              </h2>
+              <p className="text-xl md:text-2xl text-white font-extrabold mb-2" data-testid="steal-announcement-text">
+                {isStealSuccess
+                  ? t.mainGame.stealSuccessAnnouncement
+                      .replace('{team}', opposingTeamName)
+                      .replace('{points}', String(resolvedPoints))
+                  : t.mainGame.stealFailedAnnouncement
+                      .replace('{team}', controllingTeamName)
+                      .replace('{points}', String(resolvedPoints))}
+              </p>
+              <p className="text-base text-slate-300 font-semibold mb-6">
+                {t.mainGame.roundWinnerBanner.replace('{team}', winningTeamName)}
+              </p>
+              <div
+                className={`px-8 py-3 rounded-full font-black text-2xl shadow-xl ${
+                  isStealSuccess
+                    ? 'bg-emerald-400 text-slate-950'
+                    : 'bg-yellow-400 text-slate-950'
+                }`}
+              >
+                +{resolvedPoints} POINTS
+              </div>
+            </div>
           </div>
         </div>
       )}

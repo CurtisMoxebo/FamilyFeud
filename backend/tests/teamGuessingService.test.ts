@@ -464,8 +464,14 @@ describe('US-14: Main Game Team Guessing Turn, Board Flips & 3-Strike System (te
       expect(session.phase).toBe('STEAL_PHASE');
       expect(session.strikes).toBe(3);
 
-      expect(stealPhaseSpy).toHaveBeenCalledWith('TEAM_1', 'TEAM_2', 42);
-      expect(session.getState().isTimerRunning).toBe(false);
+      expect(stealPhaseSpy).toHaveBeenCalledWith(
+        'TEAM_1',
+        'TEAM_2',
+        42,
+        expect.anything(),
+        expect.anything()
+      );
+      expect(session.getState().isTimerRunning).toBe(true);
     });
 
     it('rejects further guesses after transitioning to STEAL_PHASE', async () => {
@@ -568,7 +574,13 @@ describe('US-14: Main Game Team Guessing Turn, Board Flips & 3-Strike System (te
         })
       );
 
-      expect(stealSpy).toHaveBeenCalledWith('TEAM_1', 'TEAM_2', 0);
+      expect(stealSpy).toHaveBeenCalledWith(
+        'TEAM_1',
+        'TEAM_2',
+        0,
+        expect.anything(),
+        expect.anything()
+      );
     });
 
     it('emits onTick callback every second', () => {

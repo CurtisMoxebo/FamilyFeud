@@ -78,8 +78,11 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     teamTurnStarted: null,
     teamGuessResult: null,
     mainGameBoardReveal: null,
+    stealResolved: null,
+    roundWinner: null,
     submitTeamGuess: vi.fn(),
     passTeamTurn: vi.fn(),
+    submitStealGuess: vi.fn(),
     getTeamGuessingState: vi.fn(),
   };
 

@@ -89,8 +89,10 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     strikeIssued,
     roundCleared,
     transitionStealPhase,
+    stealResolved,
     submitTeamGuess,
     passTeamTurn,
+    submitStealGuess,
   } = useSocket();
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
@@ -317,6 +319,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           strikeIssued={strikeIssued}
           roundCleared={roundCleared}
           transitionStealPhase={transitionStealPhase}
+          stealResolved={stealResolved}
           currentNickname={nickname.trim()}
           currentPlayerId={currentPlayer?.id}
           roomCode={room.roomCode}
@@ -324,6 +327,10 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           onSubmitGuess={(rawAnswer) =>
             submitTeamGuess &&
             submitTeamGuess(roomCode, currentPlayer?.id || 'player', rawAnswer)
+          }
+          onSubmitStealGuess={(rawAnswer) =>
+            submitStealGuess &&
+            submitStealGuess(roomCode, currentPlayer?.id || 'player', rawAnswer)
           }
           onPassTurn={() =>
             passTeamTurn &&
