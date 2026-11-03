@@ -6,6 +6,24 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        '3xl': '1920px',
+        '4k': '2560px',
+      },
+      spacing: {
+        'safe-top': 'env(safe-area-inset-top, 0px)',
+        'safe-bottom': 'env(safe-area-inset-bottom, 0px)',
+        'safe-left': 'env(safe-area-inset-left, 0px)',
+        'safe-right': 'env(safe-area-inset-right, 0px)',
+        'touch': '48px',
+      },
+      minHeight: {
+        'touch': '48px',
+        'dvh': '100dvh',
+      },
+      minWidth: {
+        'touch': '48px',
+      },
       colors: {
         feud: {
           blue: {
@@ -57,6 +75,30 @@ export default {
       }
     },
   },
-  plugins: [],
+  plugins: [
+    function safeAreaAndErgonomicsPlugin({ addUtilities }) {
+      addUtilities({
+        '.pt-safe': { paddingTop: 'env(safe-area-inset-top, 0px)' },
+        '.pb-safe': { paddingBottom: 'env(safe-area-inset-bottom, 0px)' },
+        '.pl-safe': { paddingLeft: 'env(safe-area-inset-left, 0px)' },
+        '.pr-safe': { paddingRight: 'env(safe-area-inset-right, 0px)' },
+        '.px-safe': {
+          paddingLeft: 'env(safe-area-inset-left, 0px)',
+          paddingRight: 'env(safe-area-inset-right, 0px)',
+        },
+        '.py-safe': {
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        },
+        '.min-h-dvh-safe': {
+          minHeight: ['100vh', '100dvh'],
+        },
+        '.touch-target': {
+          minHeight: '48px',
+          minWidth: '48px',
+          touchAction: 'manipulation',
+        },
+      });
+    },
+  ],
 };
-
