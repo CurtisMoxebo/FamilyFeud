@@ -276,8 +276,9 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       activeRevealSlot
     ) {
       lastSpokenRevealSlotRef.current = activeRevealSlotNumber;
+      const p1Prefix = language.toUpperCase() === 'ES' ? 'Pregunta' : 'Question';
       speakQuestion(
-        `Question ${activeRevealSlotNumber}: ${activeRevealSlot.questionText}`,
+        `${p1Prefix} ${activeRevealSlotNumber}: ${activeRevealSlot.questionText}`,
         language
       );
     }
@@ -294,8 +295,9 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       activeP2RevealSlot
     ) {
       lastSpokenP2RevealSlotRef.current = activeP2RevealSlotNumber;
+      const p2Prefix = language.toUpperCase() === 'ES' ? 'Pregunta' : 'Question';
       speakQuestion(
-        `Question ${activeP2RevealSlotNumber}: ${activeP2RevealSlot.questionText}`,
+        `${p2Prefix} ${activeP2RevealSlotNumber}: ${activeP2RevealSlot.questionText}`,
         language
       );
     }

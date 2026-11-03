@@ -20,6 +20,7 @@ vi.mock('../src/utils/soundEffects', () => ({
 }));
 
 vi.mock('../src/utils/tts', () => ({
+  speakQuestion: vi.fn(),
   speakBoardCleared: vi.fn(),
   speakStealPhase: vi.fn(),
   speakStealSuccess: vi.fn(),
@@ -567,5 +568,34 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
     fireEvent.click(toggleBtn);
     expect(tts.setTtsMuted).toHaveBeenCalledWith(false);
     expect(toggleBtn).toHaveAttribute('title', 'Mute Sounds & TTS');
+  });
+
+  it('satisfies US-17 Scenario 1: speaks survey question upon entering TEAM_GUESSING phase', () => {
+    render(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'TEAM_GUESSING',
+            revealedAnswers: [],
+          }}
+          timerTick={null}
+          strikeIssued={null}
+          roundCleared={null}
+          transitionStealPhase={null}
+          boardReveal={null}
+          stealResolved={null}
+          roundWinner={null}
+          language="EN"
+          roomName="Test Room"
+          roomCode="FEUD-9999"
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakQuestion).toHaveBeenCalledWith(
+      baseSnapshot.question.questionText,
+      'EN'
+    );
   });
 });

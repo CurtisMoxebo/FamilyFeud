@@ -23,6 +23,7 @@ import {
   playVictoryFanfare,
 } from '../utils/soundEffects';
 import {
+  speakQuestion,
   speakBoardCleared,
   speakStealPhase,
   speakStealSuccess,
@@ -103,6 +104,29 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       cancelSpeech();
     };
   }, []);
+
+  // Scenario 1 & US-17: Trigger TTS reading of question when team guessing phase begins
+  const lastSpokenQuestionId = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      snapshot.phase === 'TEAM_GUESSING' &&
+      snapshot.question?.id &&
+      lastSpokenQuestionId.current !== snapshot.question.id
+    ) {
+      lastSpokenQuestionId.current = snapshot.question.id;
+      if (audioEnabled) {
+        speakQuestion(snapshot.question.questionText, language);
+      }
+    }
+  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, language, audioEnabled]);
+
+  // Scenario 2: Cancel host reading on rapid guess submission or strike (US-17 Scenario 2)
+  useEffect(() => {
+    if (snapshot.revealedAnswers.length > 0 || (strikeIssued && strikeIssued.strikeCount > 0)) {
+      cancelSpeech();
+    }
+  }, [snapshot.revealedAnswers.length, strikeIssued]);
+
 
   // Active full-screen strike animation overlay state
   const [activeStrikeOverlay, setActiveStrikeOverlay] = useState<{
