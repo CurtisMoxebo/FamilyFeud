@@ -13,6 +13,9 @@ import {
   initFaceOffSession,
 } from '../services/faceOffService';
 import {
+  initMatchScoreboard,
+} from '../services/mainGameScoreboardService';
+import {
   broadcastFaceOffState,
   registerMainGameHandlers,
   handleFaceOffTimeoutBroadcast,
@@ -481,6 +484,10 @@ export function registerLobbyHandlers(
           });
 
           broadcastFaceOffState(io, session);
+
+          // US-16: Initialize match scoreboard and broadcast initial score state
+          const scoreboard = initMatchScoreboard(normalizedCode, game.id, { totalRounds: 3 });
+          io.to(`room:${normalizedCode}`).emit('scoreboard_update', scoreboard.getState());
         }
 
         if (room.gameMode === 'FAST_MONEY') {
