@@ -197,6 +197,19 @@ export const fr: TranslationDictionary = {
     stealInputPlaceholder: 'Entrez la réponse officielle du vol...',
     remainingAnswersTitle: 'Réponses restantes non révélées',
     roundWinnerBanner: "L'{team} remporte la manche !",
+    // US-16: Real-Time Grand Total Scores & Match Replay
+    grandTotalHeader: 'Total Général',
+    roundBank: 'Cagnotte de Manche',
+    roundProgress: 'Manche {current} sur {total}',
+    yourTeam: 'VOTRE ÉQUIPE',
+    nextRoundBtn: 'Manche suivante',
+    nextContendersBanner: 'Prochains au buzzer : {c1} contre {c2}',
+    matchWinnerTitle: '🏆 L\'{team} REMPORTE LA PARTIE ! ({t1} contre {t2})',
+    matchTieTitle: 'Match nul !',
+    suddenDeathTitle: 'Mort Subite - Égalité !',
+    suddenDeathSubtitle: 'Une seule question. La réponse n°1 décide de la victoire !',
+    playAgainBtn: 'Rejouer',
+    exitRoomBtn: 'Quitter la salle',
   },
 };
 
