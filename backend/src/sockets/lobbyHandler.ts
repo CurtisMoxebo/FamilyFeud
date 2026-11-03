@@ -32,6 +32,7 @@ import {
   handleTeamGuessingTimeoutBroadcast,
   handleStealResolvedBroadcast,
 } from './mainGameHandler';
+import { registerAdminHandlers } from './adminHandler';
 import { FastMoneyQuestionItem } from '../services/fastMoneySession';
 import {
   partitionTeams,
@@ -1131,6 +1132,7 @@ export function setupSocketServer(io: SocketIOServer, db: PrismaClient = default
     registerLobbyHandlers(io, socket, db);
     registerFastMoneyHandlers(io, socket, db);
     registerMainGameHandlers(io, socket, db);
+    registerAdminHandlers(io, socket, db);
 
     socket.on('disconnect', (reason) => {
       logger.socket('DISCONNECT', socket.id, clientIp, `Reason: ${reason}`);

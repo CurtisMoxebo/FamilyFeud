@@ -192,6 +192,8 @@ export class FaceOffSession {
   public remainingSeconds = 15;
   public endsAt: number | null = null;
   public isTimerRunning = false;
+  public isPaused = false;
+  private remainingSecondsOnPause: number | null = null;
   public submittedAnswer: string | null = null;
 
   // US-13 Scoring & Pass/Play State
@@ -385,11 +387,12 @@ export class FaceOffSession {
   /**
    * Starts or restarts the 15-second authoritative countdown timer.
    */
-  public startAuthoritativeTimer(): void {
+  public startAuthoritativeTimer(customDurationSeconds?: number): void {
     this.stopTimer();
 
-    this.remainingSeconds = this.timerDurationSeconds;
-    this.endsAt = Date.now() + this.timerDurationSeconds * 1000;
+    const duration = customDurationSeconds ?? this.timerDurationSeconds;
+    this.remainingSeconds = duration;
+    this.endsAt = Date.now() + duration * 1000;
     this.isTimerRunning = true;
 
     this.timerInterval = setInterval(() => {
@@ -404,6 +407,34 @@ export class FaceOffSession {
         this.handleTimeout();
       }
     }, 1000);
+  }
+
+  /**
+   * Pauses the active countdown timer (US-21 Scenario 1).
+   */
+  public pauseTimer(): number {
+    let remaining = this.remainingSeconds;
+    if (this.endsAt) {
+      remaining = Math.max(0, Math.ceil((this.endsAt - Date.now()) / 1000));
+    }
+    if (remaining <= 0) {
+      remaining = this.timerDurationSeconds;
+    }
+    this.remainingSecondsOnPause = remaining;
+    this.isPaused = true;
+    this.stopTimer();
+    return remaining;
+  }
+
+  /**
+   * Resumes the countdown timer (US-21 Scenario 1).
+   */
+  public resumeTimer(): number {
+    const remaining = this.remainingSecondsOnPause ?? this.timerDurationSeconds;
+    this.isPaused = false;
+    this.remainingSecondsOnPause = null;
+    this.startAuthoritativeTimer(remaining);
+    return remaining;
   }
 
   /**

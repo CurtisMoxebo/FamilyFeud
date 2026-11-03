@@ -280,6 +280,107 @@ export function startAuthoritativeTimer(
   fastMoneyTimers.set(roomCode, interval);
 }
 
+export interface FastMoneyPausedTimer {
+  remainingSeconds: number;
+  playerNumber: 1 | 2;
+  session: FastMoneySession;
+}
+
+export const fastMoneyPausedTimers = new Map<string, FastMoneyPausedTimer>();
+
+export function isFastMoneyTimerPaused(roomCode: string): boolean {
+  return fastMoneyPausedTimers.has(normalizeRoomCode(roomCode));
+}
+
+export function pauseFastMoneyTimer(roomCode: string): number {
+  const normalizedCode = normalizeRoomCode(roomCode);
+  const session = getFastMoneySession(normalizedCode);
+  const activeTimer = fastMoneyTimers.get(normalizedCode);
+  if (!session || !activeTimer) return 0;
+
+  const playerNumber: 1 | 2 = session.getPhase() === 'P2_PLAYING' ? 2 : 1;
+  const remaining = session.getRemainingSeconds();
+
+  clearInterval(activeTimer);
+  fastMoneyTimers.delete(normalizedCode);
+
+  fastMoneyPausedTimers.set(normalizedCode, {
+    remainingSeconds: remaining,
+    playerNumber,
+    session,
+  });
+
+  return remaining;
+}
+
+export function resumeFastMoneyTimer(io: SocketIOServer, roomCode: string): number {
+  const normalizedCode = normalizeRoomCode(roomCode);
+  const paused = fastMoneyPausedTimers.get(normalizedCode);
+  if (!paused) return 0;
+
+  fastMoneyPausedTimers.delete(normalizedCode);
+  const { session, playerNumber, remainingSeconds } = paused;
+
+  const duration = remainingSeconds;
+  const endsAt = Date.now() + duration * 1000;
+
+  io.to(`room:${normalizedCode}`).emit('timer_tick', {
+    secondsRemaining: duration,
+    endsAt,
+  });
+
+  const interval = setInterval(() => {
+    const remainingMs = endsAt - Date.now();
+    const currentRemaining = Math.max(0, Math.ceil(remainingMs / 1000));
+
+    io.to(`room:${normalizedCode}`).emit('timer_tick', {
+      secondsRemaining: currentRemaining,
+      endsAt,
+    });
+
+    if (currentRemaining <= 0 || session.isAllAnswered() || session.isTurnFinished()) {
+      clearFastMoneyTimer(normalizedCode);
+      session.expireTimer();
+
+      const reason = session.isAllAnswered() ? 'ALL_ANSWERED' : 'TIME_EXPIRED';
+      if (playerNumber === 2) {
+        logger.info(
+          `[FAST_MONEY:TURN_END] Room ${normalizedCode} Player 2 turn finished (${reason}, ${session.getPlayer2AnsweredCount()} answers)`
+        );
+
+        const turnEndedPayload: TurnEndedPayload = {
+          roomCode: normalizedCode,
+          reason,
+          answeredCount: session.getPlayer2AnsweredCount(),
+          totalQuestions: 5,
+        };
+
+        io.to(`room:${normalizedCode}`).emit('p2_turn_ended', turnEndedPayload);
+      } else {
+        session.startRevealPhase();
+
+        logger.info(
+          `[FAST_MONEY:TURN_END] Room ${normalizedCode} Player 1 turn finished (${reason}, ${session.getPlayer1AnsweredCount()} answers)`
+        );
+
+        const turnEndedPayload: TurnEndedPayload = {
+          roomCode: normalizedCode,
+          reason,
+          answeredCount: session.getPlayer1AnsweredCount(),
+          totalQuestions: 5,
+        };
+
+        io.to(`room:${normalizedCode}`).emit('p1_turn_ended', turnEndedPayload);
+      }
+
+      broadcastFastMoneyState(io, session);
+    }
+  }, 1000);
+
+  fastMoneyTimers.set(normalizedCode, interval);
+  return duration;
+}
+
 /**
  * Registers WebSocket event listeners for Fast Money round mechanics.
  */
