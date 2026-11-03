@@ -25,6 +25,8 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
   };
 
   const defaultSocketMock = {
+    playerSession: null,
+    hostSecret: null,
     socket: null,
     isConnected: true,
     socketId: 'host-socket',

@@ -679,3 +679,5 @@ export interface NextRoundStartedPayload {
   isSuddenDeath: boolean;
   scoreboard: ScoreboardState;
 }
+
+export type { PlayerSessionCredentials } from '../utils/sessionStorage';

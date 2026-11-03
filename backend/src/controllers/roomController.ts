@@ -3,6 +3,7 @@ import { prisma } from '../services/db';
 import { generateUniqueRoomCode, normalizeRoomCode } from '../utils/roomCode';
 import { logger } from '../utils/logger';
 import { CreateRoomInput } from '../validators/roomValidator';
+import { sessionRecoveryService } from '../services/sessionRecoveryService';
 
 /**
  * POST /api/rooms
@@ -40,9 +41,15 @@ export async function createRoom(
       `[ROOM:CREATE] Created room ${room.roomCode} ("${room.roomName}", lang: ${room.language}, mode: ${room.gameMode})`
     );
 
+    const hostSecret = sessionRecoveryService.createHostSecret(room.roomCode);
+
     res.status(201).json({
       success: true,
-      room,
+      room: {
+        ...room,
+        hostSecret,
+      },
+      hostSecret,
     });
   } catch (error) {
     logger.error('Failed to create room', error);

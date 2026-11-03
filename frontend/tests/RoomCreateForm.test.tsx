@@ -205,5 +205,35 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
 
     expect(resumeSpy).toHaveBeenCalled();
   });
-});
+  it('satisfies US-20 Scenario 1: saves hostSecret in sessionStorage when room is created', async () => {
+    const user = userEvent.setup();
+    const mockRoom = {
+      id: 'room-sec-1',
+      roomCode: 'FEUD-SEC1',
+      roomName: 'Host Secret Suite',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'LOBBY',
+    };
 
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        room: mockRoom,
+        hostSecret: 'secret-token-xyz-789',
+      }),
+    } as Response);
+
+    renderWithProviders(<RoomCreateForm />);
+    const input = screen.getByTestId('room-name-input');
+    await user.clear(input);
+    await user.type(input, 'Host Secret Suite');
+
+    const submitBtn = screen.getByTestId('create-room-submit-btn');
+    await user.click(submitBtn);
+
+    expect(sessionStorage.getItem('ff_host_secret')).toBe('secret-token-xyz-789');
+    expect(sessionStorage.getItem('ff_host_secret_FEUD-SEC1')).toBe('secret-token-xyz-789');
+  });
+});

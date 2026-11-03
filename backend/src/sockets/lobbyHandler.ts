@@ -2,6 +2,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { PrismaClient, Room, Player } from '@prisma/client';
 import { prisma as defaultPrisma } from '../services/db';
 import { normalizeRoomCode } from '../utils/roomCode';
+import { sessionRecoveryService } from '../services/sessionRecoveryService';
 import { logger, getSocketIp } from '../utils/logger';
 import { generateAndSaveGameQuestions } from '../services/questionService';
 import {
@@ -159,7 +160,14 @@ export function registerLobbyHandlers(
     'join_room',
     async (
       data: JoinRoomPayload,
-      callback?: (res: { success: boolean; error?: string; room?: RoomStateUpdate }) => void
+      callback?: (res: {
+        success: boolean;
+        error?: string;
+        room?: RoomStateUpdate;
+        playerId?: string;
+        sessionToken?: string;
+        hostSecret?: string;
+      }) => void
     ) => {
       try {
         if (!data || !data.roomCode) {
@@ -202,9 +210,12 @@ export function registerLobbyHandlers(
         if (data.isHost) {
           socket.join(`room:${normalizedCode}`);
           socket.data = { roomCode: normalizedCode, isHost: true };
+          sessionRecoveryService.registerHostSocket(normalizedCode, socket.id);
+          const hostSecret = sessionRecoveryService.getHostSecret(normalizedCode) || sessionRecoveryService.createHostSecret(normalizedCode);
 
           const state = buildRoomStateUpdate(room);
           socket.emit('room_state_update', state);
+          socket.emit('host_secret_granted', { roomCode: normalizedCode, hostSecret });
           if (callback) callback({ success: true, room: state });
           return;
         }
@@ -285,10 +296,24 @@ export function registerLobbyHandlers(
           include: { players: true },
         });
 
+        const sessionToken = sessionRecoveryService.createPlayerSession(
+          normalizedCode,
+          player.id,
+          player.nickname,
+          socket.id
+        );
+
+        socket.emit('session_granted', {
+          roomCode: normalizedCode,
+          playerId: player.id,
+          sessionToken,
+          nickname: player.nickname,
+        });
+
         if (refreshedRoom) {
           const state = buildRoomStateUpdate(refreshedRoom);
           io.to(`room:${normalizedCode}`).emit('room_state_update', state);
-          if (callback) callback({ success: true, room: state });
+          if (callback) callback({ success: true, room: state, playerId: player.id, sessionToken });
         }
       } catch (error) {
         logger.error('Error handling join_room socket event', error);

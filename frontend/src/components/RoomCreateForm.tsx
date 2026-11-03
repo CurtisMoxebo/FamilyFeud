@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { resumeAudioContext } from '../utils/soundEffects';
+import { saveHostSecret } from '../utils/sessionStorage';
 import { Language, GameMode, Room } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
@@ -75,6 +76,11 @@ export const RoomCreateForm: React.FC<RoomCreateFormProps> = ({
 
       if (!response.ok || !data.success) {
         throw new Error(data.message || data.error || 'Failed to create room');
+      }
+
+      const secret = data.hostSecret || data.room?.hostSecret;
+      if (secret) {
+        saveHostSecret(secret, data.room?.roomCode);
       }
 
       if (onRoomCreated) {
