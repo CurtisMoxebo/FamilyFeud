@@ -5,7 +5,9 @@ import {
   FaceOffSession,
   FaceOffTimeoutResult,
   FaceOffQuestion,
+  FaceOffPlayer,
   getFaceOffSession,
+  initFaceOffSession,
 } from '../services/faceOffService';
 import {
   TeamGuessingSession,
@@ -16,10 +18,17 @@ import {
   getTeamGuessingSession,
   createTeamGuessingSessionFromFaceOff,
 } from '../services/teamGuessingService';
-import { generateAndSaveGameQuestions } from '../services/questionService';
+import { generateAndSaveGameQuestions, saveQuestionsForGame } from '../services/questionService';
 import { SupportedLanguage } from '../services/geminiService';
 import { normalizeRoomCode } from '../utils/roomCode';
 import { logger } from '../utils/logger';
+import {
+  getMatchScoreboard,
+  getFaceOffContendersForRound,
+  SUDDEN_DEATH_FALLBACK_QUESTIONS,
+  ScoreboardState,
+} from '../services/mainGameScoreboardService';
+import { getFastMoneySession } from './fastMoneyHandler';
 
 export interface FaceOffReadyPayload {
   roomCode: string;
@@ -166,6 +175,43 @@ export interface ScoreboardUpdatePayload {
   pointsAwarded?: number;
   team1GrandTotal?: number;
   team2GrandTotal?: number;
+  currentRoundNumber?: number;
+  totalRounds?: number;
+  phase?: 'ROUND_IN_PROGRESS' | 'ROUND_RESOLVED' | 'MATCH_OVER' | 'SUDDEN_DEATH';
+  matchWinner?: 'TEAM_1' | 'TEAM_2' | 'TIE' | null;
+  isSuddenDeath?: boolean;
+}
+
+export interface MatchOverPayload {
+  roomCode: string;
+  winningTeam: 'TEAM_1' | 'TEAM_2';
+  team1GrandTotal: number;
+  team2GrandTotal: number;
+  totalRounds: number;
+  isSuddenDeath: boolean;
+  message?: string;
+}
+
+export interface SuddenDeathInitiatedPayload {
+  roomCode: string;
+  team1GrandTotal: number;
+  team2GrandTotal: number;
+  roundNumber: number;
+  message: string;
+}
+
+export interface NextRoundStartedPayload {
+  roomCode: string;
+  roundNumber: number;
+  totalRounds: number;
+  isSuddenDeath: boolean;
+  question: {
+    id: string;
+    questionText: string;
+    answerCount: number;
+  };
+  team1Contender: FaceOffPlayer;
+  team2Contender: FaceOffPlayer;
 }
 
 export interface TeamTurnStartedPayload {
@@ -239,7 +285,8 @@ export function handleTeamGuessingTimeoutBroadcast(
 export function handleStealResolvedBroadcast(
   io: SocketIOServer,
   roomCode: string,
-  stealResult: StealEvaluationResult
+  stealResult: StealEvaluationResult,
+  db: PrismaClient = defaultPrisma
 ): void {
   const normalizedCode = normalizeRoomCode(roomCode);
   const session = getTeamGuessingSession(normalizedCode);
@@ -330,14 +377,71 @@ export function handleStealResolvedBroadcast(
   };
   io.to(`room:${normalizedCode}`).emit('round_winner', winnerPayload);
 
+  // US-16: Update scoreboard and evaluate match resolution
+  const scoreboard = getMatchScoreboard(normalizedCode);
+  let scoreboardState = scoreboard?.getState();
+
+  if (scoreboard) {
+    scoreboardState = scoreboard.awardRoundPoints(
+      stealResult.winningTeam,
+      stealResult.pointsAwarded,
+      stealResult.outcome
+    );
+  }
+
   // Emit scoreboard update
   const scorePayload: ScoreboardUpdatePayload = {
     roomCode: normalizedCode,
     activeRoundBank: 0,
     winningTeam: stealResult.winningTeam,
     pointsAwarded: stealResult.pointsAwarded,
+    team1GrandTotal: scoreboardState?.team1GrandTotal ?? (stealResult.winningTeam === 'TEAM_1' ? stealResult.pointsAwarded : 0),
+    team2GrandTotal: scoreboardState?.team2GrandTotal ?? (stealResult.winningTeam === 'TEAM_2' ? stealResult.pointsAwarded : 0),
+    currentRoundNumber: scoreboardState?.currentRoundNumber ?? session?.roundNumber ?? 1,
+    totalRounds: scoreboardState?.totalRounds ?? 3,
+    phase: scoreboardState?.phase ?? 'ROUND_RESOLVED',
+    matchWinner: scoreboardState?.matchWinner ?? null,
+    isSuddenDeath: scoreboardState?.isSuddenDeath ?? false,
   };
   io.to(`room:${normalizedCode}`).emit('scoreboard_update', scorePayload);
+
+  if (scoreboardState?.phase === 'MATCH_OVER' && scoreboardState.matchWinner && scoreboardState.matchWinner !== 'TIE') {
+    const matchOverPayload: MatchOverPayload = {
+      roomCode: normalizedCode,
+      winningTeam: scoreboardState.matchWinner,
+      team1GrandTotal: scoreboardState.team1GrandTotal,
+      team2GrandTotal: scoreboardState.team2GrandTotal,
+      totalRounds: scoreboardState.totalRounds,
+      isSuddenDeath: scoreboardState.isSuddenDeath,
+      message: `🏆 TEAM ${scoreboardState.matchWinner === 'TEAM_1' ? '1' : '2'} WINS THE GAME! (${scoreboardState.team1GrandTotal} vs ${scoreboardState.team2GrandTotal})`,
+    };
+    io.to(`room:${normalizedCode}`).emit('match_over', matchOverPayload);
+
+    // Persist to MySQL via Prisma
+    if (scoreboard?.gameId) {
+      db.game
+        .update({
+          where: { id: scoreboard.gameId },
+          data: {
+            winnerTeam: scoreboardState.matchWinner,
+            totalPointsAccumulated: scoreboardState.team1GrandTotal + scoreboardState.team2GrandTotal,
+            status: 'COMPLETED',
+          },
+        })
+        .catch((err) => {
+          logger.error(`Failed to update game completion for ${scoreboard.gameId}`, err);
+        });
+    }
+  } else if (scoreboardState?.phase === 'SUDDEN_DEATH') {
+    const sdPayload: SuddenDeathInitiatedPayload = {
+      roomCode: normalizedCode,
+      team1GrandTotal: scoreboardState.team1GrandTotal,
+      team2GrandTotal: scoreboardState.team2GrandTotal,
+      roundNumber: scoreboardState.currentRoundNumber + 1,
+      message: 'Scores are tied! Sudden Death tie-breaker initiated!',
+    };
+    io.to(`room:${normalizedCode}`).emit('sudden_death_initiated', sdPayload);
+  }
 
   if (session) {
     broadcastTeamGuessingState(io, session);
@@ -919,6 +1023,9 @@ export function registerMainGameHandlers(
 
         // If matched and card revealed (Scenario 1 & 3)
         if (evalResult.revealedAnswer) {
+          const scoreboard = getMatchScoreboard(normalizedCode);
+          scoreboard?.updateActiveRoundBank(evalResult.roundBank);
+
           const revealData = {
             roomCode: normalizedCode,
             slotRank: evalResult.revealedAnswer.rankOrder,
@@ -935,6 +1042,13 @@ export function registerMainGameHandlers(
           io.to(`room:${normalizedCode}`).emit('scoreboard_update', {
             roomCode: normalizedCode,
             activeRoundBank: evalResult.roundBank,
+            team1GrandTotal: scoreboard?.team1GrandTotal ?? 0,
+            team2GrandTotal: scoreboard?.team2GrandTotal ?? 0,
+            currentRoundNumber: scoreboard?.currentRoundNumber ?? session.roundNumber ?? 1,
+            totalRounds: scoreboard?.totalRounds ?? 3,
+            phase: scoreboard?.phase ?? 'ROUND_IN_PROGRESS',
+            matchWinner: scoreboard?.matchWinner ?? null,
+            isSuddenDeath: scoreboard?.isSuddenDeath ?? false,
           });
         }
 
@@ -986,12 +1100,67 @@ export function registerMainGameHandlers(
             roundBank: evalResult.roundBank,
             message: `Team ${session.controllingTeam === 'TEAM_1' ? '1' : '2'} cleared the board!`,
           });
+
+          // US-16: Update scoreboard and evaluate match resolution
+          const scoreboard = getMatchScoreboard(normalizedCode);
+          let scoreboardState = scoreboard?.getState();
+
+          if (scoreboard) {
+            scoreboardState = scoreboard.awardRoundPoints(
+              session.controllingTeam,
+              evalResult.roundBank,
+              'ROUND_CLEARED'
+            );
+          }
+
           io.to(`room:${normalizedCode}`).emit('scoreboard_update', {
             roomCode: normalizedCode,
             activeRoundBank: 0,
             winningTeam: session.controllingTeam,
             pointsAwarded: evalResult.roundBank,
+            team1GrandTotal: scoreboardState?.team1GrandTotal ?? (session.controllingTeam === 'TEAM_1' ? evalResult.roundBank : 0),
+            team2GrandTotal: scoreboardState?.team2GrandTotal ?? (session.controllingTeam === 'TEAM_2' ? evalResult.roundBank : 0),
+            currentRoundNumber: scoreboardState?.currentRoundNumber ?? session.roundNumber ?? 1,
+            totalRounds: scoreboardState?.totalRounds ?? 3,
+            phase: scoreboardState?.phase ?? 'ROUND_RESOLVED',
+            matchWinner: scoreboardState?.matchWinner ?? null,
+            isSuddenDeath: scoreboardState?.isSuddenDeath ?? false,
           });
+
+          if (scoreboardState?.phase === 'MATCH_OVER' && scoreboardState.matchWinner && scoreboardState.matchWinner !== 'TIE') {
+            io.to(`room:${normalizedCode}`).emit('match_over', {
+              roomCode: normalizedCode,
+              winningTeam: scoreboardState.matchWinner,
+              team1GrandTotal: scoreboardState.team1GrandTotal,
+              team2GrandTotal: scoreboardState.team2GrandTotal,
+              totalRounds: scoreboardState.totalRounds,
+              isSuddenDeath: scoreboardState.isSuddenDeath,
+              message: `🏆 TEAM ${scoreboardState.matchWinner === 'TEAM_1' ? '1' : '2'} WINS THE GAME! (${scoreboardState.team1GrandTotal} vs ${scoreboardState.team2GrandTotal})`,
+            });
+
+            if (scoreboard?.gameId) {
+              _db.game
+                .update({
+                  where: { id: scoreboard.gameId },
+                  data: {
+                    winnerTeam: scoreboardState.matchWinner,
+                    totalPointsAccumulated: scoreboardState.team1GrandTotal + scoreboardState.team2GrandTotal,
+                    status: 'COMPLETED',
+                  },
+                })
+                .catch((err) => {
+                  logger.error(`Failed to update game completion for ${scoreboard.gameId}`, err);
+                });
+            }
+          } else if (scoreboardState?.phase === 'SUDDEN_DEATH') {
+            io.to(`room:${normalizedCode}`).emit('sudden_death_initiated', {
+              roomCode: normalizedCode,
+              team1GrandTotal: scoreboardState.team1GrandTotal,
+              team2GrandTotal: scoreboardState.team2GrandTotal,
+              roundNumber: scoreboardState.currentRoundNumber + 1,
+              message: 'Scores are tied! Sudden Death tie-breaker initiated!',
+            });
+          }
         } else if (evalResult.outcome === 'STEAL_PHASE_TRIGGERED') {
           io.to(`room:${normalizedCode}`).emit('transition_steal_phase', {
             roomCode: normalizedCode,
@@ -1227,4 +1396,393 @@ export function registerMainGameHandlers(
       if (callback) callback({ success: true, state });
     }
   );
+
+  /**
+   * Allows clients to fetch the active Scoreboard state snapshot (US-16).
+   * Event: 'get_scoreboard_state'
+   */
+  socket.on(
+    'get_scoreboard_state',
+    (
+      payload: { roomCode: string },
+      callback?: (res: { success: boolean; scoreboard?: ScoreboardState; error?: string }) => void
+    ) => {
+      const { roomCode } = payload || {};
+      if (!roomCode) {
+        if (callback) callback({ success: false, error: 'roomCode is required' });
+        return;
+      }
+
+      const normalizedCode = normalizeRoomCode(roomCode);
+      const scoreboard = getMatchScoreboard(normalizedCode);
+      if (!scoreboard) {
+        if (callback) callback({ success: false, error: 'No active match found for this room' });
+        return;
+      }
+
+      const state = scoreboard.getState();
+      socket.emit('scoreboard_update', state);
+      if (callback) callback({ success: true, scoreboard: state });
+    }
+  );
+
+  /**
+   * Advances the match to the next round with rotated Face-Off contenders (US-16 Scenario 3 & 6).
+   * Event: 'advance_next_round' | 'main_game_next_round'
+   */
+  const handleAdvanceNextRound = async (
+    payload: { roomCode: string; isHost?: boolean },
+    callback?: (res: { success: boolean; nextRoundNumber?: number; error?: string }) => void
+  ) => {
+    try {
+      const { roomCode } = payload || {};
+      if (!roomCode) {
+        const errMsg = 'roomCode is required';
+        socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+        return;
+      }
+
+      const normalizedCode = normalizeRoomCode(roomCode);
+      const scoreboard = getMatchScoreboard(normalizedCode);
+      if (!scoreboard) {
+        const errMsg = 'No active scoreboard session found for this room';
+        socket.emit('room_error', { code: 'SESSION_NOT_FOUND', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+        return;
+      }
+
+      if (scoreboard.phase === 'MATCH_OVER') {
+        const errMsg = 'Cannot advance round: match has already concluded';
+        socket.emit('room_error', { code: 'MATCH_CONCLUDED', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+        return;
+      }
+
+      const { nextRoundNumber, isSuddenDeath, state } = scoreboard.advanceToNextRound();
+
+      // Update current round in database
+      await _db.game.update({
+        where: { id: scoreboard.gameId },
+        data: { currentRound: nextRoundNumber },
+      });
+
+      const room = await _db.room.findUnique({
+        where: { roomCode: normalizedCode },
+        include: { players: true },
+      });
+
+      const language = (room?.language as SupportedLanguage) || 'EN';
+
+      // Retrieve existing face-off session players or build from room.players
+      const prevFaceOff = getFaceOffSession(normalizedCode);
+      const team1Players =
+        prevFaceOff?.team1Players ||
+        (room?.players || [])
+          .filter((p) => p.team === 'TEAM_1')
+          .map((p, i) => ({
+            id: p.id,
+            nickname: p.nickname || 'Contender',
+            team: 'TEAM_1' as const,
+            battingOrder: i + 1,
+          }));
+      const team2Players =
+        prevFaceOff?.team2Players ||
+        (room?.players || [])
+          .filter((p) => p.team === 'TEAM_2')
+          .map((p, i) => ({
+            id: p.id,
+            nickname: p.nickname || 'Contender',
+            team: 'TEAM_2' as const,
+            battingOrder: i + 1,
+          }));
+
+      let newQuestion: FaceOffQuestion;
+
+      if (isSuddenDeath) {
+        // Scenario 6: Sudden Death question with single #1 answer
+        const fallback =
+          SUDDEN_DEATH_FALLBACK_QUESTIONS[language] || SUDDEN_DEATH_FALLBACK_QUESTIONS.EN;
+        const [savedQ] = await saveQuestionsForGame({
+          gameId: scoreboard.gameId,
+          questions: [
+            {
+              questionText: fallback.questionText,
+              answers: [{ text: fallback.answerText, points: 100 }],
+            },
+          ],
+          language,
+          gameMode: 'MAIN_GAME',
+          startingRoundNumber: nextRoundNumber,
+          prismaClient: _db,
+        });
+
+        newQuestion = {
+          id: savedQ.id,
+          questionText: savedQ.questionText,
+          orderIndex: savedQ.orderIndex,
+          roundNumber: nextRoundNumber,
+          answers: savedQ.answers.map((a) => ({
+            id: a.id,
+            answerText: a.answerText,
+            points: a.points,
+            rankOrder: a.rankOrder,
+          })),
+        };
+      } else {
+        // Standard next round question
+        const questions = await generateAndSaveGameQuestions({
+          gameId: scoreboard.gameId,
+          gameMode: 'MAIN_GAME',
+          language,
+          roundNumber: nextRoundNumber,
+          count: 1,
+          prismaClient: _db,
+        });
+
+        const q = questions[0];
+        newQuestion = {
+          id: q.id,
+          questionText: q.questionText,
+          orderIndex: q.orderIndex,
+          roundNumber: q.roundNumber,
+          answers: q.answers.map((a) => ({
+            id: a.id,
+            answerText: a.answerText,
+            points: a.points,
+            rankOrder: a.rankOrder,
+          })),
+        };
+      }
+
+      // Rotate contenders modulo team size (Scenario 3)
+      const contenderResult = getFaceOffContendersForRound(
+        nextRoundNumber,
+        team1Players,
+        team2Players
+      );
+
+      // Initialize new Face-Off session for the new round
+      const newFaceOff = initFaceOffSession(normalizedCode, {
+        gameId: scoreboard.gameId,
+        roundNumber: nextRoundNumber,
+        team1Players,
+        team2Players,
+        question: newQuestion,
+        language,
+        timerDurationSeconds: 15,
+        onTick: (secondsRemaining, endsAt) => {
+          io.to(`room:${normalizedCode}`).emit('timer_tick', {
+            roomCode: normalizedCode,
+            secondsRemaining,
+            endsAt,
+          });
+        },
+        onTimeout: (timeoutResult) => {
+          handleFaceOffTimeoutBroadcast(io, normalizedCode, timeoutResult, _db);
+        },
+      });
+
+      // Broadcast next round started event
+      const nextRoundPayload: NextRoundStartedPayload = {
+        roomCode: normalizedCode,
+        roundNumber: nextRoundNumber,
+        totalRounds: state.totalRounds,
+        isSuddenDeath,
+        question: {
+          id: newQuestion.id,
+          questionText: newQuestion.questionText,
+          answerCount: newQuestion.answers.length,
+        },
+        team1Contender: contenderResult.team1Contender,
+        team2Contender: contenderResult.team2Contender,
+      };
+      io.to(`room:${normalizedCode}`).emit('next_round_started', nextRoundPayload);
+
+      // Broadcast updated scoreboard & faceoff states
+      io.to(`room:${normalizedCode}`).emit('scoreboard_update', state);
+      broadcastFaceOffState(io, newFaceOff);
+
+      logger.info(
+        `[MAIN_GAME:NEXT_ROUND] Room ${normalizedCode} advanced to Round ${nextRoundNumber} (Contenders: ${contenderResult.team1Contender.nickname} vs ${contenderResult.team2Contender.nickname})`
+      );
+
+      if (callback) callback({ success: true, nextRoundNumber });
+    } catch (err: any) {
+      logger.error('Error handling advance_next_round event', err);
+      socket.emit('room_error', {
+        code: 'ADVANCE_ROUND_ERROR',
+        message: err.message || 'Internal server error',
+      });
+      if (callback) callback({ success: false, error: err.message || 'Internal server error' });
+    }
+  };
+
+  socket.on('advance_next_round', handleAdvanceNextRound);
+  socket.on('main_game_next_round', handleAdvanceNextRound);
+
+  /**
+   * Host requests match replay in the same room (US-16 Scenario 5).
+   * Event: 'request_replay' | 'main_game_replay'
+   */
+  const handleMainGameReplay = async (
+    payload: { roomCode: string; isHost?: boolean },
+    callback?: (res: { success: boolean; gameId?: string; error?: string }) => void
+  ) => {
+    try {
+      const { roomCode } = payload || {};
+      if (!roomCode) {
+        const errMsg = 'roomCode is required';
+        socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+        return;
+      }
+
+      const normalizedCode = normalizeRoomCode(roomCode);
+      const scoreboard = getMatchScoreboard(normalizedCode);
+      const fastMoneySession = getFastMoneySession(normalizedCode);
+
+      if (!scoreboard) {
+        if (fastMoneySession) {
+          return; // Handled by fastMoneyHandler
+        }
+        const errMsg = 'No active Main Game session found for this room';
+        socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+        return;
+      }
+
+      const isHost = socket.data?.isHost === true || payload?.isHost === true;
+      if (!isHost) {
+        const errMsg = 'Only the host display can initiate match replay';
+        socket.emit('room_error', { code: 'UNAUTHORIZED', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+        return;
+      }
+
+      const room = await _db.room.findUnique({
+        where: { roomCode: normalizedCode },
+        include: { players: true },
+      });
+
+      if (!room) {
+        const errMsg = `Room ${normalizedCode} not found in database`;
+        socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+        if (callback) callback({ success: false, error: errMsg });
+        return;
+      }
+
+      // Create new game record in MySQL
+      const newGame = await _db.game.create({
+        data: {
+          roomId: room.id,
+          mode: 'MAIN_GAME',
+          status: 'IN_PROGRESS',
+          currentRound: 1,
+        },
+      });
+
+      const language = (room.language as SupportedLanguage) || 'EN';
+
+      // Generate round 1 question for new match
+      const questions = await generateAndSaveGameQuestions({
+        gameId: newGame.id,
+        gameMode: 'MAIN_GAME',
+        language,
+        roundNumber: 1,
+        count: 1,
+        prismaClient: _db,
+      });
+
+      // Reset scoreboard session
+      const resetState = scoreboard.resetForReplay(newGame.id, { totalRounds: 3 });
+
+      // Retrieve players preserving team assignments
+      const prevFaceOff = getFaceOffSession(normalizedCode);
+      const team1Players =
+        prevFaceOff?.team1Players ||
+        room.players
+          .filter((p) => p.team === 'TEAM_1')
+          .sort((a, b) => a.nickname.localeCompare(b.nickname))
+          .map((p, i) => ({
+            id: p.id,
+            nickname: p.nickname || 'Contender',
+            team: 'TEAM_1' as const,
+            battingOrder: i + 1,
+          }));
+      const team2Players =
+        prevFaceOff?.team2Players ||
+        room.players
+          .filter((p) => p.team === 'TEAM_2')
+          .sort((a, b) => a.nickname.localeCompare(b.nickname))
+          .map((p, i) => ({
+            id: p.id,
+            nickname: p.nickname || 'Contender',
+            team: 'TEAM_2' as const,
+            battingOrder: i + 1,
+          }));
+
+      const q = questions[0];
+      const newQuestion: FaceOffQuestion = {
+        id: q.id,
+        questionText: q.questionText,
+        orderIndex: q.orderIndex,
+        roundNumber: 1,
+        answers: q.answers.map((a) => ({
+          id: a.id,
+          answerText: a.answerText,
+          points: a.points,
+          rankOrder: a.rankOrder,
+        })),
+      };
+
+      // Initialize Round 1 Face-Off session
+      const newSession = initFaceOffSession(normalizedCode, {
+        gameId: newGame.id,
+        roundNumber: 1,
+        team1Players,
+        team2Players,
+        question: newQuestion,
+        language,
+        timerDurationSeconds: 15,
+        onTick: (secondsRemaining, endsAt) => {
+          io.to(`room:${normalizedCode}`).emit('timer_tick', {
+            roomCode: normalizedCode,
+            secondsRemaining,
+            endsAt,
+          });
+        },
+        onTimeout: (timeoutResult) => {
+          handleFaceOffTimeoutBroadcast(io, normalizedCode, timeoutResult, _db);
+        },
+      });
+
+      // Broadcast game_replayed & initial scoreboard
+      io.to(`room:${normalizedCode}`).emit('game_replayed', {
+        roomCode: normalizedCode,
+        gameId: newGame.id,
+        gameMode: 'MAIN_GAME',
+        currentRound: 1,
+        totalRounds: 3,
+      });
+      io.to(`room:${normalizedCode}`).emit('scoreboard_update', resetState);
+      broadcastFaceOffState(io, newSession);
+
+      logger.info(
+        `[MAIN_GAME:REPLAY] Room ${normalizedCode} reset and replayed with new game ${newGame.id}`
+      );
+
+      if (callback) callback({ success: true, gameId: newGame.id });
+    } catch (err: any) {
+      logger.error('Error handling main_game_replay event', err);
+      socket.emit('room_error', {
+        code: 'REPLAY_ERROR',
+        message: err.message || 'Internal server error',
+      });
+      if (callback) callback({ success: false, error: err.message || 'Internal server error' });
+    }
+  };
+
+  socket.on('request_replay', handleMainGameReplay);
+  socket.on('main_game_replay', handleMainGameReplay);
 }

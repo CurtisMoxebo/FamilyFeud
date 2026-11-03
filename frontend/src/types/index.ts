@@ -603,3 +603,79 @@ export interface RemainingAnswersRevealPayload {
   roomCode: string;
   remainingAnswers: TeamRevealedAnswer[];
 }
+
+// US-16: Real-Time Grand Total Scores & Match Replay Payloads
+export interface ScoreboardState {
+  team1GrandTotal: number;
+  team2GrandTotal: number;
+  activeRoundBank: number;
+  currentRoundNumber: number;
+  totalRounds: number;
+  phase: 'ROUND_IN_PROGRESS' | 'ROUND_RESOLVED' | 'SUDDEN_DEATH' | 'MATCH_OVER';
+  roundWinners?: Array<{
+    roundNumber: number;
+    winningTeam: 'TEAM_1' | 'TEAM_2';
+    pointsAwarded: number;
+    roundBank: number;
+    outcome?: string;
+  }>;
+  matchWinner?: 'TEAM_1' | 'TEAM_2' | 'TIE' | null;
+  isSuddenDeath?: boolean;
+}
+
+export interface ScoreboardUpdatePayload {
+  roomCode: string;
+  team1GrandTotal: number;
+  team2GrandTotal: number;
+  activeRoundBank: number;
+  currentRoundNumber: number;
+  totalRounds: number;
+  phase: string;
+  winningTeam?: 'TEAM_1' | 'TEAM_2' | null;
+  pointsAwarded?: number;
+  matchWinner?: 'TEAM_1' | 'TEAM_2' | 'TIE' | null;
+  isSuddenDeath?: boolean;
+}
+
+export interface MatchOverPayload {
+  roomCode: string;
+  winningTeam: 'TEAM_1' | 'TEAM_2';
+  team1GrandTotal: number;
+  team2GrandTotal: number;
+  totalRounds: number;
+  isSuddenDeath?: boolean;
+  message?: string;
+}
+
+export interface SuddenDeathInitiatedPayload {
+  roomCode: string;
+  team1GrandTotal: number;
+  team2GrandTotal: number;
+  roundNumber: number;
+  message: string;
+}
+
+export interface NextRoundStartedPayload {
+  roomCode: string;
+  roundNumber: number;
+  totalRounds: number;
+  team1Contender: {
+    id: string;
+    nickname: string;
+    team: 'TEAM_1' | 'TEAM_2';
+    battingOrder: number;
+  };
+  team2Contender: {
+    id: string;
+    nickname: string;
+    team: 'TEAM_1' | 'TEAM_2';
+    battingOrder: number;
+  };
+  question: {
+    id: string;
+    questionText: string;
+    answerCount: number;
+  };
+  isSuddenDeath: boolean;
+  scoreboard: ScoreboardState;
+}

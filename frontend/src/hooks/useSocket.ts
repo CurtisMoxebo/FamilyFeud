@@ -32,6 +32,10 @@ import {
   MainGameBoardRevealPayload,
   StealResolvedPayload,
   RoundWinnerPayload,
+  ScoreboardUpdatePayload,
+  MatchOverPayload,
+  SuddenDeathInitiatedPayload,
+  NextRoundStartedPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -105,6 +109,10 @@ export function useSocket(options?: UseSocketOptions) {
   const [mainGameBoardReveal, setMainGameBoardReveal] = useState<MainGameBoardRevealPayload | null>(null);
   const [stealResolved, setStealResolved] = useState<StealResolvedPayload | null>(null);
   const [roundWinner, setRoundWinner] = useState<RoundWinnerPayload | null>(null);
+  const [scoreboardState, setScoreboardState] = useState<ScoreboardUpdatePayload | null>(null);
+  const [matchOver, setMatchOver] = useState<MatchOverPayload | null>(null);
+  const [suddenDeathInitiated, setSuddenDeathInitiated] = useState<SuddenDeathInitiatedPayload | null>(null);
+  const [nextRoundStarted, setNextRoundStarted] = useState<NextRoundStartedPayload | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -331,6 +339,23 @@ export function useSocket(options?: UseSocketOptions) {
     []
   );
 
+  const advanceNextRound = useCallback((roomCode: string) => {
+    setRoomError(null);
+    if (socketRef.current) {
+      socketRef.current.emit('advance_next_round', { roomCode });
+    }
+  }, []);
+
+  const getScoreboardState = useCallback((roomCode: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('get_scoreboard_state', { roomCode });
+    }
+  }, []);
+
+  const clearMatchOver = useCallback(() => {
+    setMatchOver(null);
+  }, []);
+
   const clearFaceOffState = useCallback(() => {
     setFaceOffState(null);
     setBuzzerLocked(null);
@@ -430,9 +455,10 @@ export function useSocket(options?: UseSocketOptions) {
 
     socket.on('game_replayed', () => {
       setGameOver(null);
+      setMatchOver(null);
+      setSuddenDeathInitiated(null);
       setP1RevealCompleted(null);
       setDuplicateWarning(null);
-      setTeamsAssigned(null);
     });
 
     // Main Game Teams Assignment (US-11)
@@ -583,6 +609,22 @@ export function useSocket(options?: UseSocketOptions) {
       setRoundWinner(payload);
     });
 
+    socket.on('scoreboard_update', (payload: ScoreboardUpdatePayload) => {
+      setScoreboardState(payload);
+    });
+
+    socket.on('match_over', (payload: MatchOverPayload) => {
+      setMatchOver(payload);
+    });
+
+    socket.on('sudden_death_initiated', (payload: SuddenDeathInitiatedPayload) => {
+      setSuddenDeathInitiated(payload);
+    });
+
+    socket.on('next_round_started', (payload: NextRoundStartedPayload) => {
+      setNextRoundStarted(payload);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -622,6 +664,13 @@ export function useSocket(options?: UseSocketOptions) {
     mainGameBoardReveal,
     stealResolved,
     roundWinner,
+    scoreboardState,
+    matchOver,
+    suddenDeathInitiated,
+    nextRoundStarted,
+    advanceNextRound,
+    getScoreboardState,
+    clearMatchOver,
     submitTeamGuess,
     passTeamTurn,
     submitStealGuess,

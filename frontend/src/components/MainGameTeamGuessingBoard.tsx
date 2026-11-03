@@ -1,5 +1,10 @@
+import { MainGameScoreboardHeader } from './MainGameScoreboardHeader';
+import { MainGameVictoryModal } from './MainGameVictoryModal';
 import React, { useEffect, useState, useRef } from 'react';
 import {
+  ScoreboardUpdatePayload,
+  MatchOverPayload,
+  SuddenDeathInitiatedPayload,
   TeamGuessingSessionState,
   TimerTickPayload,
   StrikeIssuedPayload,
@@ -34,6 +39,7 @@ import {
   Trophy,
   Zap,
   ShieldCheck,
+  Play,
 } from 'lucide-react';
 
 export interface MainGameTeamGuessingBoardProps {
@@ -45,6 +51,11 @@ export interface MainGameTeamGuessingBoardProps {
   boardReveal?: MainGameBoardRevealPayload | null;
   stealResolved?: StealResolvedPayload | null;
   roundWinner?: RoundWinnerPayload | null;
+  scoreboardState?: ScoreboardUpdatePayload | null;
+  matchOver?: MatchOverPayload | null;
+  suddenDeathInitiated?: SuddenDeathInitiatedPayload | null;
+  onNextRound?: () => void;
+  onReplay?: () => void;
   language?: string;
   roomName: string;
   roomCode: string;
@@ -60,6 +71,11 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   boardReveal,
   stealResolved,
   roundWinner,
+  scoreboardState,
+  matchOver,
+  suddenDeathInitiated,
+  onNextRound,
+  onReplay,
   language = 'EN',
   roomName,
   roomCode,
@@ -256,6 +272,18 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     >
       {/* Dynamic Background Glow */}
       <div className="absolute inset-0 bg-radial-gradient from-blue-900/20 via-transparent to-transparent pointer-events-none" />
+
+      {/* Persistent Grand Total Header (US-16 Scenario 1 & 2) */}
+      <div className="relative z-20 w-full max-w-5xl mx-auto mb-4">
+        <MainGameScoreboardHeader
+          team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
+          team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
+          activeRoundBank={snapshot.roundBank}
+          currentRoundNumber={scoreboardState?.currentRoundNumber ?? snapshot.roundNumber ?? 1}
+          totalRounds={scoreboardState?.totalRounds ?? 3}
+          isSuddenDeath={scoreboardState?.isSuddenDeath ?? false}
+        />
+      </div>
 
       {/* Top TV Stage Navigation Bar */}
       <header className="relative z-10 flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
@@ -488,7 +516,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       </main>
 
       {/* Scenario 3: Board Cleared Immediate Victory Celebration Banner */}
-      {snapshot.phase === 'ROUND_CLEARED' && (
+      {(snapshot.phase === 'ROUND_CLEARED' || Boolean(roundCleared)) && (
         <div
           data-testid="round-cleared-banner"
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in"
@@ -509,6 +537,17 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
               <div className="px-6 py-2.5 rounded-full bg-yellow-400 text-slate-950 font-black text-xl shadow-lg">
                 +{snapshot.roundBank} POINTS
               </div>
+              {onNextRound && !matchOver && !suddenDeathInitiated && (
+                <button
+                  type="button"
+                  data-testid="next-round-btn"
+                  onClick={onNextRound}
+                  className="mt-6 inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black text-lg shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Play className="w-5 h-5 fill-current" />
+                  <span>{t.mainGame.nextRoundBtn}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -607,9 +646,82 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
               >
                 +{resolvedPoints} POINTS
               </div>
+              {onNextRound && !matchOver && !suddenDeathInitiated && (
+                <button
+                  type="button"
+                  data-testid="next-round-btn"
+                  onClick={onNextRound}
+                  className="mt-6 inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black text-lg shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Play className="w-5 h-5 fill-current" />
+                  <span>{t.mainGame.nextRoundBtn}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* Scenario 6: Sudden Death Tie-Breaker Resolution Banner */}
+      {(suddenDeathInitiated || scoreboardState?.phase === 'SUDDEN_DEATH') && !matchOver && (
+        <div
+          data-testid="sudden-death-banner"
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in select-none"
+        >
+          <div className="max-w-xl w-full p-1 rounded-3xl bg-gradient-to-b from-red-600 via-orange-600 to-amber-600 shadow-[0_0_60px_rgba(239,68,68,0.6)]">
+            <div className="bg-slate-950 rounded-[22px] p-8 text-center flex flex-col items-center">
+              <div className="w-20 h-20 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center mb-4 animate-pulse">
+                <Flame className="w-12 h-12 text-red-500" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-black text-red-400 uppercase tracking-tight mb-2">
+                {t.mainGame.suddenDeathTitle}
+              </h2>
+              <p className="text-base sm:text-lg text-slate-200 font-semibold mb-6">
+                {t.mainGame.suddenDeathSubtitle}
+              </p>
+              <div className="flex items-center justify-center gap-4 text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-6">
+                <span className="px-4 py-1.5 rounded-lg bg-blue-950/80 border border-blue-600">
+                  {t.mainGame.team1}: <strong>{scoreboardState?.team1GrandTotal ?? 0} PTS</strong>
+                </span>
+                <span className="text-yellow-400 font-black">VS</span>
+                <span className="px-4 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-600">
+                  {t.mainGame.team2}: <strong>{scoreboardState?.team2GrandTotal ?? 0} PTS</strong>
+                </span>
+              </div>
+              {onNextRound && (
+                <button
+                  type="button"
+                  data-testid="start-sudden-death-btn"
+                  onClick={onNextRound}
+                  className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-red-500 to-amber-600 hover:from-red-400 hover:to-amber-500 text-white font-black text-lg shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Play className="w-5 h-5 fill-current" />
+                  <span>{t.mainGame.nextRoundBtn}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scenario 4 & 5: Match Over Final Victory Modal */}
+      {(matchOver || (scoreboardState?.phase === 'MATCH_OVER' && scoreboardState.matchWinner && scoreboardState.matchWinner !== 'TIE')) && (
+        <MainGameVictoryModal
+          matchOver={
+            matchOver || {
+              roomCode,
+              winningTeam: scoreboardState!.matchWinner as 'TEAM_1' | 'TEAM_2',
+              team1GrandTotal: scoreboardState!.team1GrandTotal,
+              team2GrandTotal: scoreboardState!.team2GrandTotal,
+              totalRounds: scoreboardState!.totalRounds,
+              isSuddenDeath: scoreboardState!.isSuddenDeath,
+              message: `🏆 TEAM ${scoreboardState!.matchWinner === 'TEAM_1' ? '1' : '2'} WINS THE GAME! (${scoreboardState!.team1GrandTotal} vs ${scoreboardState!.team2GrandTotal})`,
+            }
+          }
+          onReplay={onReplay}
+          onLeave={onLeave}
+          isHost={true}
+        />
       )}
 
       {/* Full-Screen Giant Strike Overlay Animation (Scenario 2 & 4) */}

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { MainGameScoreboardHeader } from './MainGameScoreboardHeader';
 import {
+  ScoreboardUpdatePayload,
   TeamGuessingSessionState,
   TimerTickPayload,
   StrikeIssuedPayload,
@@ -36,6 +38,7 @@ export interface MainGameTeamControllerProps {
   onSubmitGuess?: (rawAnswer: string) => void;
   onSubmitStealGuess?: (rawAnswer: string) => void;
   onPassTurn?: () => void;
+  scoreboardState?: ScoreboardUpdatePayload | null;
   onLeave?: () => void;
 }
 
@@ -53,6 +56,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   onSubmitGuess,
   onSubmitStealGuess,
   onPassTurn,
+  scoreboardState,
   onLeave,
 }) => {
   const { t } = useTranslation();
@@ -86,6 +90,8 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     snapshot.controllingTeam === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
   const opposingTeamName =
     snapshot.opposingTeam === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
+
+  const playerTeam: 'TEAM_1' | 'TEAM_2' | null = isControllingTeam ? snapshot.controllingTeam : snapshot.opposingTeam;
 
   // Active guesser arbiter for standard turn
   const isActiveGuesser =
@@ -253,6 +259,20 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           <span>{isControllingTeam ? controllingTeamName : opposingTeamName}</span>
         </div>
       </header>
+
+      {/* Persistent Grand Total Header (US-16 Scenario 1 Mobile) */}
+      <div className="w-full mb-3">
+        <MainGameScoreboardHeader
+          team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
+          team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
+          activeRoundBank={scoreboardState?.activeRoundBank ?? snapshot.roundBank ?? 0}
+          currentRoundNumber={scoreboardState?.currentRoundNumber ?? snapshot.roundNumber ?? 1}
+          totalRounds={scoreboardState?.totalRounds ?? 3}
+          isSuddenDeath={scoreboardState?.isSuddenDeath ?? false}
+          highlightTeam={playerTeam}
+          compact={true}
+        />
+      </div>
 
       {/* Survey Question Card */}
       <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/40 shadow-xl text-center mb-4">

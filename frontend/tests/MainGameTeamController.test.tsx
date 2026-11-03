@@ -413,4 +413,26 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
 
     expect(onLeave).toHaveBeenCalled();
   });
+  it('satisfies US-16 Scenario 1 & 2: renders scoreboard header with active round bank, grand totals, and highlights player team', () => {
+    renderComponent({
+      scoreboardState: {
+        roomCode: 'FEUD-5555',
+        team1GrandTotal: 120,
+        team2GrandTotal: 65,
+        activeRoundBank: 45,
+        currentRoundNumber: 2,
+        totalRounds: 3,
+        phase: 'ROUND_IN_PROGRESS',
+      },
+      currentNickname: 'Alice',
+      currentPlayerId: 'p1',
+    });
+
+    expect(screen.getByTestId('grand-total-header')).toBeInTheDocument();
+    expect(screen.getByTestId('team1-grand-total')).toHaveTextContent('120');
+    expect(screen.getByTestId('team2-grand-total')).toHaveTextContent('65');
+    expect(screen.getByTestId('header-round-bank')).toHaveTextContent('45');
+    // Alice is on Team 1 (controlling team in baseSnapshot), so Team 1 is highlighted
+    expect(screen.getByTestId('your-team-badge')).toBeInTheDocument();
+  });
 });

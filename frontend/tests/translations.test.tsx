@@ -487,6 +487,90 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       ).toBe('¡Robo fallido! ¡El Equipo 1 retiene 70 puntos!');
     });
 
+    it('defines US-16 Real-Time Grand Total Scores & Match Replay dictionary keys with full trilingual parity', () => {
+      for (const lang of supportedLanguages) {
+        const mg = translations[lang].mainGame;
+        expect(mg.grandTotalHeader).toBeTruthy();
+        expect(mg.roundBank).toBeTruthy();
+        expect(mg.roundProgress).toBeTruthy();
+        expect(mg.yourTeam).toBeTruthy();
+        expect(mg.nextRoundBtn).toBeTruthy();
+        expect(mg.nextContendersBanner).toBeTruthy();
+        expect(mg.matchWinnerTitle).toBeTruthy();
+        expect(mg.matchTieTitle).toBeTruthy();
+        expect(mg.suddenDeathTitle).toBeTruthy();
+        expect(mg.suddenDeathSubtitle).toBeTruthy();
+        expect(mg.playAgainBtn).toBeTruthy();
+        expect(mg.exitRoomBtn).toBeTruthy();
+      }
+
+      // English specific assertions
+      expect(translations.EN.mainGame.grandTotalHeader).toBe('Grand Total');
+      expect(translations.EN.mainGame.roundBank).toBe('Round Bank');
+      expect(translations.EN.mainGame.yourTeam).toBe('YOUR TEAM');
+      expect(translations.EN.mainGame.nextRoundBtn).toBe('Next Round');
+      expect(translations.EN.mainGame.playAgainBtn).toBe('Play Again');
+      expect(translations.EN.mainGame.exitRoomBtn).toBe('Exit Room');
+      expect(translations.EN.mainGame.matchTieTitle).toBe('Match Ended in a Tie!');
+      expect(translations.EN.mainGame.suddenDeathTitle).toBe('Sudden Death Tie-Breaker!');
+      expect(
+        translations.EN.mainGame.roundProgress.replace('{current}', '2').replace('{total}', '3')
+      ).toBe('Round 2 of 3');
+      expect(
+        translations.EN.mainGame.nextContendersBanner.replace('{c1}', 'Bob').replace('{c2}', 'David')
+      ).toBe('Up Next at the Buzzer: Bob vs David');
+      expect(
+        translations.EN.mainGame.matchWinnerTitle
+          .replace('{team}', 'TEAM 1')
+          .replace('{t1}', '245')
+          .replace('{t2}', '180')
+      ).toBe('🏆 TEAM 1 WINS THE GAME! (245 vs 180)');
+
+      // French specific assertions
+      expect(translations.FR.mainGame.grandTotalHeader).toBe('Total Général');
+      expect(translations.FR.mainGame.roundBank).toBe('Cagnotte de Manche');
+      expect(translations.FR.mainGame.yourTeam).toBe('VOTRE ÉQUIPE');
+      expect(translations.FR.mainGame.nextRoundBtn).toBe('Manche suivante');
+      expect(translations.FR.mainGame.playAgainBtn).toBe('Rejouer');
+      expect(translations.FR.mainGame.exitRoomBtn).toBe('Quitter la salle');
+      expect(translations.FR.mainGame.matchTieTitle).toBe('Match nul !');
+      expect(translations.FR.mainGame.suddenDeathTitle).toBe('Mort Subite - Égalité !');
+      expect(
+        translations.FR.mainGame.roundProgress.replace('{current}', '2').replace('{total}', '3')
+      ).toBe('Manche 2 sur 3');
+      expect(
+        translations.FR.mainGame.nextContendersBanner.replace('{c1}', 'Bob').replace('{c2}', 'David')
+      ).toBe('Prochains au buzzer : Bob contre David');
+      expect(
+        translations.FR.mainGame.matchWinnerTitle
+          .replace('{team}', 'ÉQUIPE 1')
+          .replace('{t1}', '245')
+          .replace('{t2}', '180')
+      ).toBe("🏆 L'ÉQUIPE 1 REMPORTE LA PARTIE ! (245 contre 180)");
+
+      // Spanish specific assertions
+      expect(translations.ES.mainGame.grandTotalHeader).toBe('Gran Total');
+      expect(translations.ES.mainGame.roundBank).toBe('Banca de Ronda');
+      expect(translations.ES.mainGame.yourTeam).toBe('TU EQUIPO');
+      expect(translations.ES.mainGame.nextRoundBtn).toBe('Siguiente ronda');
+      expect(translations.ES.mainGame.playAgainBtn).toBe('Jugar de nuevo');
+      expect(translations.ES.mainGame.exitRoomBtn).toBe('Salir de la sala');
+      expect(translations.ES.mainGame.matchTieTitle).toBe('¡Empate en la partida!');
+      expect(translations.ES.mainGame.suddenDeathTitle).toBe('¡Muerte Súbita de Desempate!');
+      expect(
+        translations.ES.mainGame.roundProgress.replace('{current}', '2').replace('{total}', '3')
+      ).toBe('Ronda 2 de 3');
+      expect(
+        translations.ES.mainGame.nextContendersBanner.replace('{c1}', 'Bob').replace('{c2}', 'David')
+      ).toBe('Siguientes en el pulsador: Bob vs David');
+      expect(
+        translations.ES.mainGame.matchWinnerTitle
+          .replace('{team}', 'EQUIPO 1')
+          .replace('{t1}', '245')
+          .replace('{t2}', '180')
+      ).toBe('🏆 ¡EL EQUIPO 1 GANA EL JUEGO! (245 vs 180)');
+    });
+
     it('gracefully falls back to English when rendered outside of LanguageProvider', () => {
       const { result } = renderHook(() => useTranslation());
 

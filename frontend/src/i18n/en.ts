@@ -197,6 +197,19 @@ export const en: TranslationDictionary = {
     stealInputPlaceholder: 'Enter official steal answer...',
     remainingAnswersTitle: 'Remaining Unrevealed Answers',
     roundWinnerBanner: '{team} Wins the Round!',
+    // US-16: Real-Time Grand Total Scores & Match Replay
+    grandTotalHeader: 'Grand Total',
+    roundBank: 'Round Bank',
+    roundProgress: 'Round {current} of {total}',
+    yourTeam: 'YOUR TEAM',
+    nextRoundBtn: 'Next Round',
+    nextContendersBanner: 'Up Next at the Buzzer: {c1} vs {c2}',
+    matchWinnerTitle: '🏆 {team} WINS THE GAME! ({t1} vs {t2})',
+    matchTieTitle: 'Match Ended in a Tie!',
+    suddenDeathTitle: 'Sudden Death Tie-Breaker!',
+    suddenDeathSubtitle: 'One question. One #1 answer wins the entire game!',
+    playAgainBtn: 'Play Again',
+    exitRoomBtn: 'Exit Room',
   },
 };
 

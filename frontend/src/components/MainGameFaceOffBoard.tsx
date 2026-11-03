@@ -1,5 +1,7 @@
+import { MainGameScoreboardHeader } from './MainGameScoreboardHeader';
 import React, { useEffect, useRef } from 'react';
 import {
+  ScoreboardUpdatePayload,
   FaceOffSessionState,
   TimerTickPayload,
   BuzzerLockedPayload,
@@ -41,6 +43,7 @@ export interface MainGameFaceOffBoardProps {
   promptPassPlay?: PromptPassPlayPayload | null;
   roundControlAssigned?: RoundControlAssignedPayload | null;
   opponentTurnPrompt?: OpponentTurnPromptPayload | null;
+  scoreboardState?: ScoreboardUpdatePayload | null;
   language?: string;
   roomName: string;
   roomCode: string;
@@ -55,6 +58,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   promptPassPlay,
   roundControlAssigned,
   opponentTurnPrompt: _opponentTurnPrompt,
+  scoreboardState,
   language = 'EN',
   roomName,
   roomCode,
@@ -180,6 +184,18 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       data-testid="main-game-face-off-board"
       className="w-full max-w-5xl flex flex-col items-center gap-8 animate-fadeIn"
     >
+      {/* Persistent Grand Total Header (US-16 Scenario 1) */}
+      <div className="w-full">
+        <MainGameScoreboardHeader
+          team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
+          team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
+          activeRoundBank={scoreboardState?.activeRoundBank ?? 0}
+          currentRoundNumber={scoreboardState?.currentRoundNumber ?? snapshot.roundNumber ?? 1}
+          totalRounds={scoreboardState?.totalRounds ?? 3}
+          isSuddenDeath={scoreboardState?.isSuddenDeath ?? false}
+        />
+      </div>
+
       {/* Header Bar */}
       <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-feud-slate-border/80 pb-6">

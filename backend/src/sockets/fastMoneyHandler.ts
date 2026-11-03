@@ -12,6 +12,7 @@ import { evaluatePlayerAnswer } from '../services/answerValidationService';
 import { generateAndSaveGameQuestions } from '../services/questionService';
 import { normalizeRoomCode } from '../utils/roomCode';
 import { logger } from '../utils/logger';
+import { getMatchScoreboard } from '../services/mainGameScoreboardService';
 
 export interface PlayerReadyPayload {
   roomCode: string;
@@ -306,8 +307,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -398,8 +404,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -672,8 +683,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -742,8 +758,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -801,8 +822,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -886,8 +912,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -977,8 +1008,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -1034,8 +1070,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -1116,8 +1157,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
@@ -1231,8 +1277,13 @@ export function registerFastMoneyHandlers(
 
         const normalizedCode = normalizeRoomCode(roomCode);
         const session = getFastMoneySession(normalizedCode);
+        const mainGameSession = getMatchScoreboard(normalizedCode);
 
         if (!session) {
+          if (mainGameSession) {
+            // Main game room: let mainGameHandler process
+            return;
+          }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
+
+vi.mock('canvas-confetti', () => ({
+  default: vi.fn(),
+}));
 import React from 'react';
 import { MainGameTeamGuessingBoard } from '../src/components/MainGameTeamGuessingBoard';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
@@ -78,6 +82,7 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
@@ -392,5 +397,138 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
 
     expect(tts.cancelSpeech).toHaveBeenCalled();
     expect(onLeave).toHaveBeenCalled();
+  });
+
+  describe('US-16: Grand Total Scoreboard, Victory Screen & Match Replay', () => {
+    it('satisfies Scenario 1 & 2: renders persistent grand total scoreboard header with dual-tally distinction', () => {
+      renderComponent({
+        scoreboardState: {
+          roomCode: 'FEUD-9999',
+          team1GrandTotal: 120,
+          team2GrandTotal: 85,
+          activeRoundBank: 55,
+          currentRoundNumber: 2,
+          totalRounds: 3,
+          phase: 'ROUND_IN_PROGRESS',
+        },
+      });
+
+      expect(screen.getByTestId('grand-total-header')).toBeInTheDocument();
+      expect(screen.getByTestId('team1-grand-total')).toHaveTextContent('120');
+      expect(screen.getByTestId('team2-grand-total')).toHaveTextContent('85');
+      expect(screen.getByTestId('round-progress-indicator')).toHaveTextContent('Round 2 of 3');
+      // Round bank distinct in center
+      expect(screen.getByTestId('round-bank-display')).toHaveTextContent('55');
+      expect(screen.getByTestId('header-round-bank')).toHaveTextContent('55 PTS');
+    });
+
+    it('satisfies Scenario 3: renders Next Round button upon round completion and invokes onNextRound', () => {
+      const onNextRound = vi.fn();
+      renderComponent({
+        onNextRound,
+        roundCleared: {
+          roomCode: 'FEUD-9999',
+          winningTeam: 'TEAM_1',
+          totalRoundPoints: 55,
+        },
+        scoreboardState: {
+          roomCode: 'FEUD-9999',
+          team1GrandTotal: 175,
+          team2GrandTotal: 85,
+          activeRoundBank: 0,
+          currentRoundNumber: 2,
+          totalRounds: 3,
+          phase: 'ROUND_RESOLVED',
+        },
+      });
+
+      const nextRoundBtn = screen.getByTestId('next-round-btn');
+      expect(nextRoundBtn).toBeInTheDocument();
+      expect(nextRoundBtn).toHaveTextContent('Next Round');
+
+      fireEvent.click(nextRoundBtn);
+      expect(onNextRound).toHaveBeenCalledTimes(1);
+    });
+
+    it('satisfies Scenario 4: renders Final Winner announcement modal with fanfare and scores', () => {
+      renderComponent({
+        matchOver: {
+          roomCode: 'FEUD-9999',
+          winningTeam: 'TEAM_1',
+          team1GrandTotal: 245,
+          team2GrandTotal: 180,
+          totalRounds: 3,
+          message: '🏆 TEAM 1 WINS THE GAME! (245 vs 180)',
+        },
+      });
+
+      expect(screen.getByTestId('match-over-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('match-winner-headline')).toHaveTextContent(
+        '🏆 TEAM 1 WINS THE GAME! (245 vs 180)'
+      );
+      expect(soundEffects.playVictoryFanfare).toHaveBeenCalled();
+    });
+
+    it('satisfies Scenario 5: provides Play Again and Exit Room buttons in victory modal', () => {
+      const onReplay = vi.fn();
+      const onLeave = vi.fn();
+
+      renderComponent({
+        onReplay,
+        onLeave,
+        matchOver: {
+          roomCode: 'FEUD-9999',
+          winningTeam: 'TEAM_2',
+          team1GrandTotal: 180,
+          team2GrandTotal: 250,
+          totalRounds: 3,
+          message: '🏆 TEAM 2 WINS THE GAME! (180 vs 250)',
+        },
+      });
+
+      const playAgainBtn = screen.getByTestId('play-again-btn');
+      const exitRoomBtn = screen.getByTestId('exit-room-btn');
+
+      expect(playAgainBtn).toBeInTheDocument();
+      expect(exitRoomBtn).toBeInTheDocument();
+
+      fireEvent.click(playAgainBtn);
+      expect(onReplay).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(exitRoomBtn);
+      expect(onLeave).toHaveBeenCalledTimes(1);
+    });
+
+    it('satisfies Scenario 6: displays Sudden Death tie-breaker banner on exact tie', () => {
+      const onNextRound = vi.fn();
+
+      renderComponent({
+        onNextRound,
+        suddenDeathInitiated: {
+          roomCode: 'FEUD-9999',
+          team1GrandTotal: 150,
+          team2GrandTotal: 150,
+          roundNumber: 4,
+          message: 'Sudden Death Tie-Breaker Initiated!',
+        },
+        scoreboardState: {
+          roomCode: 'FEUD-9999',
+          team1GrandTotal: 150,
+          team2GrandTotal: 150,
+          activeRoundBank: 0,
+          currentRoundNumber: 3,
+          totalRounds: 3,
+          phase: 'SUDDEN_DEATH',
+          isSuddenDeath: true,
+        },
+      });
+
+      expect(screen.getByTestId('sudden-death-banner')).toBeInTheDocument();
+      expect(screen.getAllByText('Sudden Death Tie-Breaker!').length).toBeGreaterThanOrEqual(1);
+
+      const startSuddenDeathBtn = screen.getByTestId('start-sudden-death-btn');
+      fireEvent.click(startSuddenDeathBtn);
+      expect(onNextRound).toHaveBeenCalledTimes(1);
+    });
   });
 });

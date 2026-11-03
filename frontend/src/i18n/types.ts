@@ -194,5 +194,18 @@ export interface TranslationDictionary {
     stealInputPlaceholder: string;
     remainingAnswersTitle: string;
     roundWinnerBanner: string;
+    // US-16: Real-Time Grand Total Scores & Match Replay
+    grandTotalHeader: string;
+    roundBank: string;
+    roundProgress: string;
+    yourTeam: string;
+    nextRoundBtn: string;
+    nextContendersBanner: string;
+    matchWinnerTitle: string;
+    matchTieTitle: string;
+    suddenDeathTitle: string;
+    suddenDeathSubtitle: string;
+    playAgainBtn: string;
+    exitRoomBtn: string;
   };
 }

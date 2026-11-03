@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Room, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState } from '../types';
+import { Room, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState, ScoreboardUpdatePayload, MatchOverPayload } from '../types';
+import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
@@ -27,6 +28,8 @@ export interface PlayerJoinProps {
   initialTeamsAssigned?: TeamsAssignedPayload | null;
   initialFaceOffState?: FaceOffSessionState | null;
   initialTeamGuessingState?: TeamGuessingSessionState | null;
+  initialScoreboardState?: ScoreboardUpdatePayload | null;
+  initialMatchOver?: MatchOverPayload | null;
   apiBaseUrl?: string;
   onJoined?: (playerData: { room: Room; nickname: string }) => void;
 }
@@ -37,6 +40,8 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   initialTeamsAssigned = null,
   initialFaceOffState = null,
   initialTeamGuessingState = null,
+  initialScoreboardState = null,
+  initialMatchOver = null,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -93,11 +98,15 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     submitTeamGuess,
     passTeamTurn,
     submitStealGuess,
+    scoreboardState: socketScoreboardState,
+    matchOver: socketMatchOver,
   } = useSocket();
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
   const faceOffState = initialFaceOffState ?? socketFaceOffState;
   const teamGuessingState = initialTeamGuessingState ?? socketTeamGuessingState;
+  const scoreboardState = initialScoreboardState ?? socketScoreboardState;
+  const matchOver = initialMatchOver ?? socketMatchOver;
 
   useEffect(() => {
     if (initialRoom) {
@@ -310,11 +319,25 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       );
     }
 
+    // US-16: Main Game Final Winner Announcement & Replay on Mobile (Scenarios 4 & 5)
+    if (!isFastMoney && matchOver) {
+      return (
+        <div className="w-full min-h-screen flex items-center justify-center p-4">
+          <MainGameVictoryModal
+            matchOver={matchOver}
+            isHost={false}
+            onLeave={() => navigate('/')}
+          />
+        </div>
+      );
+    }
+
     // Main Game Team Guessing Controller (US-14)
     if (!isFastMoney && teamGuessingState) {
       return (
         <MainGameTeamController
           snapshot={teamGuessingState}
+          scoreboardState={scoreboardState}
           timerTick={timerTick}
           strikeIssued={strikeIssued}
           roundCleared={roundCleared}
@@ -346,6 +369,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       return (
         <MainGameFaceOffController
           snapshot={faceOffState}
+          scoreboardState={scoreboardState}
           timerTick={timerTick}
           buzzerLocked={buzzerLocked}
           buzzerRejected={buzzerRejected}

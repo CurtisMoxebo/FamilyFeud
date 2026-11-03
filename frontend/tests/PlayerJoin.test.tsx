@@ -84,6 +84,13 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     passTeamTurn: vi.fn(),
     submitStealGuess: vi.fn(),
     getTeamGuessingState: vi.fn(),
+    scoreboardState: null,
+    matchOver: null,
+    suddenDeathInitiated: null,
+    nextRoundStarted: null,
+    advanceNextRound: vi.fn(),
+    getScoreboardState: vi.fn(),
+    clearMatchOver: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {
@@ -1127,5 +1134,159 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       await user.click(screen.getByTestId('player-submit-guess-btn'));
 
       expect(mockSubmitTeamGuess).toHaveBeenCalledWith('FEUD-9999', 'p1', 'CHEESE');
+    });
+
+    it('satisfies US-16 Scenario 4: transitions joined player to victory modal upon receiving matchOver', async () => {
+      const user = userEvent.setup();
+      const mockMatchOver = {
+        roomCode: 'FEUD-9999',
+        winningTeam: 'TEAM_1' as const,
+        team1GrandTotal: 340,
+        team2GrandTotal: 210,
+        totalRounds: 3,
+      };
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        roomState: {
+          roomCode: 'FEUD-9999',
+          roomName: 'Match Over Test',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'ACTIVE',
+          playerCount: 2,
+          maxPlayers: 10,
+          canStart: true,
+          players: [
+            { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isReady: true, isConnected: true },
+            { id: 'p2', nickname: 'Bob', team: 'TEAM_2', isReady: true, isConnected: true },
+          ],
+        },
+        matchOver: mockMatchOver,
+      } as any);
+
+      const testRoom: Room = {
+        id: 'room-9999',
+        roomCode: 'FEUD-9999',
+        roomName: 'Match Over Test',
+        language: 'EN',
+        gameMode: 'MAIN_GAME',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+      };
+      renderWithProviders(<PlayerJoin roomCode="FEUD-9999" initialRoom={testRoom} />);
+
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Alice');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('match-over-modal')).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId('match-winner-headline')).toHaveTextContent(/Team 1/i);
+      expect(screen.getByText(/Waiting for the host to launch a replay/i)).toBeInTheDocument();
+      expect(screen.getByTestId('exit-room-btn')).toBeInTheDocument();
+    });
+
+    it('satisfies US-16 Scenario 5: transitions player back to Face-Off when matchOver is cleared on replay', async () => {
+      const user = userEvent.setup();
+      const mockMatchOver = {
+        roomCode: 'FEUD-9999',
+        winningTeam: 'TEAM_1' as const,
+        team1GrandTotal: 340,
+        team2GrandTotal: 210,
+        totalRounds: 3,
+      };
+
+      const socketMock = {
+        ...defaultSocketMock,
+        roomState: {
+          roomCode: 'FEUD-9999',
+          roomName: 'Replay Flow Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'ACTIVE',
+          playerCount: 2,
+          maxPlayers: 10,
+          canStart: true,
+          players: [
+            { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isReady: true, isConnected: true },
+            { id: 'p2', nickname: 'Bob', team: 'TEAM_2', isReady: true, isConnected: true },
+          ],
+        },
+        matchOver: mockMatchOver,
+        faceOffState: {
+          roomCode: 'FEUD-9999',
+          gameId: 'game-replay-2',
+          roundNumber: 1,
+          language: 'EN',
+          phase: 'AWAITING_READY',
+          question: {
+            id: 'q-rep1',
+            questionText: 'Name something in your glove compartment',
+            answers: [{ id: 'a1', answerText: 'REGISTRATION', points: 40, rankOrder: 1 }],
+          },
+          team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 }],
+          team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 }],
+          team1Contender: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isReady: false },
+          team2Contender: { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isReady: false },
+          buzzerLocked: false,
+          buzzedPlayerId: null,
+          buzzedPlayerNickname: null,
+          buzzedPlayerTeam: null,
+          buzzedAtTimestamp: null,
+          activeRespondentId: null,
+          attemptedPlayerIds: [],
+          initialBuzzerWinnerId: null,
+          timerDurationSeconds: 15,
+          remainingSeconds: 15,
+          endsAt: null,
+          isTimerRunning: false,
+        },
+      };
+
+      const spy = vi.spyOn(socketHook, 'useSocket').mockReturnValue(socketMock as any);
+
+      const testRoom: Room = {
+        id: 'room-9999',
+        roomCode: 'FEUD-9999',
+        roomName: 'Match Over Test',
+        language: 'EN',
+        gameMode: 'MAIN_GAME',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+      };
+
+      const { rerender } = renderWithProviders(
+        <PlayerJoin roomCode="FEUD-9999" initialRoom={testRoom} />
+      );
+
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Alice');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('match-over-modal')).toBeInTheDocument();
+      });
+
+      // Host triggers replay -> matchOver is cleared, faceOffState is active
+      spy.mockReturnValue({
+        ...socketMock,
+        matchOver: null,
+      } as any);
+
+      rerender(
+        <LanguageProvider>
+          <RouterProvider initialPath="/play/FEUD-9999">
+            <PlayerJoin roomCode="FEUD-9999" initialRoom={testRoom} />
+          </RouterProvider>
+        </LanguageProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('main-game-face-off-controller')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('match-over-modal')).not.toBeInTheDocument();
     });
   });

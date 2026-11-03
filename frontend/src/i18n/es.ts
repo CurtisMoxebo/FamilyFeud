@@ -197,6 +197,19 @@ export const es: TranslationDictionary = {
     stealInputPlaceholder: 'Ingresa la respuesta oficial del robo...',
     remainingAnswersTitle: 'Respuestas no reveladas restantes',
     roundWinnerBanner: '¡El {team} gana la ronda!',
+    // US-16: Real-Time Grand Total Scores & Match Replay
+    grandTotalHeader: 'Gran Total',
+    roundBank: 'Banca de Ronda',
+    roundProgress: 'Ronda {current} de {total}',
+    yourTeam: 'TU EQUIPO',
+    nextRoundBtn: 'Siguiente ronda',
+    nextContendersBanner: 'Siguientes en el pulsador: {c1} vs {c2}',
+    matchWinnerTitle: '🏆 ¡EL {team} GANA EL JUEGO! ({t1} vs {t2})',
+    matchTieTitle: '¡Empate en la partida!',
+    suddenDeathTitle: '¡Muerte Súbita de Desempate!',
+    suddenDeathSubtitle: 'Una sola pregunta. ¡La respuesta #1 gana todo el juego!',
+    playAgainBtn: 'Jugar de nuevo',
+    exitRoomBtn: 'Salir de la sala',
   },
 };
 
