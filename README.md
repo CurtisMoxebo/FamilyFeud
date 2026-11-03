@@ -19,6 +19,7 @@ An interactive, real-time multiplayer web application bringing the classic telev
 - **Zero-Friction Joining**: Scan a high-contrast QR code or share a direct URL. No app store downloads or user account registration required.
 - **Code-First Database**: Full persistence via **Prisma ORM** with modular schemas and version-controlled migrations on MySQL.
 - **Resilient Networking**: Automatic host and player reconnection within a 30-second grace window to protect ongoing games against screen locks or Wi-Fi drops.
+- **Host Administrative Controls & Overrides**: Discrete TV host control bar with authoritative timer Pause/Resume (including Spacebar shortcut and full player lockout banner), live Judge Manual Answer Override with automatic strike retraction & steal-phase reversion, and Lobby AFK player kick moderation.
 
 ---
 
@@ -187,7 +188,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 717 regression tests** (453 backend, 264 frontend) pass cleanly with **>90% code coverage** across 55 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 893 regression tests** (527 backend, 366 frontend) pass cleanly with **>90% code coverage** across 70 suites:
 
 ```bash
 # Run all regression tests across the whole project

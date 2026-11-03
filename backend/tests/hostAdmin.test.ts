@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import http from 'http';
 import { AddressInfo } from 'net';
 import { io as Client, Socket as ClientSocket } from 'socket.io-client';
@@ -8,7 +8,7 @@ import { setupSocketServer, RoomStateUpdate } from '../src/sockets/lobbyHandler'
 import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import { hostAdminService, ManualOverrideResult } from '../src/services/hostAdminService';
 import { initTeamGuessingSession, removeTeamGuessingSession } from '../src/services/teamGuessingService';
-import { removeFaceOffSession } from '../src/services/faceOffService';
+import { initFaceOffSession, removeFaceOffSession } from '../src/services/faceOffService';
 import { initMatchScoreboard, deleteMatchScoreboard } from '../src/services/mainGameScoreboardService';
 import { initFastMoneySession, clearFastMoneyTimer } from '../src/sockets/fastMoneyHandler';
 import { AdminErrorPayload } from '../src/sockets/adminHandler';
@@ -1225,6 +1225,523 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
     it('clears admin pause state properly via clearRoomAdmin', () => {
       hostAdminService.clearRoomAdmin('FEUD-CLEAR');
       expect(hostAdminService.getPauseState('FEUD-CLEAR')).toBeNull();
+    });
+
+    it('covers hostAdminService authorization fallbacks, idempotent pause, GENERIC face-off pause, sudden death override, and missing session errors', async () => {
+      const roomCode = 'FEUD-ADM4';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Admin Deep Coverage Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const hostSocket = await connectClient(port);
+      const altSocket = await connectClient(port);
+      clientSockets.push(hostSocket, altSocket);
+
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+
+      // 1. Authorization via empty roomCode, direct hostSecret, and registeredSocketId fallback
+      expect(hostAdminService.isHostAuthorized(altSocket as any, '')).toBe(false);
+      const secret = sessionRecoveryService.getHostSecret(roomCode)!;
+      expect(secret).toBeTruthy();
+      expect(
+        hostAdminService.isHostAuthorized({ id: 'unregistered-id', data: {} } as any, roomCode, secret)
+      ).toBe(true);
+      sessionRecoveryService.registerHostSocket(roomCode, 'manual-host-id');
+      expect(
+        hostAdminService.isHostAuthorized({ id: 'manual-host-id', data: {} } as any, roomCode)
+      ).toBe(true);
+
+      // Restore actual host socket id
+      sessionRecoveryService.registerHostSocket(roomCode, hostSocket.id!);
+
+      // 2. overrideAnswer & getHostOverrideOptions when no active TeamGuessingSession exists
+      const noSessionOverride = await new Promise<ManualOverrideResult>((resolve) => {
+        hostSocket.emit('host_override_answer', { roomCode, rankOrder: 1 }, (res: ManualOverrideResult) =>
+          resolve(res)
+        );
+      });
+      expect(noSessionOverride.success).toBe(false);
+      expect(noSessionOverride.error).toContain('No active team guessing session');
+
+      const noSessionOpts = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_get_override_answers', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(noSessionOpts.success).toBe(false);
+
+      // 3. kickPlayer direct service edge cases (empty playerId & missing room)
+      const emptyKick = await hostAdminService.kickPlayer(roomCode, '', testIo, prisma);
+      expect(emptyKick.success).toBe(false);
+      const missingRoomKick = await hostAdminService.kickPlayer('FEUD-NONE', 'p1', testIo, prisma);
+      expect(missingRoomKick.success).toBe(false);
+
+      // 4. Face-Off GENERIC pause (before buzzer is pressed) + idempotent second pause + resume
+      const { initFaceOffSession } = await import('../src/services/faceOffService');
+      const foSession = initFaceOffSession(roomCode, {
+        gameId: 'game-fo-generic',
+        roundNumber: 1,
+        question: {
+          id: 'q1',
+          questionText: 'Name a planet',
+          answers: [{ id: 'a1', rankOrder: 1, answerText: 'Mars', points: 50 }],
+        },
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+
+      const firstPause = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_pause_game', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(firstPause.success).toBe(true);
+      expect(foSession.isPaused).toBe(true);
+
+      // Idempotent second pause call
+      const secondPause = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_pause_game', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(secondPause.success).toBe(true);
+
+      const genericResume = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_resume_game', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(genericResume.success).toBe(true);
+      expect(foSession.isPaused).toBe(false);
+      removeFaceOffSession(roomCode);
+
+      // 5. overrideAnswer clearing final card into exact tie -> emits sudden_death_initiated
+      initMatchScoreboard(roomCode, 'game-sd-override', {
+        totalRounds: 1,
+        team1Initial: 0,
+        team2Initial: 50,
+      });
+      const sdTeamSession = initTeamGuessingSession(roomCode, {
+        gameId: 'game-sd-override',
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q-sd',
+          questionText: 'Name a coin',
+          answers: [{ id: 'a1', rankOrder: 1, answerText: 'Quarter', points: 50 }],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+
+      const sdEventPromise = waitForEvent<any>(hostSocket, 'sudden_death_initiated');
+      const sdOverrideRes = await new Promise<ManualOverrideResult>((resolve) => {
+        hostSocket.emit('host_override_answer', { roomCode, rankOrder: 1 }, (res: ManualOverrideResult) =>
+          resolve(res)
+        );
+      });
+      expect(sdOverrideRes.success).toBe(true);
+      const sdEvent = await sdEventPromise;
+      expect(sdEvent.team1GrandTotal).toBe(50);
+      expect(sdEvent.team2GrandTotal).toBe(50);
+      sdTeamSession.stopTimer();
+    });
+
+    it('handles missing roomCode on host_get_override_answers and SERVER_ERROR catch blocks across adminHandler', async () => {
+      const roomCode = 'FEUD-ADM1';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Admin Error Catch Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const unjoinedSocket = await connectClient(port);
+      const hostSocket = await connectClient(port);
+      clientSockets.push(unjoinedSocket, hostSocket);
+
+      // Missing roomCode on host_get_override_answers
+      const [missingCodeErr, missingCodeRes] = await Promise.all([
+        waitForEvent<AdminErrorPayload>(unjoinedSocket, 'admin_error'),
+        new Promise<any>((resolve) => {
+          unjoinedSocket.emit('host_get_override_answers', {}, (res: any) => resolve(res));
+        }),
+      ]);
+      expect(missingCodeErr.code).toBe('INVALID_ACTION');
+      expect(missingCodeRes.success).toBe(false);
+
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+
+      // Spy on service methods throwing unexpected errors to verify SERVER_ERROR resilience
+      const pauseSpy = vi.spyOn(hostAdminService, 'pauseGame').mockImplementationOnce(() => {
+        throw new Error('Simulated pause crash');
+      });
+      const pauseErrRes = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_pause_game', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(pauseErrRes.success).toBe(false);
+      pauseSpy.mockRestore();
+
+      const resumeSpy = vi.spyOn(hostAdminService, 'resumeGame').mockImplementationOnce(() => {
+        throw new Error('Simulated resume crash');
+      });
+      const resumeErrRes = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_resume_game', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(resumeErrRes.success).toBe(false);
+      resumeSpy.mockRestore();
+
+      const overrideSpy = vi.spyOn(hostAdminService, 'overrideAnswer').mockImplementationOnce(() => {
+        throw new Error('Simulated override crash');
+      });
+      const overrideErrRes = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_override_answer', { roomCode, rankOrder: 1 }, (res: any) => resolve(res));
+      });
+      expect(overrideErrRes.success).toBe(false);
+      overrideSpy.mockRestore();
+
+      const kickSpy = vi.spyOn(hostAdminService, 'kickPlayer').mockRejectedValueOnce(
+        new Error('Simulated kick crash')
+      );
+      const kickErrRes = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_kick_player', { roomCode, playerId: 'p1' }, (res: any) => resolve(res));
+      });
+      expect(kickErrRes.success).toBe(false);
+      kickSpy.mockRestore();
+
+      const optsSpy = vi.spyOn(hostAdminService, 'getHostOverrideOptions').mockImplementationOnce(() => {
+        throw new Error('Simulated options crash');
+      });
+      const optsErrRes = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_get_override_answers', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(optsErrRes.success).toBe(false);
+      optsSpy.mockRestore();
+    });
+
+    it('covers authoritative Fast Money timer expiration & Main Game socket round-clear/steal completion paths', async () => {
+      const fmCode = 'FEUD-ADM2';
+      const mgCode = 'FEUD-ADM3';
+      await prisma.room.createMany({
+        data: [
+          {
+            roomCode: fmCode,
+            roomName: 'FM Expiry Room',
+            language: 'EN',
+            gameMode: 'FAST_MONEY',
+            status: 'LOBBY',
+          },
+          {
+            roomCode: mgCode,
+            roomName: 'MG Completion Room',
+            language: 'EN',
+            gameMode: 'MAIN_GAME',
+            status: 'LOBBY',
+          },
+        ],
+      });
+
+      const hostFm = await connectClient(port);
+      const playerMg = await connectClient(port);
+      clientSockets.push(hostFm, playerMg);
+
+      await new Promise<void>((resolve) => {
+        hostFm.emit('join_room', { roomCode: fmCode, isHost: true }, () => resolve());
+      });
+      await new Promise<void>((resolve) => {
+        playerMg.emit('join_room', { roomCode: mgCode, nickname: 'Alice' }, () => resolve());
+      });
+
+      // 1. Fast Money paused-timer resume natural expiration (P1 & P2) + inactive phase submit rejection
+      const { fastMoneyPausedTimers, resumeFastMoneyTimer } = await import(
+        '../src/sockets/fastMoneyHandler'
+      );
+      const fmSession = initFastMoneySession(fmCode, {
+        gameId: 'game-fm-exp',
+        player1Id: 'fm-p1',
+        player2Id: 'fm-p2',
+        timerDurationSeconds: 1,
+        p2TimerDurationSeconds: 1,
+        questions: [
+          {
+            id: 'q1',
+            questionText: 'Name a fruit',
+            answers: [{ id: 'a1', answerText: 'Apple', points: 50, rankOrder: 1 }],
+          },
+        ],
+      });
+
+      fmSession.startPlayer1Turn('fm-p1');
+      const p1EndPromise = waitForEvent<any>(hostFm, 'p1_turn_ended', 2500);
+      fastMoneyPausedTimers.set(fmCode, {
+        remainingSeconds: 1,
+        playerNumber: 1,
+        session: fmSession,
+      });
+      resumeFastMoneyTimer(testIo, fmCode);
+      const p1Ended = await p1EndPromise;
+      expect(p1Ended.reason).toBe('TIME_EXPIRED');
+
+      // Submit when phase is P1_REVEAL -> rejected
+      const inactiveSubmit = await new Promise<any>((resolve) => {
+        hostFm.emit(
+          'submit_answer',
+          { roomCode: fmCode, playerId: 'fm-p1', questionId: 'q1', rawAnswer: 'Apple' },
+          (res: any) => resolve(res)
+        );
+      });
+      expect(inactiveSubmit.success).toBe(false);
+
+      // Advance to P2_PLAYING and test P2 resumed timer 1s natural expiration
+      fmSession.revealAnswer(1);
+      fmSession.revealPoints(1);
+      fmSession.startPlayer2Turn('fm-p2');
+      const p2EndPromise = waitForEvent<any>(hostFm, 'p2_turn_ended', 2500);
+      fastMoneyPausedTimers.set(fmCode, {
+        remainingSeconds: 1,
+        playerNumber: 2,
+        session: fmSession,
+      });
+      resumeFastMoneyTimer(testIo, fmCode);
+      const p2Ended = await p2EndPromise;
+      expect(p2Ended.reason).toBe('TIME_EXPIRED');
+
+      // 2. Main Game submit_team_guess clearing 1-round match -> match_over + submit_steal_guess callback
+      const roomRecord = await prisma.room.findUnique({ where: { roomCode: mgCode } });
+      const dbGame = await prisma.game.create({
+        data: {
+          roomId: roomRecord!.id,
+          mode: 'MAIN_GAME',
+          status: 'IN_PROGRESS',
+        },
+      });
+
+      initMatchScoreboard(mgCode, dbGame.id, { totalRounds: 1 });
+      const mgSession = initTeamGuessingSession(mgCode, {
+        gameId: dbGame.id,
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q-mg-win',
+          questionText: 'Name a pet',
+          answers: [{ id: 'a1', rankOrder: 1, answerText: 'Dog', points: 60 }],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+
+      const matchOverPromise = waitForEvent<any>(playerMg, 'match_over');
+      const guessRes = await new Promise<any>((resolve) => {
+        playerMg.emit(
+          'submit_team_guess',
+          { roomCode: mgCode, playerId: 'p1', rawAnswer: 'Dog' },
+          (res: any) => resolve(res)
+        );
+      });
+      expect(guessRes.success).toBe(true);
+      const moEvent = await matchOverPromise;
+      expect(moEvent.winningTeam).toBe('TEAM_1');
+      mgSession.stopTimer();
+
+      // Test submit_steal_guess with callback
+      const stealSession = initTeamGuessingSession(mgCode, {
+        gameId: dbGame.id,
+        roundNumber: 2,
+        language: 'EN',
+        question: {
+          id: 'q-mg-steal',
+          questionText: 'Name a bird',
+          answers: [{ id: 'a1', rankOrder: 1, answerText: 'Eagle', points: 50 }],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+      stealSession.passTurn('p1');
+      stealSession.passTurn('p1');
+      stealSession.passTurn('p1');
+
+      const stealCbRes = await new Promise<any>((resolve) => {
+        playerMg.emit(
+          'submit_steal_guess',
+          { roomCode: mgCode, playerId: 'p2', rawAnswer: 'Eagle' },
+          (res: any) => resolve(res)
+        );
+      });
+      expect(stealCbRes.success).toBe(true);
+      expect(stealCbRes.stealSuccess).toBe(true);
+      stealSession.stopTimer();
+    });
+
+    it('enforces pause lockout across Face-Off & Fast Money events and validates Main Game / Fast Money socket guards', async () => {
+      const roomCode = 'FEUD-ADM1';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Pause Lockout & Guards Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const hostSocket = await connectClient(port);
+      const playerSocket = await connectClient(port);
+      clientSockets.push(hostSocket, playerSocket);
+
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+      await new Promise<void>((resolve) => {
+        playerSocket.emit('join_room', { roomCode, nickname: 'Contender1' }, () => resolve());
+      });
+
+      const emitAck = <T = any>(sock: ClientSocket, event: string, payload: any) =>
+        new Promise<T>((resolve) => sock.emit(event, payload, (res: T) => resolve(res)));
+
+      // 1. Missing-parameter & missing-session guards before sessions are initialized
+      expect((await emitAck(playerSocket, 'submit_team_guess', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'submit_team_guess', { roomCode: 'FEUD-NONE', playerId: 'p1', rawAnswer: 'X' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'pass_team_turn', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'pass_team_turn', { roomCode: 'FEUD-NONE', playerId: 'p1' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'submit_steal_guess', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'submit_steal_guess', { roomCode: 'FEUD-NONE', playerId: 'p1', rawAnswer: 'X' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'get_team_guessing_state', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'get_team_guessing_state', { roomCode: 'FEUD-NONE' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'get_steal_state', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'get_steal_state', { roomCode: 'FEUD-NONE' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'get_scoreboard_state', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'get_scoreboard_state', { roomCode: 'FEUD-NONE' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'advance_next_round', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'advance_next_round', { roomCode: 'FEUD-NONE' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'main_game_replay', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'main_game_replay', { roomCode: 'FEUD-NONE' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'pass_question', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'pass_question', { roomCode: 'FEUD-NONE', playerId: 'p1', questionId: 'q1' })).success
+      ).toBe(false);
+      expect((await emitAck(playerSocket, 'start_reveal_phase', {})).success).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'start_reveal_phase', { roomCode: 'FEUD-NONE' })).success
+      ).toBe(false);
+
+      // 2. Face-Off pause lockouts (US-21 Scenario 1 DoD)
+      const foSession = initFaceOffSession(roomCode, {
+        gameId: 'game-fo-lock',
+        roundNumber: 1,
+        language: 'EN',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 }],
+        question: {
+          id: 'q-fo',
+          questionText: 'Name a color',
+          orderIndex: 1,
+          roundNumber: 1,
+          answers: [{ id: 'a1', answerText: 'Blue', points: 50, rankOrder: 1 }],
+        },
+      });
+      await emitAck(hostSocket, 'host_pause_game', { roomCode });
+
+      expect(
+        (await emitAck(playerSocket, 'face_off_ready', { roomCode, playerId: 'p1' })).success
+      ).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'press_buzzer', { roomCode, playerId: 'p1', clientTimestamp: Date.now() })).accepted
+      ).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'submit_face_off_answer', { roomCode, playerId: 'p1', rawAnswer: 'Blue' })).success
+      ).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'choose_play_pass', { roomCode, playerId: 'p1', decision: 'play' })).success
+      ).toBe(false);
+
+      await emitAck(hostSocket, 'host_resume_game', { roomCode });
+      foSession.stopTimer();
+
+      // 3. Scoreboard MATCH_OVER advance guard & non-host replay rejection + steal phase invalid phase guard
+      const sb = initMatchScoreboard(roomCode, 'game-fo-lock', { totalRounds: 1 });
+      sb.awardRoundPoints('TEAM_1', 100, 'ROUND_CLEARED');
+      expect(
+        (await emitAck(hostSocket, 'advance_next_round', { roomCode })).success
+      ).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'main_game_replay', { roomCode })).success
+      ).toBe(false);
+
+      const tg = initTeamGuessingSession(roomCode, {
+        gameId: 'game-fo-lock',
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q-tg',
+          questionText: 'Name a color',
+          answers: [{ id: 'a1', rankOrder: 1, answerText: 'Blue', points: 50 }],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+      // Steal guess while in TEAM_GUESSING phase -> INVALID_PHASE
+      expect(
+        (await emitAck(playerSocket, 'submit_steal_guess', { roomCode, playerId: 'p2', rawAnswer: 'Blue' })).success
+      ).toBe(false);
+      expect(
+        (await emitAck(playerSocket, 'get_team_guessing_state', { roomCode })).success
+      ).toBe(true);
+      expect(
+        (await emitAck(playerSocket, 'get_steal_state', { roomCode })).success
+      ).toBe(true);
+      tg.stopTimer();
+
+      // 4. Fast Money pause lockout on pass_question & unauthorized start_reveal_phase
+      const fmRoom = 'FEUD-FMPL';
+      const fm = initFastMoneySession(fmRoom, {
+        gameId: 'game-fm-pl',
+        player1Id: 'p1',
+        player2Id: 'p2',
+        questions: [
+          {
+            id: 'q1',
+            questionText: 'Name a color',
+            answers: [{ id: 'a1', answerText: 'Blue', points: 50, rankOrder: 1 }],
+          },
+        ],
+      });
+      fm.startPlayer1Turn('p1');
+      expect(
+        (await emitAck(playerSocket, 'start_reveal_phase', { roomCode: fmRoom })).success
+      ).toBe(false);
+      fm.pauseTimer();
+      expect(
+        (await emitAck(playerSocket, 'pass_question', { roomCode: fmRoom, playerId: 'p1', questionId: 'q1' })).success
+      ).toBe(false);
     });
   });
 });
