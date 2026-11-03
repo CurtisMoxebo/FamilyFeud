@@ -1,3 +1,4 @@
+import { isTtsMuted, setTtsMuted, cancelSpeech } from '../utils/tts';
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -19,6 +20,8 @@ import { MainGameFaceOffBoard } from '../components/MainGameFaceOffBoard';
 import { MainGameTeamGuessingBoard } from '../components/MainGameTeamGuessingBoard';
 import {
   Tv,
+  Volume2,
+  VolumeX,
   Users,
   Zap,
   Globe,
@@ -65,6 +68,17 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 }) => {
   const { setLanguage, t } = useTranslation();
   const { navigate } = useRouter();
+
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => !isTtsMuted());
+
+  const handleToggleAudio = () => {
+    const nextAudio = !audioEnabled;
+    setAudioEnabled(nextAudio);
+    setTtsMuted(!nextAudio);
+    if (!nextAudio) {
+      cancelSpeech();
+    }
+  };
 
   const [room, setRoom] = useState<Room | null>(initialRoom);
   const [isLoading, setIsLoading] = useState<boolean>(!initialRoom);
@@ -383,7 +397,22 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             </div>
           </div>
 
-          <button
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleToggleAudio}
+              data-testid="host-audio-toggle"
+              title={audioEnabled ? 'Mute Sounds & TTS' : 'Unmute Sounds & TTS'}
+              className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              {audioEnabled ? (
+                <Volume2 className="w-5 h-5 text-feud-gold" />
+              ) : (
+                <VolumeX className="w-5 h-5 text-slate-500" />
+              )}
+            </button>
+
+            <button
             type="button"
             onClick={() => navigate('/')}
             data-testid="host-back-home-btn"
@@ -392,6 +421,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             <ArrowLeft className="w-4 h-4" />
             <span>Leave Lobby</span>
           </button>
+          </div>
         </div>
 
         {/* Room Code Display */}

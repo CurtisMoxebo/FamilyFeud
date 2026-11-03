@@ -1,11 +1,119 @@
 /**
  * Host Speech Synthesis (TTS) Engine Utility
  * Provides safe text-to-speech for Question reading during Fast Money speed rounds,
- * duplicate warnings, and victory / defeat announcements.
+ * Face-Off duels, team guessing rounds, duplicate warnings, and victory / defeat announcements.
  */
 
-export function speakQuestion(text: string, language: string = 'EN'): void {
+export const TTS_MUTED_STORAGE_KEY = 'family_feud_tts_muted';
+
+/**
+ * Checks whether Host TTS output is currently muted in localStorage.
+ */
+export function isTtsMuted(): boolean {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return false;
+    }
+    return window.localStorage.getItem(TTS_MUTED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Persists the TTS mute preference to localStorage.
+ */
+export function setTtsMuted(muted: boolean): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(TTS_MUTED_STORAGE_KEY, String(muted));
+    }
+  } catch {
+    // Graceful handling of storage quota or security restrictions
+  }
+}
+
+/**
+ * Toggles the TTS mute preference and returns the updated state.
+ */
+export function toggleTtsMuted(): boolean {
+  const nextState = !isTtsMuted();
+  setTtsMuted(nextState);
+  return nextState;
+}
+
+/**
+ * Resolves the best available native SpeechSynthesisVoice for the specified language.
+ * Follows priority:
+ * - French: fr-FR, fr-CA, then any fr*
+ * - Spanish: es-ES, es-MX, es-US, then any es*
+ * - English: en-US, en-GB, then any en*
+ */
+export function getVoiceForLang(language: string = 'EN'): SpeechSynthesisVoice | null {
+  if (
+    typeof window === 'undefined' ||
+    !('speechSynthesis' in window) ||
+    typeof window.speechSynthesis.getVoices !== 'function'
+  ) {
+    return null;
+  }
+
+  try {
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) {
+      return null;
+    }
+
+    const norm = language.toLowerCase();
+    let preferredCodes: string[] = [];
+
+    if (norm.startsWith('fr')) {
+      preferredCodes = ['fr-fr', 'fr-ca', 'fr'];
+    } else if (norm.startsWith('es')) {
+      preferredCodes = ['es-es', 'es-mx', 'es-us', 'es'];
+    } else {
+      preferredCodes = ['en-us', 'en-gb', 'en'];
+    }
+
+    for (const code of preferredCodes) {
+      const match = voices.find((v) => {
+        const langLower = (v.lang || '').toLowerCase().replace('_', '-');
+        return langLower === code || langLower.startsWith(code + '-');
+      });
+      if (match) {
+        return match;
+      }
+    }
+
+    // Fallback: any voice starting with prefix
+    const prefix = preferredCodes[preferredCodes.length - 1];
+    const fallback = voices.find((v) =>
+      (v.lang || '').toLowerCase().replace('_', '-').startsWith(prefix)
+    );
+    return fallback || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Vocalizes text using browser SpeechSynthesis with rate 1.05 and pitch 1.0.
+ * Respects mute settings and cancels any active utterance before starting.
+ * Safe fallback and non-blocking callback invocation on complete or error.
+ */
+export function speakQuestion(
+  text: string,
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
+  if (isTtsMuted()) {
+    onComplete?.();
+    return;
+  }
+
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    console.warn('[HOST_TTS:WARN] Speech synthesis is not supported in this browser.');
+    onComplete?.();
     return;
   }
 
@@ -13,25 +121,46 @@ export function speakQuestion(text: string, language: string = 'EN'): void {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const normalizedLang = language.toUpperCase();
+    const voice = getVoiceForLang(language);
 
-    if (normalizedLang === 'FR') {
-      utterance.lang = 'fr-FR';
-    } else if (normalizedLang === 'ES') {
-      utterance.lang = 'es-ES';
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
     } else {
-      utterance.lang = 'en-US';
+      const normalizedLang = language.toUpperCase();
+      if (normalizedLang === 'FR') {
+        utterance.lang = 'fr-FR';
+      } else if (normalizedLang === 'ES') {
+        utterance.lang = 'es-ES';
+      } else {
+        utterance.lang = 'en-US';
+      }
     }
 
     utterance.rate = 1.05;
     utterance.pitch = 1.0;
 
+    utterance.onend = () => {
+      onComplete?.();
+    };
+
+    utterance.onerror = (error) => {
+      console.warn('[HOST_TTS:WARN] Speech utterance encountered an error:', error);
+      onComplete?.();
+    };
+
     window.speechSynthesis.speak(utterance);
   } catch (error) {
     // Non-blocking fallback if browser speech synthesis is restricted or unavailable
     console.warn('[HOST_TTS:WARN] Speech synthesis failed or blocked by autoplay policy:', error);
+    onComplete?.();
   }
 }
+
+/**
+ * Alias for speakQuestion conforming to US-17 Technical Specification.
+ */
+export const speak = speakQuestion;
 
 export function cancelSpeech(): void {
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -58,9 +187,13 @@ export function getDuplicateWarningPhrase(language: string = 'EN'): string {
  * Host Speech Synthesis for Fast Money Duplicate Answer Warning (US-09 Scenario 2)
  * Announces localized prompt: "Already said! Try again!" / "Déjà dit ! Réessayez !" / "¡Ya se dijo! ¡Intenta de nuevo!"
  */
-export function speakDuplicateAlert(language: string = 'EN', customText?: string): void {
+export function speakDuplicateAlert(
+  language: string = 'EN',
+  customText?: string,
+  onComplete?: () => void
+): void {
   const text = customText || getDuplicateWarningPhrase(language);
-  speakQuestion(text, language);
+  speakQuestion(text, language, onComplete);
 }
 
 export const VICTORY_PHRASES: Record<string, string> = {
@@ -78,9 +211,13 @@ export function getVictoryPhrase(language: string = 'EN'): string {
  * Host Speech Synthesis for Fast Money Victory Announcement (US-10 Scenario 2)
  * Announces localized celebration: "200 points! You won Fast Money!"
  */
-export function speakVictory(language: string = 'EN', customText?: string): void {
+export function speakVictory(
+  language: string = 'EN',
+  customText?: string,
+  onComplete?: () => void
+): void {
   const text = customText || getVictoryPhrase(language);
-  speakQuestion(text, language);
+  speakQuestion(text, language, onComplete);
 }
 
 export const DEFEAT_PHRASES: Record<string, (score: number) => string> = {
@@ -99,9 +236,14 @@ export function getDefeatPhrase(language: string = 'EN', finalScore: number = 0)
  * Host Speech Synthesis for Fast Money Defeat Announcement (US-10 Scenario 3)
  * Announces localized defeat summary: "Final score: [X] points. Game over!"
  */
-export function speakDefeat(language: string = 'EN', finalScore: number = 0, customText?: string): void {
+export function speakDefeat(
+  language: string = 'EN',
+  finalScore: number = 0,
+  customText?: string,
+  onComplete?: () => void
+): void {
   const text = customText || getDefeatPhrase(language, finalScore);
-  speakQuestion(text, language);
+  speakQuestion(text, language, onComplete);
 }
 
 export const PLAY_OR_PASS_PHRASES: Record<string, { play: (team: string) => string; pass: (team: string) => string }> = {
@@ -137,10 +279,11 @@ export function speakPlayOrPassDecision(
   teamName: string,
   decision: 'play' | 'pass',
   language: string = 'EN',
-  customText?: string
+  customText?: string,
+  onComplete?: () => void
 ): void {
   const text = customText || getPlayOrPassPhrase(teamName, decision, language);
-  speakQuestion(text, language);
+  speakQuestion(text, language, onComplete);
 }
 
 export const ROUND_CLEARED_PHRASES: Record<string, (team: string) => string> = {
@@ -149,10 +292,14 @@ export const ROUND_CLEARED_PHRASES: Record<string, (team: string) => string> = {
   ES: (team: string) => `¡El ${team} despejó el tablero!`,
 };
 
-export function speakBoardCleared(teamName: string, language: string = 'EN'): void {
+export function speakBoardCleared(
+  teamName: string,
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
   const norm = language.toUpperCase();
   const fn = ROUND_CLEARED_PHRASES[norm] || ROUND_CLEARED_PHRASES.EN;
-  speakQuestion(fn(teamName), language);
+  speakQuestion(fn(teamName), language, onComplete);
 }
 
 export const STEAL_PHASE_PHRASES: Record<string, (opposingTeam: string) => string> = {
@@ -161,10 +308,14 @@ export const STEAL_PHASE_PHRASES: Record<string, (opposingTeam: string) => strin
   ES: (team: string) => `¡Tres fallos! ¡El ${team} tiene la oportunidad de robar!`,
 };
 
-export function speakStealPhase(opposingTeamName: string, language: string = 'EN'): void {
+export function speakStealPhase(
+  opposingTeamName: string,
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
   const norm = language.toUpperCase();
   const fn = STEAL_PHASE_PHRASES[norm] || STEAL_PHASE_PHRASES.EN;
-  speakQuestion(fn(opposingTeamName), language);
+  speakQuestion(fn(opposingTeamName), language, onComplete);
 }
 
 export const STEAL_SUCCESS_PHRASES: Record<string, (team: string, points: number) => string> = {
@@ -173,10 +324,15 @@ export const STEAL_SUCCESS_PHRASES: Record<string, (team: string, points: number
   ES: (team: string, points: number) => `¡Robo exitoso! ¡El ${team} robó ${points} puntos!`,
 };
 
-export function speakStealSuccess(teamName: string, points: number, language: string = 'EN'): void {
+export function speakStealSuccess(
+  teamName: string,
+  points: number,
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
   const norm = language.toUpperCase();
   const fn = STEAL_SUCCESS_PHRASES[norm] || STEAL_SUCCESS_PHRASES.EN;
-  speakQuestion(fn(teamName, points), language);
+  speakQuestion(fn(teamName, points), language, onComplete);
 }
 
 export const STEAL_FAILED_PHRASES: Record<string, (team: string, points: number) => string> = {
@@ -185,8 +341,13 @@ export const STEAL_FAILED_PHRASES: Record<string, (team: string, points: number)
   ES: (team: string, points: number) => `¡Robo fallido! ¡El ${team} retiene ${points} puntos!`,
 };
 
-export function speakStealFailed(teamName: string, points: number, language: string = 'EN'): void {
+export function speakStealFailed(
+  teamName: string,
+  points: number,
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
   const norm = language.toUpperCase();
   const fn = STEAL_FAILED_PHRASES[norm] || STEAL_FAILED_PHRASES.EN;
-  speakQuestion(fn(teamName, points), language);
+  speakQuestion(fn(teamName, points), language, onComplete);
 }

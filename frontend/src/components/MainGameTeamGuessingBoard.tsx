@@ -23,11 +23,14 @@ import {
   playVictoryFanfare,
 } from '../utils/soundEffects';
 import {
+  speakQuestion,
   speakBoardCleared,
   speakStealPhase,
   speakStealSuccess,
   speakStealFailed,
   cancelSpeech,
+  isTtsMuted,
+  setTtsMuted,
 } from '../utils/tts';
 import {
   Tv,
@@ -35,6 +38,8 @@ import {
   ArrowLeft,
   Sparkles,
   Flame,
+  Volume2,
+  VolumeX,
   AlertTriangle,
   Trophy,
   Zap,
@@ -82,6 +87,46 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   onLeave,
 }) => {
   const { t } = useTranslation();
+
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => !isTtsMuted());
+
+  const handleToggleAudio = () => {
+    const nextAudio = !audioEnabled;
+    setAudioEnabled(nextAudio);
+    setTtsMuted(!nextAudio);
+    if (!nextAudio) {
+      cancelSpeech();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      cancelSpeech();
+    };
+  }, []);
+
+  // Scenario 1 & US-17: Trigger TTS reading of question when team guessing phase begins
+  const lastSpokenQuestionId = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      snapshot.phase === 'TEAM_GUESSING' &&
+      snapshot.question?.id &&
+      lastSpokenQuestionId.current !== snapshot.question.id
+    ) {
+      lastSpokenQuestionId.current = snapshot.question.id;
+      if (audioEnabled) {
+        speakQuestion(snapshot.question.questionText, language);
+      }
+    }
+  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, language, audioEnabled]);
+
+  // Scenario 2: Cancel host reading on rapid guess submission or strike (US-17 Scenario 2)
+  useEffect(() => {
+    if (snapshot.revealedAnswers.length > 0 || (strikeIssued && strikeIssued.strikeCount > 0)) {
+      cancelSpeech();
+    }
+  }, [snapshot.revealedAnswers.length, strikeIssued]);
+
 
   // Active full-screen strike animation overlay state
   const [activeStrikeOverlay, setActiveStrikeOverlay] = useState<{
@@ -161,7 +206,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     ) {
       hasCelebratedClear.current = true;
       playVictoryFanfare();
-      speakBoardCleared(controllingTeamName, language);
+      if (audioEnabled) { cancelSpeech(); speakBoardCleared(controllingTeamName, language); }
     }
   }, [roundCleared, snapshot.phase, controllingTeamName, language]);
 
@@ -172,7 +217,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       !hasAnnouncedSteal.current
     ) {
       hasAnnouncedSteal.current = true;
-      speakStealPhase(opposingTeamName, language);
+      if (audioEnabled) { cancelSpeech(); speakStealPhase(opposingTeamName, language); }
     }
   }, [transitionStealPhase, snapshot.phase, opposingTeamName, language]);
 
@@ -182,7 +227,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       if (stealResolved.success && !hasCelebratedStealSuccess.current) {
         hasCelebratedStealSuccess.current = true;
         playVictoryFanfare();
-        speakStealSuccess(
+        if (audioEnabled) { cancelSpeech(); } speakStealSuccess(
           opposingTeamName,
           stealResolved.pointsAwarded || snapshot.roundBank,
           language
@@ -190,7 +235,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       } else if (!stealResolved.success && !hasAnnouncedStealFailed.current) {
         hasAnnouncedStealFailed.current = true;
         playStrikeBuzzer(1);
-        speakStealFailed(
+        if (audioEnabled) { cancelSpeech(); } speakStealFailed(
           controllingTeamName,
           stealResolved.pointsAwarded || snapshot.roundBank,
           language
@@ -317,8 +362,22 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
           </div>
         </div>
 
-        {/* Controlling Team Banner */}
+        {/* Controlling Team Banner & Host Audio Controls (US-17 Scenario 4) */}
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleToggleAudio}
+            data-testid="host-audio-toggle"
+            title={audioEnabled ? 'Mute Sounds & TTS' : 'Unmute Sounds & TTS'}
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+          >
+            {audioEnabled ? (
+              <Volume2 className="w-5 h-5 text-yellow-400" />
+            ) : (
+              <VolumeX className="w-5 h-5 text-slate-500" />
+            )}
+          </button>
+
           <div
             className={`px-4 py-2 rounded-xl border flex items-center gap-2 shadow-lg ${
               snapshot.controllingTeam === 'TEAM_1'

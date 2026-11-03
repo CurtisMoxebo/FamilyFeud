@@ -9,6 +9,9 @@ import {
 } from '../types';
 import {
   speakQuestion,
+  cancelSpeech,
+  isTtsMuted,
+  setTtsMuted,
   speakDuplicateAlert,
   speakVictory,
   speakDefeat,
@@ -78,7 +81,18 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   onReplay,
 }) => {
   const { t } = useTranslation();
-  const [audioEnabled, setAudioEnabled] = useState<boolean>(enableSFX || enableTTS);
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
+    return !isTtsMuted() && (enableSFX || enableTTS);
+  });
+
+  const handleToggleAudio = () => {
+    const nextAudio = !audioEnabled;
+    setAudioEnabled(nextAudio);
+    setTtsMuted(!nextAudio);
+    if (!nextAudio) {
+      cancelSpeech();
+    }
+  };
   const isInitialMountRef = useRef<boolean>(true);
   const isP2InitialMountRef = useRef<boolean>(true);
   const [isAutoPacing, setIsAutoPacing] = useState<boolean>(false);
@@ -199,6 +213,20 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     ? gameOver.isVictory
     : snapshot?.isVictory ?? grandTotal >= 200;
 
+  // Rapid transition cancellation: stop any pending speech when round finishes or advances (US-17 Scenario 2)
+  useEffect(() => {
+    if (phase !== 'P1_PLAYING' && phase !== 'P2_PLAYING') {
+      cancelSpeech();
+    }
+  }, [phase]);
+
+  // Clean up speech on unmount (US-17 Scenario 2)
+  useEffect(() => {
+    return () => {
+      cancelSpeech();
+    };
+  }, []);
+
   // 1. Speak question via TTS during P1_PLAYING and P2_PLAYING (US-07 & US-09 Scenario 1)
   useEffect(() => {
     if (
@@ -209,6 +237,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       currentQuestionText !== lastSpokenQuestionRef.current
     ) {
       lastSpokenQuestionRef.current = currentQuestionText;
+      cancelSpeech();
       speakQuestion(currentQuestionText, language);
     }
   }, [currentQuestionText, phase, language, enableTTS, audioEnabled]);
@@ -247,8 +276,9 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       activeRevealSlot
     ) {
       lastSpokenRevealSlotRef.current = activeRevealSlotNumber;
+      const p1Prefix = language.toUpperCase() === 'ES' ? 'Pregunta' : 'Question';
       speakQuestion(
-        `Question ${activeRevealSlotNumber}: ${activeRevealSlot.questionText}`,
+        `${p1Prefix} ${activeRevealSlotNumber}: ${activeRevealSlot.questionText}`,
         language
       );
     }
@@ -265,8 +295,9 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       activeP2RevealSlot
     ) {
       lastSpokenP2RevealSlotRef.current = activeP2RevealSlotNumber;
+      const p2Prefix = language.toUpperCase() === 'ES' ? 'Pregunta' : 'Question';
       speakQuestion(
-        `Question ${activeP2RevealSlotNumber}: ${activeP2RevealSlot.questionText}`,
+        `${p2Prefix} ${activeP2RevealSlotNumber}: ${activeP2RevealSlot.questionText}`,
         language
       );
     }
@@ -549,7 +580,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setAudioEnabled(!audioEnabled)}
+              onClick={handleToggleAudio}
               data-testid="host-audio-toggle"
               title={audioEnabled ? 'Mute Sounds & TTS' : 'Unmute Sounds & TTS'}
               className="p-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"

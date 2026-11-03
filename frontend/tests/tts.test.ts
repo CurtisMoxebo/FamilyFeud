@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   speakQuestion,
+  speak,
   cancelSpeech,
+  getVoiceForLang,
+  isTtsMuted,
+  setTtsMuted,
+  toggleTtsMuted,
+  TTS_MUTED_STORAGE_KEY,
   speakDuplicateAlert,
   getDuplicateWarningPhrase,
   DUPLICATE_WARNING_PHRASES,
@@ -18,106 +24,329 @@ import {
   ROUND_CLEARED_PHRASES,
   speakStealPhase,
   STEAL_PHASE_PHRASES,
+  speakStealSuccess,
+  STEAL_SUCCESS_PHRASES,
+  speakStealFailed,
+  STEAL_FAILED_PHRASES,
 } from '../src/utils/tts';
 
 describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
   let mockSpeak: any;
   let mockCancel: any;
+  let mockGetVoices: any;
 
   beforeEach(() => {
+    localStorage.clear();
     mockSpeak = vi.fn();
     mockCancel = vi.fn();
+    mockGetVoices = vi.fn().mockReturnValue([]);
 
     // Mock window.speechSynthesis
     Object.defineProperty(window, 'speechSynthesis', {
       value: {
         speak: mockSpeak,
         cancel: mockCancel,
+        getVoices: mockGetVoices,
       },
       writable: true,
       configurable: true,
     });
 
     // Mock SpeechSynthesisUtterance if not defined in jsdom
-    if (typeof (globalThis as any).SpeechSynthesisUtterance === 'undefined') {
-      (globalThis as any).SpeechSynthesisUtterance = class {
-        text: string;
-        lang: string = 'en-US';
-        rate: number = 1.0;
-        pitch: number = 1.0;
-        constructor(text: string) {
-          this.text = text;
-        }
-      };
-    }
+    (globalThis as any).SpeechSynthesisUtterance = class {
+      text: string;
+      lang: string = 'en-US';
+      rate: number = 1.0;
+      pitch: number = 1.0;
+      voice: any = null;
+      onend: (() => void) | null = null;
+      onerror: ((error: any) => void) | null = null;
+      constructor(text: string) {
+        this.text = text;
+      }
+    };
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
   });
 
-  it('cancels any ongoing speech and speaks English text by default', () => {
-    speakQuestion('Name a yellow fruit');
+  describe('Mute Management & Persistence (isTtsMuted, setTtsMuted, toggleTtsMuted)', () => {
+    it('defaults to unmuted (false)', () => {
+      expect(isTtsMuted()).toBe(false);
+    });
 
-    expect(mockCancel).toHaveBeenCalledTimes(1);
-    expect(mockSpeak).toHaveBeenCalledTimes(1);
-    const utterance = mockSpeak.mock.calls[0][0];
-    expect(utterance.text).toBe('Name a yellow fruit');
-    expect(utterance.lang).toBe('en-US');
-  });
+    it('sets and persists mute state in localStorage', () => {
+      setTtsMuted(true);
+      expect(localStorage.getItem(TTS_MUTED_STORAGE_KEY)).toBe('true');
+      expect(isTtsMuted()).toBe(true);
 
-  it('configures French locale when language is FR', () => {
-    speakQuestion('Nommez un fruit jaune', 'FR');
+      setTtsMuted(false);
+      expect(localStorage.getItem(TTS_MUTED_STORAGE_KEY)).toBe('false');
+      expect(isTtsMuted()).toBe(false);
+    });
 
-    expect(mockCancel).toHaveBeenCalledTimes(1);
-    expect(mockSpeak).toHaveBeenCalledTimes(1);
-    const utterance = mockSpeak.mock.calls[0][0];
-    expect(utterance.text).toBe('Nommez un fruit jaune');
-    expect(utterance.lang).toBe('fr-FR');
-  });
+    it('toggles mute state and returns the new value', () => {
+      expect(toggleTtsMuted()).toBe(true);
+      expect(isTtsMuted()).toBe(true);
 
-  it('configures Spanish locale when language is ES', () => {
-    speakQuestion('Menciona una fruta amarilla', 'ES');
+      expect(toggleTtsMuted()).toBe(false);
+      expect(isTtsMuted()).toBe(false);
+    });
 
-    expect(mockCancel).toHaveBeenCalledTimes(1);
-    expect(mockSpeak).toHaveBeenCalledTimes(1);
-    const utterance = mockSpeak.mock.calls[0][0];
-    expect(utterance.text).toBe('Menciona una fruta amarilla');
-    expect(utterance.lang).toBe('es-ES');
-  });
+    it('handles localStorage exceptions gracefully without crashing', () => {
+      const originalGetItem = localStorage.getItem;
+      const originalSetItem = localStorage.setItem;
 
-  it('cancelSpeech cancels active speech safely', () => {
-    cancelSpeech();
-    expect(mockCancel).toHaveBeenCalledTimes(1);
-  });
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('SecurityError: Access Denied');
+      });
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('QuotaExceededError');
+      });
 
-  it('handles missing window.speechSynthesis gracefully without throwing', () => {
-    const originalSpeechSynthesis = window.speechSynthesis;
-    // @ts-ignore
-    delete window.speechSynthesis;
+      expect(isTtsMuted()).toBe(false);
+      expect(() => setTtsMuted(true)).not.toThrow();
 
-    expect(() => speakQuestion('Test without speech support')).not.toThrow();
-    expect(() => cancelSpeech()).not.toThrow();
+      Storage.prototype.getItem = originalGetItem;
+      Storage.prototype.setItem = originalSetItem;
+    });
 
-    // Restore
-    Object.defineProperty(window, 'speechSynthesis', {
-      value: originalSpeechSynthesis,
-      writable: true,
-      configurable: true,
+    it('handles undefined localStorage gracefully without throwing', () => {
+      const orig = window.localStorage;
+      // @ts-ignore
+      delete window.localStorage;
+
+      expect(isTtsMuted()).toBe(false);
+      expect(() => setTtsMuted(true)).not.toThrow();
+
+      Object.defineProperty(window, 'localStorage', {
+        value: orig,
+        writable: true,
+        configurable: true,
+      });
     });
   });
 
-  it('catches and logs warning if speech synthesis throws an error', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    mockSpeak.mockImplementationOnce(() => {
-      throw new Error('Autoplay restriction');
+  describe('Voice Resolution (getVoiceForLang)', () => {
+    it('returns null if window or speechSynthesis is missing or getVoices is undefined', () => {
+      const orig = window.speechSynthesis;
+      // @ts-ignore
+      delete window.speechSynthesis;
+      expect(getVoiceForLang('EN')).toBeNull();
+
+      Object.defineProperty(window, 'speechSynthesis', {
+        value: orig,
+        writable: true,
+        configurable: true,
+      });
     });
 
-    expect(() => speakQuestion('Error trigger')).not.toThrow();
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[HOST_TTS:WARN]'),
-      expect.any(Error)
-    );
+    it('returns null if getVoices returns empty list', () => {
+      mockGetVoices.mockReturnValue([]);
+      expect(getVoiceForLang('FR')).toBeNull();
+    });
+
+    it('resolves French voices in order of preference (fr-FR > fr-CA > fr-*)', () => {
+      const vFrFr = { name: 'Google Français', lang: 'fr-FR' };
+      const vFrCa = { name: 'Amélie', lang: 'fr-CA' };
+      const vFrBe = { name: 'Belgian French', lang: 'fr-BE' };
+
+      mockGetVoices.mockReturnValue([vFrBe, vFrCa, vFrFr]);
+      expect(getVoiceForLang('FR')).toBe(vFrFr);
+
+      mockGetVoices.mockReturnValue([vFrBe, vFrCa]);
+      expect(getVoiceForLang('fr')).toBe(vFrCa);
+
+      mockGetVoices.mockReturnValue([vFrBe]);
+      expect(getVoiceForLang('fr-FR')).toBe(vFrBe);
+    });
+
+    it('resolves Spanish voices in order of preference (es-ES > es-MX > es-US > es-*)', () => {
+      const vEsEs = { name: 'Jorge', lang: 'es-ES' };
+      const vEsMx = { name: 'Paulina', lang: 'es-MX' };
+      const vEsUs = { name: 'Diego', lang: 'es-US' };
+      const vEsAr = { name: 'Mateo', lang: 'es-AR' };
+
+      mockGetVoices.mockReturnValue([vEsAr, vEsUs, vEsMx, vEsEs]);
+      expect(getVoiceForLang('ES')).toBe(vEsEs);
+
+      mockGetVoices.mockReturnValue([vEsAr, vEsUs, vEsMx]);
+      expect(getVoiceForLang('es')).toBe(vEsMx);
+
+      mockGetVoices.mockReturnValue([vEsAr, vEsUs]);
+      expect(getVoiceForLang('es-US')).toBe(vEsUs);
+
+      mockGetVoices.mockReturnValue([vEsAr]);
+      expect(getVoiceForLang('ES')).toBe(vEsAr);
+    });
+
+    it('resolves English voices in order of preference (en-US > en-GB > en-*)', () => {
+      const vEnUs = { name: 'Samantha', lang: 'en-US' };
+      const vEnGb = { name: 'Daniel', lang: 'en-GB' };
+      const vEnAu = { name: 'Karen', lang: 'en-AU' };
+
+      mockGetVoices.mockReturnValue([vEnAu, vEnGb, vEnUs]);
+      expect(getVoiceForLang('EN')).toBe(vEnUs);
+
+      mockGetVoices.mockReturnValue([vEnAu, vEnGb]);
+      expect(getVoiceForLang('en')).toBe(vEnGb);
+
+      mockGetVoices.mockReturnValue([vEnAu]);
+      expect(getVoiceForLang('en-US')).toBe(vEnAu);
+    });
+
+    it('returns null when no voices match the target language prefix', () => {
+      mockGetVoices.mockReturnValue([
+        { name: 'Keiko', lang: 'ja-JP' },
+        { name: 'Anna', lang: 'de-DE' },
+      ]);
+      expect(getVoiceForLang('FR')).toBeNull();
+    });
+
+    it('returns null if getVoices throws an error', () => {
+      mockGetVoices.mockImplementationOnce(() => {
+        throw new Error('Speech synthesis error');
+      });
+      expect(getVoiceForLang('EN')).toBeNull();
+    });
+  });
+
+  describe('speakQuestion and speak alias', () => {
+    it('cancels ongoing speech and speaks English text with rate 1.05 and pitch 1.0 by default', () => {
+      speakQuestion('Name a yellow fruit');
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Name a yellow fruit');
+      expect(utterance.lang).toBe('en-US');
+      expect(utterance.rate).toBe(1.05);
+      expect(utterance.pitch).toBe(1.0);
+    });
+
+    it('speak is an alias to speakQuestion', () => {
+      expect(speak).toBe(speakQuestion);
+      speak('Speak alias test', 'EN');
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+    });
+
+    it('assigns resolved voice to utterance if available', () => {
+      const mockVoice = { name: 'Google Français', lang: 'fr-FR' };
+      mockGetVoices.mockReturnValue([mockVoice]);
+
+      speakQuestion('Nommez un animal', 'FR');
+
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.voice).toBe(mockVoice);
+      expect(utterance.lang).toBe('fr-FR');
+    });
+
+    it('configures French locale when language is FR and no voice matched', () => {
+      mockGetVoices.mockReturnValue([]);
+      speakQuestion('Nommez un fruit jaune', 'FR');
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Nommez un fruit jaune');
+      expect(utterance.lang).toBe('fr-FR');
+    });
+
+    it('configures Spanish locale when language is ES and no voice matched', () => {
+      mockGetVoices.mockReturnValue([]);
+      speakQuestion('Menciona una fruta amarilla', 'ES');
+
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Menciona una fruta amarilla');
+      expect(utterance.lang).toBe('es-ES');
+    });
+
+    it('executes onComplete immediately and skips speaking when muted', () => {
+      setTtsMuted(true);
+      const onComplete = vi.fn();
+
+      speakQuestion('Muted question', 'EN', onComplete);
+
+      expect(mockSpeak).not.toHaveBeenCalled();
+      expect(mockCancel).not.toHaveBeenCalled();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it('fires onComplete callback when utterance.onend is triggered', () => {
+      const onComplete = vi.fn();
+      speakQuestion('Hello World', 'EN', onComplete);
+
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(onComplete).not.toHaveBeenCalled();
+
+      // Trigger onend
+      utterance.onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it('fires onComplete callback and warns when utterance.onerror is triggered', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const onComplete = vi.fn();
+      speakQuestion('Hello Error', 'EN', onComplete);
+
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(onComplete).not.toHaveBeenCalled();
+
+      // Trigger onerror
+      utterance.onerror(new Error('Audio interrupted'));
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[HOST_TTS:WARN] Speech utterance encountered an error:'),
+        expect.any(Error)
+      );
+    });
+
+    it('cancelSpeech cancels active speech safely', () => {
+      cancelSpeech();
+      expect(mockCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('handles missing window.speechSynthesis gracefully, warns, and triggers onComplete', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const originalSpeechSynthesis = window.speechSynthesis;
+      // @ts-ignore
+      delete window.speechSynthesis;
+
+      const onComplete = vi.fn();
+      expect(() => speakQuestion('Test without speech support', 'EN', onComplete)).not.toThrow();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[HOST_TTS:WARN] Speech synthesis is not supported in this browser.')
+      );
+
+      expect(() => cancelSpeech()).not.toThrow();
+
+      // Restore
+      Object.defineProperty(window, 'speechSynthesis', {
+        value: originalSpeechSynthesis,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('catches and logs warning if speech synthesis throws an error, invoking onComplete', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      mockSpeak.mockImplementationOnce(() => {
+        throw new Error('Autoplay restriction');
+      });
+
+      const onComplete = vi.fn();
+      expect(() => speakQuestion('Error trigger', 'EN', onComplete)).not.toThrow();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[HOST_TTS:WARN] Speech synthesis failed or blocked by autoplay policy:'),
+        expect.any(Error)
+      );
+    });
   });
 
   describe('speakDuplicateAlert (US-09 Scenario 2)', () => {
@@ -151,13 +380,17 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(utterance.lang).toBe('es-ES');
     });
 
-    it('allows speaking custom duplicate warning text', () => {
-      speakDuplicateAlert('EN', 'Custom warning!');
+    it('allows speaking custom duplicate warning text and forwards onComplete', () => {
+      const onComplete = vi.fn();
+      speakDuplicateAlert('EN', 'Custom warning!', onComplete);
 
       expect(mockCancel).toHaveBeenCalledTimes(1);
       expect(mockSpeak).toHaveBeenCalledTimes(1);
       const utterance = mockSpeak.mock.calls[0][0];
       expect(utterance.text).toBe('Custom warning!');
+
+      utterance.onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
     });
 
     it('getDuplicateWarningPhrase returns localized phrases and English fallback', () => {
@@ -200,6 +433,14 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(utterance.lang).toBe('es-ES');
     });
 
+    it('forwards onComplete callback on victory announcement', () => {
+      const onComplete = vi.fn();
+      speakVictory('EN', undefined, onComplete);
+      const utterance = mockSpeak.mock.calls[0][0];
+      utterance.onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    });
+
     it('getVictoryPhrase returns localized victory phrases and English fallback', () => {
       expect(VICTORY_PHRASES.EN).toBe('200 points! You won Fast Money!');
       expect(getVictoryPhrase('EN')).toBe('200 points! You won Fast Money!');
@@ -238,6 +479,14 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       const utterance = mockSpeak.mock.calls[0][0];
       expect(utterance.text).toBe('Puntuación final: 160 puntos. ¡Juego terminado!');
       expect(utterance.lang).toBe('es-ES');
+    });
+
+    it('forwards onComplete callback on defeat announcement', () => {
+      const onComplete = vi.fn();
+      speakDefeat('EN', 150, undefined, onComplete);
+      const utterance = mockSpeak.mock.calls[0][0];
+      utterance.onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
     });
 
     it('getDefeatPhrase returns localized defeat phrases with score formatting', () => {
@@ -288,9 +537,12 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(mockSpeak.mock.calls[0][0].text).toBe('¡El control pasa a Equipo 2!');
     });
 
-    it('speaks customText when provided', () => {
-      speakPlayOrPassDecision('Team 1', 'play', 'EN', 'Custom Announcement!');
+    it('speaks customText when provided and triggers onComplete', () => {
+      const onComplete = vi.fn();
+      speakPlayOrPassDecision('Team 1', 'play', 'EN', 'Custom Announcement!', onComplete);
       expect(mockSpeak.mock.calls[0][0].text).toBe('Custom Announcement!');
+      mockSpeak.mock.calls[0][0].onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
     });
 
     it('getPlayOrPassPhrase falls back to English for unknown locales', () => {
@@ -307,10 +559,13 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
   });
 
   describe('US-14: speakBoardCleared & speakStealPhase', () => {
-    it('speaks board cleared announcements across EN, FR, and ES', () => {
-      speakBoardCleared('Team 1', 'EN');
+    it('speaks board cleared announcements across EN, FR, and ES with onComplete', () => {
+      const onComplete = vi.fn();
+      speakBoardCleared('Team 1', 'EN', onComplete);
       expect(mockSpeak.mock.calls[0][0].text).toBe('Team 1 cleared the board!');
       expect(mockSpeak.mock.calls[0][0].lang).toBe('en-US');
+      mockSpeak.mock.calls[0][0].onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
 
       mockSpeak.mockClear();
       speakBoardCleared('Équipe 1', 'FR');
@@ -323,9 +578,12 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(mockSpeak.mock.calls[0][0].lang).toBe('es-ES');
     });
 
-    it('speaks steal phase announcements across EN, FR, and ES', () => {
-      speakStealPhase('Team 2', 'EN');
+    it('speaks steal phase announcements across EN, FR, and ES with onComplete', () => {
+      const onComplete = vi.fn();
+      speakStealPhase('Team 2', 'EN', onComplete);
       expect(mockSpeak.mock.calls[0][0].text).toBe('Three strikes! Team 2 has a chance to steal!');
+      mockSpeak.mock.calls[0][0].onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
 
       mockSpeak.mockClear();
       speakStealPhase('Équipe 2', 'FR');
@@ -336,7 +594,38 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(mockSpeak.mock.calls[0][0].text).toBe('¡Tres fallos! ¡El Equipo 2 tiene la oportunidad de robar!');
     });
 
-    it('provides ROUND_CLEARED_PHRASES and STEAL_PHASE_PHRASES mappings directly', () => {
+    it('speaks steal success and steal failed announcements with onComplete', () => {
+      const onCompleteSuccess = vi.fn();
+      speakStealSuccess('Team 2', 45, 'EN', onCompleteSuccess);
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Steal successful! Team 2 stole 45 points!');
+      mockSpeak.mock.calls[0][0].onend();
+      expect(onCompleteSuccess).toHaveBeenCalledTimes(1);
+
+      mockSpeak.mockClear();
+      speakStealSuccess('Équipe 2', 45, 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe("Vol réussi ! L'Équipe 2 a volé 45 points !");
+
+      mockSpeak.mockClear();
+      speakStealSuccess('Equipo 2', 45, 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('¡Robo exitoso! ¡El Equipo 2 robó 45 puntos!');
+
+      const onCompleteFailed = vi.fn();
+      mockSpeak.mockClear();
+      speakStealFailed('Team 1', 45, 'EN', onCompleteFailed);
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Steal failed! Team 1 retains 45 points!');
+      mockSpeak.mock.calls[0][0].onend();
+      expect(onCompleteFailed).toHaveBeenCalledTimes(1);
+
+      mockSpeak.mockClear();
+      speakStealFailed('Équipe 1', 45, 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe("Vol échoué ! L'Équipe 1 conserve 45 points !");
+
+      mockSpeak.mockClear();
+      speakStealFailed('Equipo 1', 45, 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('¡Robo fallido! ¡El Equipo 1 retiene 45 puntos!');
+    });
+
+    it('provides ROUND_CLEARED_PHRASES, STEAL_PHASE_PHRASES, STEAL_SUCCESS_PHRASES, and STEAL_FAILED_PHRASES mappings directly', () => {
       expect(ROUND_CLEARED_PHRASES.EN('Team 1')).toBe('Team 1 cleared the board!');
       expect(ROUND_CLEARED_PHRASES.FR('Équipe 1')).toBe("L'Équipe 1 a vidé le tableau !");
       expect(ROUND_CLEARED_PHRASES.ES('Equipo 1')).toBe('¡El Equipo 1 despejó el tablero!');
@@ -344,6 +633,14 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(STEAL_PHASE_PHRASES.EN('Team 2')).toBe('Three strikes! Team 2 has a chance to steal!');
       expect(STEAL_PHASE_PHRASES.FR('Équipe 2')).toBe("Trois fautes ! L'Équipe 2 a une chance de voler les points !");
       expect(STEAL_PHASE_PHRASES.ES('Equipo 2')).toBe('¡Tres fallos! ¡El Equipo 2 tiene la oportunidad de robar!');
+
+      expect(STEAL_SUCCESS_PHRASES.EN('Team 2', 50)).toBe('Steal successful! Team 2 stole 50 points!');
+      expect(STEAL_SUCCESS_PHRASES.FR('Équipe 2', 50)).toBe("Vol réussi ! L'Équipe 2 a volé 50 points !");
+      expect(STEAL_SUCCESS_PHRASES.ES('Equipo 2', 50)).toBe('¡Robo exitoso! ¡El Equipo 2 robó 50 puntos!');
+
+      expect(STEAL_FAILED_PHRASES.EN('Team 1', 50)).toBe('Steal failed! Team 1 retains 50 points!');
+      expect(STEAL_FAILED_PHRASES.FR('Équipe 1', 50)).toBe("Vol échoué ! L'Équipe 1 conserve 50 points !");
+      expect(STEAL_FAILED_PHRASES.ES('Equipo 1', 50)).toBe('¡Robo fallido! ¡El Equipo 1 retiene 50 puntos!');
     });
   });
 });

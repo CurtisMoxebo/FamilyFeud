@@ -12,6 +12,8 @@ vi.mock('../src/utils/tts', () => ({
   cancelSpeech: vi.fn(),
   speakPlayOrPassDecision: vi.fn(),
   getPlayOrPassPhrase: vi.fn(),
+  isTtsMuted: vi.fn(() => false),
+  setTtsMuted: vi.fn(),
 }));
 
 vi.mock('../src/utils/soundEffects', () => ({
@@ -440,5 +442,31 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
       expect(soundModule.playPointsChime).toHaveBeenCalled();
       expect(ttsModule.speakPlayOrPassDecision).toHaveBeenCalledWith('Team 2', 'pass', 'EN');
     });
+  });
+
+  it('satisfies US-17 Scenario 4: renders host audio toggle button and toggles mute state with cancelSpeech', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    render(
+      <MainGameFaceOffBoard
+        snapshot={baseSnapshot}
+        language="EN"
+        roomName="Test Room"
+        roomCode="FEUD-01"
+      />
+    );
+
+    const toggleBtn = screen.getByTestId('host-audio-toggle');
+    expect(toggleBtn).toHaveAttribute('title', 'Mute Sounds & TTS');
+
+    // Click to mute
+    fireEvent.click(toggleBtn);
+    expect(ttsModule.setTtsMuted).toHaveBeenCalledWith(true);
+    expect(ttsModule.cancelSpeech).toHaveBeenCalled();
+    expect(toggleBtn).toHaveAttribute('title', 'Unmute Sounds & TTS');
+
+    // Click to unmute
+    fireEvent.click(toggleBtn);
+    expect(ttsModule.setTtsMuted).toHaveBeenCalledWith(false);
+    expect(toggleBtn).toHaveAttribute('title', 'Mute Sounds & TTS');
   });
 });
