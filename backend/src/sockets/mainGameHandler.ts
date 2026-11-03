@@ -1513,6 +1513,7 @@ export function registerMainGameHandlers(
         return;
       }
 
+      hostAdminService.clearRoomAdmin(normalizedCode, io);
       const { nextRoundNumber, isSuddenDeath, state } = scoreboard.advanceToNextRound();
 
       // Update current round in database
@@ -1750,6 +1751,7 @@ export function registerMainGameHandlers(
         prismaClient: _db,
       });
 
+      hostAdminService.clearRoomAdmin(normalizedCode, io);
       // Reset scoreboard session
       const resetState = scoreboard.resetForReplay(newGame.id, { totalRounds: 3 });
 
