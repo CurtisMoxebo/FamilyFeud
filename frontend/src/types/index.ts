@@ -463,6 +463,8 @@ export interface TeamRevealedAnswer {
   revealedByPlayerId?: string;
   revealedByNickname?: string;
   revealedByTeam?: 'TEAM_1' | 'TEAM_2';
+  isStealMatch?: boolean;
+  isRemainingReveal?: boolean;
 }
 
 export interface TeamGuessingSessionState {
@@ -479,6 +481,8 @@ export interface TeamGuessingSessionState {
   activePlayerIndex: number;
   controllingTeamPlayers: TeamGuessingPlayer[];
   opposingTeamPlayers: TeamGuessingPlayer[];
+  stealSpokesperson?: TeamGuessingPlayer | null;
+  stealSpokespersonId?: string | null;
   strikes: number;
   roundBank: number;
   revealedAnswers: TeamRevealedAnswer[];
@@ -523,6 +527,9 @@ export interface TransitionStealPhasePayload {
   opposingTeam: 'TEAM_1' | 'TEAM_2';
   roundBank: number;
   reason?: string;
+  spokesperson?: TeamGuessingPlayer | null;
+  endsAt?: number | null;
+  duration?: number;
 }
 
 export interface TeamTurnStartedPayload {
@@ -563,4 +570,36 @@ export interface MainGameBoardRevealPayload {
   playerNickname?: string;
   playerTeam?: 'TEAM_1' | 'TEAM_2';
   isAllRevealed?: boolean;
+  isStealMatch?: boolean;
+  isRemainingReveal?: boolean;
+}
+
+// US-15: 3-Strike Steal Phase & Round Resolution Payloads
+export interface StealResolvedPayload {
+  roomCode: string;
+  success: boolean;
+  outcome: 'STEAL_SUCCESS' | 'STEAL_FAILED' | 'STEAL_TIMEOUT';
+  winningTeam: 'TEAM_1' | 'TEAM_2';
+  pointsAwarded: number;
+  stealingPlayer: TeamGuessingPlayer;
+  matchedAnswer?: TeamRevealedAnswer;
+  rawAnswer?: string;
+  roundBank: number;
+  remainingAnswers: TeamRevealedAnswer[];
+  message: string;
+}
+
+export interface RoundWinnerPayload {
+  roomCode: string;
+  winningTeam: 'TEAM_1' | 'TEAM_2';
+  pointsAwarded: number;
+  roundBank: number;
+  totalTeam1?: number;
+  totalTeam2?: number;
+  message?: string;
+}
+
+export interface RemainingAnswersRevealPayload {
+  roomCode: string;
+  remainingAnswers: TeamRevealedAnswer[];
 }

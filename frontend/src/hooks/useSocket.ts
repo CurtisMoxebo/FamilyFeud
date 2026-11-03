@@ -30,6 +30,8 @@ import {
   TeamTurnStartedPayload,
   TeamGuessResultPayload,
   MainGameBoardRevealPayload,
+  StealResolvedPayload,
+  RoundWinnerPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -101,6 +103,8 @@ export function useSocket(options?: UseSocketOptions) {
   const [teamTurnStarted, setTeamTurnStarted] = useState<TeamTurnStartedPayload | null>(null);
   const [teamGuessResult, setTeamGuessResult] = useState<TeamGuessResultPayload | null>(null);
   const [mainGameBoardReveal, setMainGameBoardReveal] = useState<MainGameBoardRevealPayload | null>(null);
+  const [stealResolved, setStealResolved] = useState<StealResolvedPayload | null>(null);
+  const [roundWinner, setRoundWinner] = useState<RoundWinnerPayload | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -294,6 +298,25 @@ export function useSocket(options?: UseSocketOptions) {
           roomCode,
           playerId,
         });
+      }
+    },
+    []
+  );
+
+  const submitStealGuess = useCallback(
+    (
+      roomCode: string,
+      playerId: string,
+      rawAnswer: string,
+      callback?: (res: { success: boolean; outcome?: string; stealSuccess?: boolean; error?: string }) => void
+    ) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit(
+          'submit_steal_guess',
+          { roomCode, playerId, rawAnswer },
+          callback
+        );
       }
     },
     []
@@ -552,6 +575,14 @@ export function useSocket(options?: UseSocketOptions) {
       setTeamGuessResult(payload);
     });
 
+    socket.on('steal_resolved', (payload: StealResolvedPayload) => {
+      setStealResolved(payload);
+    });
+
+    socket.on('round_winner', (payload: RoundWinnerPayload) => {
+      setRoundWinner(payload);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -589,8 +620,11 @@ export function useSocket(options?: UseSocketOptions) {
     teamTurnStarted,
     teamGuessResult,
     mainGameBoardReveal,
+    stealResolved,
+    roundWinner,
     submitTeamGuess,
     passTeamTurn,
+    submitStealGuess,
     getTeamGuessingState,
     fastMoneyP1State,
     fastMoneyP2State,

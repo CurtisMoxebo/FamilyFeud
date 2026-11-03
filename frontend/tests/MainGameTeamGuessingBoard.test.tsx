@@ -18,10 +18,12 @@ vi.mock('../src/utils/soundEffects', () => ({
 vi.mock('../src/utils/tts', () => ({
   speakBoardCleared: vi.fn(),
   speakStealPhase: vi.fn(),
+  speakStealSuccess: vi.fn(),
+  speakStealFailed: vi.fn(),
   cancelSpeech: vi.fn(),
 }));
 
-describe('US-14 MainGameTeamGuessingBoard Component Tests', () => {
+describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
   const baseSnapshot: TeamGuessingSessionState = {
     roomCode: 'FEUD-9999',
     gameId: 'game-99',
@@ -44,6 +46,8 @@ describe('US-14 MainGameTeamGuessingBoard Component Tests', () => {
     opposingTeamPlayers: [
       { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
     ],
+    stealSpokesperson: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+    stealSpokespersonId: 'p3',
     activePlayerIndex: 0,
     activePlayer: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
     strikes: 1,
@@ -235,7 +239,7 @@ describe('US-14 MainGameTeamGuessingBoard Component Tests', () => {
     expect(tts.speakBoardCleared).toHaveBeenCalledWith('Team 1', 'EN');
   });
 
-  it('satisfies Scenario 4: displays steal phase handoff banner and announces TTS on 3 strikes', () => {
+  it('satisfies Scenario 4: displays steal phase handoff banner, designated spokesperson, and announces TTS on 3 strikes', () => {
     const stealSnapshot: TeamGuessingSessionState = {
       ...baseSnapshot,
       phase: 'STEAL_PHASE',
@@ -250,13 +254,133 @@ describe('US-14 MainGameTeamGuessingBoard Component Tests', () => {
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
         roundBank: 75,
+        spokesperson: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        duration: 15,
       },
     });
 
     expect(screen.getByTestId('steal-phase-banner')).toBeInTheDocument();
     expect(screen.getByText(/Three Strikes!/i)).toBeInTheDocument();
     expect(screen.getByText(/Team 2 has a chance to STEAL!/i)).toBeInTheDocument();
+    expect(screen.getByText(/Charlie has the floor to submit your team's steal answer/i)).toBeInTheDocument();
+    expect(screen.getByTestId('active-player-display')).toHaveTextContent('Charlie (Team 2)');
     expect(tts.speakStealPhase).toHaveBeenCalledWith('Team 2', 'EN');
+  });
+
+  /* -------------------------------------------------------------
+   * US-15 Steal Phase & Round Resolution Specific Tests
+   * ------------------------------------------------------------- */
+  it('satisfies US-15 Scenario 1: Successful Steal displays celebration banner, plays fanfare, and speaks TTS', () => {
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 65,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      stealResolved: {
+        roomCode: 'FEUD-9999',
+        success: true,
+        outcome: 'STEAL_SUCCESS',
+        winningTeam: 'TEAM_2',
+        pointsAwarded: 65,
+        roundBank: 65,
+        stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        matchedAnswer: { id: 'a2', answerText: 'GLASSES', points: 25, rankOrder: 2 },
+        remainingAnswers: [
+          { id: 'a3', answerText: 'PHONE', points: 20, rankOrder: 3 },
+          { id: 'a4', answerText: 'REMOTE', points: 15, rankOrder: 4 },
+        ],
+        message: 'Steal successful!',
+      },
+    });
+
+    expect(screen.getByTestId('steal-resolved-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('steal-announcement-text')).toHaveTextContent(
+      'Steal Successful! Team 2 stole 65 points!'
+    );
+    expect(screen.getByText(/\+65 POINTS/i)).toBeInTheDocument();
+    expect(soundEffects.playVictoryFanfare).toHaveBeenCalled();
+    expect(tts.speakStealSuccess).toHaveBeenCalledWith('Team 2', 65, 'EN');
+
+    // Matched answer highlighted on the board
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('GLASSES');
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('25');
+  });
+
+  it('satisfies US-15 Scenario 2: Failed Steal displays failure banner, sounds strike buzzer, and retains bank for original team', () => {
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 65,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      stealResolved: {
+        roomCode: 'FEUD-9999',
+        success: false,
+        outcome: 'STEAL_FAILED',
+        winningTeam: 'TEAM_1',
+        pointsAwarded: 65,
+        roundBank: 65,
+        stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        rawAnswer: 'ELEPHANT',
+        remainingAnswers: [
+          { id: 'a2', answerText: 'GLASSES', points: 25, rankOrder: 2 },
+          { id: 'a3', answerText: 'PHONE', points: 20, rankOrder: 3 },
+          { id: 'a4', answerText: 'REMOTE', points: 15, rankOrder: 4 },
+        ],
+        message: 'Steal failed!',
+      },
+    });
+
+    expect(screen.getByTestId('steal-resolved-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('steal-announcement-text')).toHaveTextContent(
+      'Steal Failed! Team 1 retains 65 points!'
+    );
+    expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(1);
+    expect(tts.speakStealFailed).toHaveBeenCalledWith('Team 1', 65, 'EN');
+  });
+
+  it('satisfies US-15 Scenario 3: Flips open all remaining unrevealed cards on round resolution', () => {
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 55,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      stealResolved: {
+        roomCode: 'FEUD-9999',
+        success: false,
+        outcome: 'STEAL_TIMEOUT',
+        winningTeam: 'TEAM_1',
+        pointsAwarded: 55,
+        roundBank: 55,
+        stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        remainingAnswers: [
+          { id: 'a2', answerText: 'GLASSES', points: 25, rankOrder: 2 },
+          { id: 'a3', answerText: 'PHONE', points: 20, rankOrder: 3 },
+          { id: 'a4', answerText: 'REMOTE', points: 15, rankOrder: 4 },
+        ],
+        message: 'Steal timed out!',
+      },
+    });
+
+    // All slots 1, 2, 3, 4 should now be revealed with text and points
+    expect(screen.getByTestId('team-board-card-1')).toHaveTextContent('KEYS');
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('GLASSES');
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('25');
+    expect(screen.getByTestId('team-board-card-3')).toHaveTextContent('PHONE');
+    expect(screen.getByTestId('team-board-card-3')).toHaveTextContent('20');
+    expect(screen.getByTestId('team-board-card-4')).toHaveTextContent('REMOTE');
+    expect(screen.getByTestId('team-board-card-4')).toHaveTextContent('15');
   });
 
   it('invokes onLeave and cancelSpeech when leave button is clicked', () => {
