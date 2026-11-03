@@ -83,6 +83,19 @@ export interface TeamGuessingTimeoutResult {
   duration?: number;
 }
 
+export interface StealEvaluationResult {
+  success: boolean;
+  outcome: 'STEAL_SUCCESS' | 'STEAL_FAILED' | 'STEAL_TIMEOUT';
+  winningTeam: TeamId;
+  pointsAwarded: number;
+  stealingPlayer: TeamGuessingPlayer;
+  matchedAnswer?: TeamRevealedAnswer;
+  rawAnswer?: string;
+  roundBank: number;
+  remainingAnswers: TeamRevealedAnswer[];
+  message: string;
+}
+
 export interface TeamGuessingSessionConfig {
   gameId: string;
   roundNumber: number;
@@ -94,15 +107,24 @@ export interface TeamGuessingSessionConfig {
   initialBank?: number;
   startPlayerIndex?: number;
   startPlayerId?: string;
+  stealSpokespersonId?: string;
   timerDurationSeconds?: number;
   language?: SupportedLanguage | string;
   autoStartTimer?: boolean;
+  autoStartStealTimer?: boolean;
   onTick?: (secondsRemaining: number, endsAt: number) => void;
   onTimeout?: (result: TeamGuessingTimeoutResult) => void;
   onTurnAdvanced?: (nextPlayer: TeamGuessingPlayer, endsAt: number) => void;
   onStrike?: (strikeCount: number, player: TeamGuessingPlayer) => void;
   onRoundCleared?: (winningTeam: TeamId, totalRoundPoints: number) => void;
-  onStealPhase?: (controllingTeam: TeamId, opposingTeam: TeamId, roundBank: number) => void;
+  onStealPhase?: (
+    controllingTeam: TeamId,
+    opposingTeam: TeamId,
+    roundBank: number,
+    spokesperson?: TeamGuessingPlayer | null,
+    endsAt?: number | null
+  ) => void;
+  onStealResolved?: (result: StealEvaluationResult) => void;
 }
 
 export interface TeamGuessingSessionState {
@@ -119,6 +141,8 @@ export interface TeamGuessingSessionState {
   activePlayerIndex: number;
   controllingTeamPlayers: TeamGuessingPlayer[];
   opposingTeamPlayers: TeamGuessingPlayer[];
+  stealSpokesperson?: TeamGuessingPlayer | null;
+  stealSpokespersonId?: string | null;
   strikes: number;
   roundBank: number;
   revealedAnswers: TeamRevealedAnswer[];
@@ -159,6 +183,9 @@ export class TeamGuessingSession {
   public roundBank: number = 0;
   public revealedAnswers: TeamRevealedAnswer[] = [];
   public winningTeam: TeamId | null = null;
+  public stealSpokespersonId: string | null = null;
+  public stealSpokesperson: TeamGuessingPlayer | null = null;
+  public autoStartStealTimer: boolean = true;
 
   public timerDurationSeconds: number = 15;
   private timer: NodeJS.Timeout | null = null;
@@ -174,8 +201,11 @@ export class TeamGuessingSession {
   private onStealPhaseCallback?: (
     controllingTeam: TeamId,
     opposingTeam: TeamId,
-    roundBank: number
+    roundBank: number,
+    spokesperson?: TeamGuessingPlayer | null,
+    endsAt?: number | null
   ) => void;
+  private onStealResolvedCallback?: (result: StealEvaluationResult) => void;
 
   constructor(roomCode: string, config: TeamGuessingSessionConfig) {
     this.roomCode = roomCode.toUpperCase();
@@ -230,12 +260,21 @@ export class TeamGuessingSession {
         this.controllingTeamPlayers.length > 1 ? 1 : 0;
     }
 
+    this.autoStartStealTimer = config.autoStartStealTimer !== false;
+    this.stealSpokespersonId =
+      config.stealSpokespersonId || this.opposingTeamPlayers[0]?.id || null;
+    this.stealSpokesperson =
+      this.opposingTeamPlayers.find((p) => p.id === this.stealSpokespersonId) ||
+      this.opposingTeamPlayers[0] ||
+      null;
+
     this.onTickCallback = config.onTick;
     this.onTimeoutCallback = config.onTimeout;
     this.onTurnAdvancedCallback = config.onTurnAdvanced;
     this.onStrikeCallback = config.onStrike;
     this.onRoundClearedCallback = config.onRoundCleared;
     this.onStealPhaseCallback = config.onStealPhase;
+    this.onStealResolvedCallback = config.onStealResolved;
 
     if (config.autoStartTimer !== false) {
       this.startAuthoritativeTimer();
@@ -498,8 +537,18 @@ export class TeamGuessingSession {
         `[TEAM_GUESS:STEAL_PHASE] Room ${this.roomCode} 3 strikes reached. Control transitions to opposing team (${this.opposingTeam}) for Steal Phase.`
       );
 
+      if (this.autoStartStealTimer) {
+        this.startStealTimer();
+      }
+
       if (this.onStealPhaseCallback) {
-        this.onStealPhaseCallback(this.controllingTeam, this.opposingTeam, this.roundBank);
+        this.onStealPhaseCallback(
+          this.controllingTeam,
+          this.opposingTeam,
+          this.roundBank,
+          this.stealSpokesperson,
+          this.endsAt
+        );
       }
 
       return {
@@ -565,8 +614,18 @@ export class TeamGuessingSession {
     if (this.strikes >= 3) {
       this.phase = 'STEAL_PHASE';
 
+      if (this.autoStartStealTimer) {
+        this.startStealTimer();
+      }
+
       if (this.onStealPhaseCallback) {
-        this.onStealPhaseCallback(this.controllingTeam, this.opposingTeam, this.roundBank);
+        this.onStealPhaseCallback(
+          this.controllingTeam,
+          this.opposingTeam,
+          this.roundBank,
+          this.stealSpokesperson,
+          this.endsAt
+        );
       }
 
       const result: TeamGuessingTimeoutResult = {
@@ -648,6 +707,264 @@ export class TeamGuessingSession {
   }
 
   /**
+   * Starts the authoritative 15-second countdown timer for the Steal Phase (US-15).
+   */
+  public startStealTimer(): void {
+    this.stopTimer();
+
+    this.remainingSeconds = this.timerDurationSeconds;
+    this.endsAt = Date.now() + this.timerDurationSeconds * 1000;
+
+    this.timerInterval = setInterval(() => {
+      if (this.endsAt) {
+        const remaining = Math.max(0, Math.ceil((this.endsAt - Date.now()) / 1000));
+        this.remainingSeconds = remaining;
+
+        if (this.onTickCallback) {
+          this.onTickCallback(remaining, this.endsAt);
+        }
+
+        if (remaining <= 0) {
+          this.handleStealTimeout();
+        }
+      }
+    }, 1000);
+
+    this.timer = setTimeout(() => {
+      this.handleStealTimeout();
+    }, this.timerDurationSeconds * 1000);
+
+    logger.info(
+      `[STEAL:TIMER_START] Room ${this.roomCode} 15s steal timer started for spokesperson ${this.stealSpokesperson?.nickname} (${this.opposingTeam})`
+    );
+  }
+
+  /**
+   * Stops the active steal timer.
+   */
+  public stopStealTimer(): void {
+    this.stopTimer();
+  }
+
+  /**
+   * Returns candidate survey answers that have not yet been revealed on the board.
+   */
+  public getUnrevealedAnswers(): TeamGuessingQuestionAnswer[] {
+    return this.question.answers.filter(
+      (a) => !this.revealedAnswers.some((ra) => ra.id === a.id || ra.rankOrder === a.rankOrder)
+    );
+  }
+
+  /**
+   * Flips open all remaining unrevealed cards on the survey board upon round resolution (US-15 Scenario 3).
+   */
+  public revealRemainingHiddenAnswers(): TeamRevealedAnswer[] {
+    const unrevealed = this.getUnrevealedAnswers();
+    const newlyRevealed: TeamRevealedAnswer[] = unrevealed
+      .map((a) => ({
+        id: a.id,
+        answerText: a.answerText,
+        points: a.points,
+        rankOrder: a.rankOrder,
+      }))
+      .sort((a, b) => a.rankOrder - b.rankOrder);
+
+    this.revealedAnswers.push(...newlyRevealed);
+    return newlyRevealed;
+  }
+
+  /**
+   * Evaluates the steal guess submitted by the opposing team's spokesperson (US-15 Scenarios 1-3).
+   */
+  public async evaluateStealGuess(
+    playerId: string,
+    rawAnswer: string,
+    customValidator?: (
+      rawInput: string,
+      candidateAnswers: TeamGuessingQuestionAnswer[]
+    ) => Promise<{
+      isMatched: boolean;
+      matchedAnswer?: TeamGuessingQuestionAnswer;
+      points: number;
+      rankOrder?: number;
+    }>
+  ): Promise<StealEvaluationResult> {
+    if (this.phase !== 'STEAL_PHASE') {
+      throw new Error(`Steal phase is not active (current phase: ${this.phase}).`);
+    }
+
+    if (!this.stealSpokesperson || this.stealSpokesperson.id !== playerId) {
+      throw new Error(
+        `Only the designated spokesperson (${this.stealSpokesperson?.nickname || 'spokesperson'}) can submit the steal answer.`
+      );
+    }
+
+    const trimmedInput = rawAnswer.trim();
+    if (!trimmedInput) {
+      throw new Error('Steal answer cannot be empty.');
+    }
+
+    this.stopTimer();
+
+    const unrevealed = this.getUnrevealedAnswers();
+    const isDuplicate = this.isAnswerAlreadyRevealed(trimmedInput);
+
+    let matchInfo = {
+      isMatched: false,
+      matchedAnswer: undefined as TeamGuessingQuestionAnswer | undefined,
+      points: 0,
+      rankOrder: undefined as number | undefined,
+    };
+
+    if (!isDuplicate && unrevealed.length > 0) {
+      if (customValidator) {
+        const customRes = await customValidator(trimmedInput, unrevealed);
+        matchInfo = {
+          isMatched: customRes.isMatched,
+          matchedAnswer: customRes.matchedAnswer,
+          points: customRes.points,
+          rankOrder: customRes.rankOrder,
+        };
+      } else {
+        const validation = await evaluatePlayerAnswer({
+          questionId: this.question.id,
+          playerId,
+          questionText: this.question.questionText,
+          candidateAnswers: unrevealed.map((a) => ({
+            id: a.id,
+            answerText: a.answerText,
+            points: a.points,
+            rankOrder: a.rankOrder,
+          })),
+          rawInput: trimmedInput,
+          language: this.language as SupportedLanguage,
+          persistAudit: false,
+        });
+
+        if (validation.isMatched && validation.matchedAnswer) {
+          const matched = validation.matchedAnswer as TeamGuessingQuestionAnswer;
+          matchInfo = {
+            isMatched: true,
+            matchedAnswer: matched,
+            points: validation.pointsAwarded || matched.points,
+            rankOrder: matched.rankOrder,
+          };
+        }
+      }
+    }
+
+    // Scenario 1: Steal Succeeded
+    if (matchInfo.isMatched && matchInfo.matchedAnswer) {
+      const revealedItem: TeamRevealedAnswer = {
+        id: matchInfo.matchedAnswer.id,
+        answerText: matchInfo.matchedAnswer.answerText,
+        points: matchInfo.points,
+        rankOrder: matchInfo.matchedAnswer.rankOrder,
+        revealedByPlayerId: playerId,
+        revealedByNickname: this.stealSpokesperson.nickname,
+        revealedByTeam: this.opposingTeam,
+      };
+
+      this.revealedAnswers.push(revealedItem);
+      this.winningTeam = this.opposingTeam;
+      this.phase = 'RESOLVED';
+
+      // Scenario 3: Reveal remaining unrevealed cards
+      const remainingAnswers = this.revealRemainingHiddenAnswers();
+
+      logger.info(
+        `[STEAL:SUCCESS] Room ${this.roomCode} ${this.stealSpokesperson.nickname} correctly stole with "${revealedItem.answerText}"! Team ${this.opposingTeam} steals ${this.roundBank} pts!`
+      );
+
+      const result: StealEvaluationResult = {
+        success: true,
+        outcome: 'STEAL_SUCCESS',
+        winningTeam: this.opposingTeam,
+        pointsAwarded: this.roundBank,
+        stealingPlayer: this.stealSpokesperson,
+        matchedAnswer: revealedItem,
+        rawAnswer: trimmedInput,
+        roundBank: this.roundBank,
+        remainingAnswers,
+        message: `Steal successful! ${this.stealSpokesperson.nickname} found "${revealedItem.answerText}"! Team ${this.opposingTeam === 'TEAM_1' ? '1' : '2'} steals ${this.roundBank} points!`,
+      };
+
+      if (this.onStealResolvedCallback) {
+        this.onStealResolvedCallback(result);
+      }
+
+      return result;
+    }
+
+    // Scenario 2: Steal Failed (Wrong answer or duplicate)
+    this.winningTeam = this.controllingTeam;
+    this.phase = 'RESOLVED';
+
+    // Scenario 3: Reveal remaining unrevealed cards
+    const remainingAnswers = this.revealRemainingHiddenAnswers();
+
+    logger.info(
+      `[STEAL:FAILED] Room ${this.roomCode} ${this.stealSpokesperson.nickname} missed steal with "${trimmedInput}". Team ${this.controllingTeam} keeps ${this.roundBank} pts.`
+    );
+
+    const result: StealEvaluationResult = {
+      success: false,
+      outcome: 'STEAL_FAILED',
+      winningTeam: this.controllingTeam,
+      pointsAwarded: this.roundBank,
+      stealingPlayer: this.stealSpokesperson,
+      rawAnswer: trimmedInput,
+      roundBank: this.roundBank,
+      remainingAnswers,
+      message: `Steal failed! "${trimmedInput}" is not on the board. Team ${this.controllingTeam === 'TEAM_1' ? '1' : '2'} retains ${this.roundBank} points!`,
+    };
+
+    if (this.onStealResolvedCallback) {
+      this.onStealResolvedCallback(result);
+    }
+
+    return result;
+  }
+
+  /**
+   * Handles timeout when 15 seconds expire during Steal Phase without a submission (US-15 Scenario 2).
+   */
+  public handleStealTimeout(): StealEvaluationResult {
+    this.stopTimer();
+
+    if (this.phase !== 'STEAL_PHASE') {
+      throw new Error(`Cannot handle steal timeout when phase is ${this.phase}.`);
+    }
+
+    this.winningTeam = this.controllingTeam;
+    this.phase = 'RESOLVED';
+
+    // Scenario 3: Reveal remaining unrevealed cards
+    const remainingAnswers = this.revealRemainingHiddenAnswers();
+
+    logger.warn(
+      `[STEAL:TIMEOUT] Room ${this.roomCode} 15s steal timer expired. Team ${this.controllingTeam} retains ${this.roundBank} pts.`
+    );
+
+    const result: StealEvaluationResult = {
+      success: false,
+      outcome: 'STEAL_TIMEOUT',
+      winningTeam: this.controllingTeam,
+      pointsAwarded: this.roundBank,
+      stealingPlayer: this.stealSpokesperson!,
+      roundBank: this.roundBank,
+      remainingAnswers,
+      message: `Time expired! Team ${this.opposingTeam === 'TEAM_1' ? '1' : '2'} failed to steal. Team ${this.controllingTeam === 'TEAM_1' ? '1' : '2'} retains ${this.roundBank} points!`,
+    };
+
+    if (this.onStealResolvedCallback) {
+      this.onStealResolvedCallback(result);
+    }
+
+    return result;
+  }
+
+  /**
    * Helper to check if a raw answer string matches an already revealed answer.
    */
   private isAnswerAlreadyRevealed(rawInput: string): boolean {
@@ -686,6 +1003,8 @@ export class TeamGuessingSession {
       activePlayerIndex: this.activePlayerIndex,
       controllingTeamPlayers: this.controllingTeamPlayers,
       opposingTeamPlayers: this.opposingTeamPlayers,
+      stealSpokesperson: this.stealSpokesperson,
+      stealSpokespersonId: this.stealSpokespersonId,
       strikes: this.strikes,
       roundBank: this.roundBank,
       revealedAnswers: this.revealedAnswers,
@@ -715,6 +1034,7 @@ export class TeamGuessingSession {
     this.onStrikeCallback = undefined;
     this.onRoundClearedCallback = undefined;
     this.onStealPhaseCallback = undefined;
+    this.onStealResolvedCallback = undefined;
   }
 }
 
@@ -742,6 +1062,12 @@ export function createTeamGuessingSessionFromFaceOff(
 
   const initialBank = initialRevealed.reduce((sum, a) => sum + (a.points || 0), 0);
 
+  // Opposing face-off contender acts as default spokesperson during Steal Phase
+  const opposingContender =
+    controllingTeam === 'TEAM_1'
+      ? faceOffSession.team2Contender
+      : faceOffSession.team1Contender;
+
   const config: TeamGuessingSessionConfig = {
     gameId: faceOffSession.gameId,
     roundNumber: faceOffSession.roundNumber,
@@ -752,6 +1078,7 @@ export function createTeamGuessingSessionFromFaceOff(
     initialRevealedAnswers: initialRevealed,
     initialBank,
     language: faceOffSession.language,
+    stealSpokespersonId: opposingContender?.id,
     ...overrides,
   };
 

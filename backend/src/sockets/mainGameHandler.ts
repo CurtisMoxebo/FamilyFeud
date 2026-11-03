@@ -11,6 +11,8 @@ import {
   TeamGuessingSession,
   TeamGuessingTimeoutResult,
   TeamGuessingPlayer,
+  TeamRevealedAnswer,
+  StealEvaluationResult,
   getTeamGuessingSession,
   createTeamGuessingSessionFromFaceOff,
 } from '../services/teamGuessingService';
@@ -122,6 +124,48 @@ export interface TransitionStealPhasePayload {
   opposingTeam: 'TEAM_1' | 'TEAM_2';
   roundBank: number;
   reason?: string;
+  spokesperson?: TeamGuessingPlayer | null;
+  endsAt?: number | null;
+  duration?: number;
+}
+
+export interface SubmitStealGuessPayload {
+  roomCode: string;
+  playerId: string;
+  rawAnswer: string;
+}
+
+export interface StealResolvedPayload {
+  roomCode: string;
+  success: boolean;
+  outcome: 'STEAL_SUCCESS' | 'STEAL_FAILED' | 'STEAL_TIMEOUT';
+  winningTeam: 'TEAM_1' | 'TEAM_2';
+  pointsAwarded: number;
+  stealingPlayer: TeamGuessingPlayer;
+  matchedAnswer?: TeamRevealedAnswer;
+  rawAnswer?: string;
+  roundBank: number;
+  remainingAnswers: TeamRevealedAnswer[];
+  message: string;
+}
+
+export interface RoundWinnerPayload {
+  roomCode: string;
+  winningTeam: 'TEAM_1' | 'TEAM_2';
+  pointsAwarded: number;
+  roundBank: number;
+  totalTeam1?: number;
+  totalTeam2?: number;
+  message?: string;
+}
+
+export interface ScoreboardUpdatePayload {
+  roomCode: string;
+  activeRoundBank: number;
+  winningTeam?: 'TEAM_1' | 'TEAM_2';
+  pointsAwarded?: number;
+  team1GrandTotal?: number;
+  team2GrandTotal?: number;
 }
 
 export interface TeamTurnStartedPayload {
@@ -180,10 +224,124 @@ export function handleTeamGuessingTimeoutBroadcast(
       opposingTeam: session.opposingTeam,
       roundBank: session.roundBank,
       reason: 'THREE_STRIKES',
+      spokesperson: session.stealSpokesperson,
+      endsAt: session.getState().endsAt,
+      duration: session.timerDurationSeconds,
     });
   }
 
   broadcastTeamGuessingState(io, session);
+}
+
+/**
+ * Broadcasts Steal Phase resolution, card reveals, score updates, and round winner (US-15 Scenarios 1-3).
+ */
+export function handleStealResolvedBroadcast(
+  io: SocketIOServer,
+  roomCode: string,
+  stealResult: StealEvaluationResult
+): void {
+  const normalizedCode = normalizeRoomCode(roomCode);
+  const session = getTeamGuessingSession(normalizedCode);
+
+  if (session && (session as any)._stealBroadcastDone) {
+    return;
+  }
+  if (session) {
+    (session as any)._stealBroadcastDone = true;
+  }
+
+  // Scenario 1: Flip matched steal card on host TV board
+  if (stealResult.matchedAnswer) {
+    io.to(`room:${normalizedCode}`).emit('board_reveal', {
+      roomCode: normalizedCode,
+      slotRank: stealResult.matchedAnswer.rankOrder,
+      rankOrder: stealResult.matchedAnswer.rankOrder,
+      answerText: stealResult.matchedAnswer.answerText,
+      points: stealResult.matchedAnswer.points,
+      roundBank: stealResult.roundBank,
+      playerId: stealResult.stealingPlayer.id,
+      playerNickname: stealResult.stealingPlayer.nickname,
+      playerTeam: stealResult.winningTeam,
+      isStealMatch: true,
+    });
+  }
+
+  // Scenario 3: Flip open all remaining unrevealed cards on survey board
+  if (stealResult.remainingAnswers && stealResult.remainingAnswers.length > 0) {
+    for (const remaining of stealResult.remainingAnswers) {
+      io.to(`room:${normalizedCode}`).emit('board_reveal', {
+        roomCode: normalizedCode,
+        slotRank: remaining.rankOrder,
+        rankOrder: remaining.rankOrder,
+        answerText: remaining.answerText,
+        points: remaining.points,
+        roundBank: stealResult.roundBank,
+        isRemainingReveal: true,
+      });
+    }
+
+    io.to(`room:${normalizedCode}`).emit('remaining_answers_reveal', {
+      roomCode: normalizedCode,
+      remainingAnswers: stealResult.remainingAnswers,
+    });
+  }
+
+  // Scenario 2: Sound strike buzzer on failed steal or timeout
+  if (!stealResult.success) {
+    const strikePayload: StrikeIssuedPayload = {
+      roomCode: normalizedCode,
+      team: stealResult.stealingPlayer.team,
+      strikeCount: 1,
+      maxStrikes: 1,
+      player: {
+        id: stealResult.stealingPlayer.id,
+        nickname: stealResult.stealingPlayer.nickname,
+      },
+      rawAnswer: stealResult.rawAnswer,
+      isTimeout: stealResult.outcome === 'STEAL_TIMEOUT',
+    };
+    io.to(`room:${normalizedCode}`).emit('strike_issued', strikePayload);
+  }
+
+  // Emit steal resolution outcome
+  const stealPayload: StealResolvedPayload = {
+    roomCode: normalizedCode,
+    success: stealResult.success,
+    outcome: stealResult.outcome,
+    winningTeam: stealResult.winningTeam,
+    pointsAwarded: stealResult.pointsAwarded,
+    stealingPlayer: stealResult.stealingPlayer,
+    matchedAnswer: stealResult.matchedAnswer,
+    rawAnswer: stealResult.rawAnswer,
+    roundBank: stealResult.roundBank,
+    remainingAnswers: stealResult.remainingAnswers,
+    message: stealResult.message,
+  };
+  io.to(`room:${normalizedCode}`).emit('steal_resolved', stealPayload);
+
+  // Emit round winner
+  const winnerPayload: RoundWinnerPayload = {
+    roomCode: normalizedCode,
+    winningTeam: stealResult.winningTeam,
+    pointsAwarded: stealResult.pointsAwarded,
+    roundBank: stealResult.roundBank,
+    message: stealResult.message,
+  };
+  io.to(`room:${normalizedCode}`).emit('round_winner', winnerPayload);
+
+  // Emit scoreboard update
+  const scorePayload: ScoreboardUpdatePayload = {
+    roomCode: normalizedCode,
+    activeRoundBank: 0,
+    winningTeam: stealResult.winningTeam,
+    pointsAwarded: stealResult.pointsAwarded,
+  };
+  io.to(`room:${normalizedCode}`).emit('scoreboard_update', scorePayload);
+
+  if (session) {
+    broadcastTeamGuessingState(io, session);
+  }
 }
 
 /**
@@ -675,6 +833,9 @@ export function registerMainGameHandlers(
             onTimeout: (timeoutRes) => {
               handleTeamGuessingTimeoutBroadcast(io, normalizedCode, timeoutRes);
             },
+            onStealResolved: (stealRes) => {
+              handleStealResolvedBroadcast(io, normalizedCode, stealRes);
+            },
           });
 
           io.to(`room:${normalizedCode}`).emit('team_turn_started', {
@@ -818,6 +979,19 @@ export function registerMainGameHandlers(
             winningTeam: session.controllingTeam,
             totalRoundPoints: evalResult.roundBank,
           });
+          io.to(`room:${normalizedCode}`).emit('round_winner', {
+            roomCode: normalizedCode,
+            winningTeam: session.controllingTeam,
+            pointsAwarded: evalResult.roundBank,
+            roundBank: evalResult.roundBank,
+            message: `Team ${session.controllingTeam === 'TEAM_1' ? '1' : '2'} cleared the board!`,
+          });
+          io.to(`room:${normalizedCode}`).emit('scoreboard_update', {
+            roomCode: normalizedCode,
+            activeRoundBank: 0,
+            winningTeam: session.controllingTeam,
+            pointsAwarded: evalResult.roundBank,
+          });
         } else if (evalResult.outcome === 'STEAL_PHASE_TRIGGERED') {
           io.to(`room:${normalizedCode}`).emit('transition_steal_phase', {
             roomCode: normalizedCode,
@@ -825,6 +999,9 @@ export function registerMainGameHandlers(
             opposingTeam: session.opposingTeam,
             roundBank: evalResult.roundBank,
             reason: 'THREE_STRIKES',
+            spokesperson: session.stealSpokesperson,
+            endsAt: session.getState().endsAt,
+            duration: session.timerDurationSeconds,
           });
         }
 
@@ -905,6 +1082,9 @@ export function registerMainGameHandlers(
             opposingTeam: session.opposingTeam,
             roundBank: passResult.roundBank,
             reason: 'THREE_STRIKES',
+            spokesperson: session.stealSpokesperson,
+            endsAt: session.getState().endsAt,
+            duration: session.timerDurationSeconds,
           });
         }
 
@@ -940,6 +1120,106 @@ export function registerMainGameHandlers(
       const session = getTeamGuessingSession(normalizeRoomCode(roomCode));
       if (!session) {
         if (callback) callback({ success: false, error: 'No active team guessing session' });
+        return;
+      }
+
+      const state = session.getState();
+      if (callback) callback({ success: true, state });
+    }
+  );
+
+  /**
+   * Designated spokesperson submits steal guess during Steal Phase (US-15 Scenarios 1-4).
+   * Event: 'submit_steal_guess'
+   */
+  socket.on(
+    'submit_steal_guess',
+    async (
+      payload: SubmitStealGuessPayload,
+      callback?: (res: {
+        success: boolean;
+        outcome?: string;
+        stealSuccess?: boolean;
+        error?: string;
+      }) => void
+    ) => {
+      try {
+        const { roomCode, playerId, rawAnswer } = payload || {};
+        if (!roomCode || !playerId || rawAnswer === undefined || !rawAnswer.trim()) {
+          if (callback) callback({ success: false, error: 'Missing required fields' });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(roomCode);
+        const session = getTeamGuessingSession(normalizedCode);
+        if (!session) {
+          if (callback) callback({ success: false, error: 'No active team guessing session found' });
+          return;
+        }
+
+        if (session.phase !== 'STEAL_PHASE') {
+          socket.emit('steal_error', {
+            code: 'INVALID_PHASE',
+            message: `Steal phase is not active (current phase: ${session.phase}).`,
+          });
+          if (callback) callback({ success: false, error: 'Steal phase is not active.' });
+          return;
+        }
+
+        if (session.stealSpokespersonId && session.stealSpokespersonId !== playerId) {
+          socket.emit('steal_error', {
+            code: 'NOT_SPOKESPERSON',
+            message: `Only the designated spokesperson (${session.stealSpokesperson?.nickname || 'spokesperson'}) may submit the steal answer.`,
+          });
+          if (callback)
+            callback({
+              success: false,
+              error: 'Only the designated spokesperson may submit the steal answer.',
+            });
+          return;
+        }
+
+        const evalResult = await session.evaluateStealGuess(playerId, rawAnswer.trim());
+
+        handleStealResolvedBroadcast(io, normalizedCode, evalResult);
+
+        if (callback) {
+          callback({
+            success: true,
+            outcome: evalResult.outcome,
+            stealSuccess: evalResult.success,
+          });
+        }
+      } catch (err: any) {
+        logger.error('Error handling submit_steal_guess event', err);
+        socket.emit('steal_error', {
+          code: 'STEAL_EVALUATION_ERROR',
+          message: err.message || 'Internal server error',
+        });
+        if (callback) callback({ success: false, error: err.message || 'Internal server error' });
+      }
+    }
+  );
+
+  /**
+   * Allows clients to fetch the active Steal Phase state snapshot.
+   * Event: 'get_steal_state'
+   */
+  socket.on(
+    'get_steal_state',
+    (
+      payload: { roomCode: string },
+      callback?: (res: { success: boolean; state?: any; error?: string }) => void
+    ) => {
+      const { roomCode } = payload || {};
+      if (!roomCode) {
+        if (callback) callback({ success: false, error: 'Missing roomCode' });
+        return;
+      }
+
+      const session = getTeamGuessingSession(normalizeRoomCode(roomCode));
+      if (!session) {
+        if (callback) callback({ success: false, error: 'No active session found' });
         return;
       }
 
