@@ -13,6 +13,7 @@ import { generateAndSaveGameQuestions } from '../services/questionService';
 import { normalizeRoomCode } from '../utils/roomCode';
 import { logger } from '../utils/logger';
 import { getMatchScoreboard } from '../services/mainGameScoreboardService';
+import { hostAdminService } from '../services/hostAdminService';
 
 export interface PlayerReadyPayload {
   roomCode: string;
@@ -1472,6 +1473,8 @@ export function registerFastMoneyHandlers(
           })),
         }));
 
+        clearFastMoneyTimer(normalizedCode);
+        hostAdminService.clearRoomAdmin(normalizedCode, io);
         session.resetForReplay(newGame.id, mappedQuestions);
 
         // 5. Construct payload and broadcast to room

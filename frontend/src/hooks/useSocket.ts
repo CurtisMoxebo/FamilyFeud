@@ -547,6 +547,7 @@ export function useSocket(options?: UseSocketOptions) {
       setSuddenDeathInitiated(null);
       setP1RevealCompleted(null);
       setDuplicateWarning(null);
+      setGamePaused(null);
       setHostOverrideOptions([]);
       setAnswerOverrideAck(null);
     });
@@ -716,6 +717,7 @@ export function useSocket(options?: UseSocketOptions) {
 
     socket.on('next_round_started', (payload: NextRoundStartedPayload) => {
       setNextRoundStarted(payload);
+      setGamePaused(null);
       setHostOverrideOptions([]);
       setAnswerOverrideAck(null);
     });

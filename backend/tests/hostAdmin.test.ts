@@ -1743,5 +1743,58 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         (await emitAck(playerSocket, 'pass_question', { roomCode: fmRoom, playerId: 'p1', questionId: 'q1' })).success
       ).toBe(false);
     });
+
+    it('skips 30s disconnect auto-forfeit while room is paused and auto-unpauses on round advance / replay', async () => {
+      const roomCode = 'FEUD-ADM1';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Hardening Guards Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const hostSocket = await connectClient(port);
+      clientSockets.push(hostSocket);
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+
+      const tg = initTeamGuessingSession(roomCode, {
+        gameId: 'game-harden',
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q-harden',
+          questionText: 'Name a season',
+          answers: [{ id: 'a1', rankOrder: 1, answerText: 'Summer', points: 50 }],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+
+      // Pause room via hostAdminService
+      hostAdminService.pauseGame(roomCode, testIo);
+      expect(hostAdminService.isRoomPaused(roomCode)).toBe(true);
+
+      // 1. Disconnect auto-forfeit must NOT penalize/forfeit active player while room is paused
+      const { handleAutoForfeitIfActiveTimer } = await import('../src/sockets/lobbyHandler');
+      const forfeited = await handleAutoForfeitIfActiveTimer(testIo, roomCode, 'p1', prisma);
+      expect(forfeited).toBe(false);
+      expect(tg.strikes).toBe(0);
+
+      // 2. clearRoomAdmin(roomCode, io) auto-unpauses and broadcasts game_resumed (used by advance_next_round & replay)
+      const resumedPromise = waitForEvent<any>(hostSocket, 'game_resumed');
+      hostAdminService.clearRoomAdmin(roomCode, testIo);
+      const resumedPayload = await resumedPromise;
+      expect(resumedPayload.roomCode).toBe(roomCode);
+      expect(hostAdminService.isRoomPaused(roomCode)).toBe(false);
+
+      tg.stopTimer();
+    });
   });
 });

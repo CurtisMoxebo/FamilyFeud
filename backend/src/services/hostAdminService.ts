@@ -21,6 +21,7 @@ import {
   pauseFastMoneyTimer,
   resumeFastMoneyTimer,
   isFastMoneyTimerPaused,
+  fastMoneyPausedTimers,
   broadcastFastMoneyState,
 } from '../sockets/fastMoneyHandler';
 import { buildRoomStateUpdate } from '../sockets/lobbyHandler';
@@ -510,13 +511,22 @@ export class HostAdminService {
     return this.pausedRooms.get(normalizedCode) || null;
   }
 
-  public clearRoomAdmin(roomCode: string): void {
+  public clearRoomAdmin(roomCode: string, io?: SocketIOServer): void {
     const normalizedCode = normalizeRoomCode(roomCode);
-    this.pausedRooms.delete(normalizedCode);
+    const wasPaused =
+      this.pausedRooms.delete(normalizedCode) ||
+      fastMoneyPausedTimers.delete(normalizedCode);
+    if (wasPaused && io) {
+      io.to(`room:${normalizedCode}`).emit('game_resumed', {
+        roomCode: normalizedCode,
+        remainingTime: 0,
+      });
+    }
   }
 
   public clearAllAdmin(): void {
     this.pausedRooms.clear();
+    fastMoneyPausedTimers.clear();
   }
 }
 

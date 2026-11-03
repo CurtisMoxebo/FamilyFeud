@@ -305,6 +305,13 @@ export async function handleAutoForfeitIfActiveTimer(
 ): Promise<boolean> {
   const normalizedCode = normalizeRoomCode(roomCode);
 
+  if (hostAdminService.isRoomPaused(normalizedCode)) {
+    logger.info(
+      `[AUTO_FORFEIT:SKIPPED_PAUSED] Room ${normalizedCode} is paused by host; skipping auto-forfeit for player ${playerId}`
+    );
+    return false;
+  }
+
   // 1. Fast Money Turn Forfeit
   const fmSession = getFastMoneySession(normalizedCode);
   if (fmSession) {
