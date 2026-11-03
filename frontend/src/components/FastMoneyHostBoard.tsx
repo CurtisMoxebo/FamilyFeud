@@ -17,10 +17,10 @@ import {
   speakDefeat,
 } from '../utils/tts';
 import {
-  playDing,
+  playCorrectDing,
   playPointsChime,
   playBuzzerBlip,
-  playDuplicateWarning,
+  playDuplicateAlarm,
   playVictoryFanfare,
   playDefeatSound,
 } from '../utils/soundEffects';
@@ -248,7 +248,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       setActiveWarning(duplicateWarning);
 
       if (enableSFX && audioEnabled) {
-        playDuplicateWarning();
+        playDuplicateAlarm();
       }
 
       if (enableTTS && audioEnabled) {
@@ -324,7 +324,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       // Answer just revealed -> Play Ding
       if (slot.isAnswerRevealed && (!prev || !prev.answer)) {
         if (enableSFX && audioEnabled) {
-          playDing();
+          playCorrectDing();
         }
       }
 
@@ -366,7 +366,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
 
       if (slot.isAnswerRevealed && (!prev || !prev.answer)) {
         if (enableSFX && audioEnabled) {
-          playDing();
+          playCorrectDing();
         }
       }
 

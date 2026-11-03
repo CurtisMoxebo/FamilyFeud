@@ -17,7 +17,7 @@ import {
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
-  playDing,
+  playCorrectDing,
   playPointsChime,
   playStrikeBuzzer,
   playVictoryFanfare,
@@ -190,7 +190,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   useEffect(() => {
     if (snapshot.revealedAnswers.length > lastRevealedAnswerCount.current || boardReveal) {
       lastRevealedAnswerCount.current = snapshot.revealedAnswers.length;
-      playDing();
+      playCorrectDing();
       const chimeTimer = setTimeout(() => {
         playPointsChime();
       }, 350);

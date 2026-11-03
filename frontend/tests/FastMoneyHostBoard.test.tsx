@@ -272,7 +272,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
     });
 
     it('plays playDing when an answer flips open', () => {
-      const dingSpy = vi.spyOn(sfxModule, 'playDing').mockImplementation(() => {});
+      const dingSpy = vi.spyOn(sfxModule, 'playCorrectDing').mockImplementation(() => {});
 
       // Initial state with unrevealed slot 1
       const initialSnapshot: HostStateSnapshot = {
@@ -616,7 +616,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
     });
 
     it('satisfies Scenario 2: displays duplicate alert banner, plays duplicate warning alarm, and speaks TTS', () => {
-      const sfxSpy = vi.spyOn(sfxModule, 'playDuplicateWarning').mockImplementation(() => {});
+      const sfxSpy = vi.spyOn(sfxModule, 'playDuplicateAlarm').mockImplementation(() => {});
       const ttsSpy = vi.spyOn(ttsModule, 'speakDuplicateAlert').mockImplementation(() => {});
 
       const duplicateWarning = {

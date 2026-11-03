@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
+import * as sfxModule from '../src/utils/soundEffects';
 import { RoomCreateForm } from '../src/components/RoomCreateForm';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 
@@ -174,6 +175,35 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
 
     const errorEl = await screen.findByTestId('room-create-error');
     expect(errorEl).toHaveTextContent('Network error: Failed to fetch');
+  });
+
+  it('satisfies US-18 Scenario 3: triggers resumeAudioContext when host clicks Create Room button', async () => {
+    const resumeSpy = vi.spyOn(sfxModule, 'resumeAudioContext').mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    const mockRoom = {
+      id: 'room-1',
+      roomCode: 'FEUD-SFX1',
+      roomName: 'Sound Room',
+      language: 'EN',
+      gameMode: 'FAST_MONEY',
+      status: 'LOBBY',
+      createdAt: new Date().toISOString(),
+    };
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, room: mockRoom }),
+    } as Response);
+
+    renderWithProviders(<RoomCreateForm />);
+    const input = screen.getByTestId('room-name-input');
+    await user.clear(input);
+    await user.type(input, 'Sound Room');
+
+    const submitBtn = screen.getByTestId('create-room-submit-btn');
+    await user.click(submitBtn);
+
+    expect(resumeSpy).toHaveBeenCalled();
   });
 });
 

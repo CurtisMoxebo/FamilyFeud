@@ -17,11 +17,15 @@ vi.mock('../src/utils/tts', () => ({
 }));
 
 vi.mock('../src/utils/soundEffects', () => ({
+  playBuzzerHit: vi.fn(),
   playFaceOffBuzzer: vi.fn(),
+  playCorrectDing: vi.fn(),
   playDing: vi.fn(),
   playPointsChime: vi.fn(),
   sfx: {
-    playFaceOffBuzzer: vi.fn(),
+    playBuzzerHit: vi.fn(),
+  playFaceOffBuzzer: vi.fn(),
+  playCorrectDing: vi.fn(),
   },
 }));
 
@@ -157,7 +161,7 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     expect(ttsModule.cancelSpeech).toHaveBeenCalled();
 
     // SOUND CUE: playFaceOffBuzzer played
-    expect(soundModule.playFaceOffBuzzer).toHaveBeenCalled();
+    expect(soundModule.playBuzzerHit).toHaveBeenCalled();
 
     // Winner highlighted
     expect(screen.getByTestId('c1-winner-badge')).toHaveTextContent('Alice buzzed first!');
@@ -305,7 +309,7 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
       expect(screen.getByTestId('face-off-card-concealed-3')).toBeInTheDocument();
 
       // Sound cue ding triggered
-      expect(soundModule.playDing).toHaveBeenCalled();
+      expect(soundModule.playCorrectDing).toHaveBeenCalled();
 
       // Pass or Play banner
       const banner = screen.getByTestId('face-off-pass-play-banner');
