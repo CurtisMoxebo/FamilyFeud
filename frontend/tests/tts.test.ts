@@ -112,6 +112,21 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       Storage.prototype.getItem = originalGetItem;
       Storage.prototype.setItem = originalSetItem;
     });
+
+    it('handles undefined localStorage gracefully without throwing', () => {
+      const orig = window.localStorage;
+      // @ts-ignore
+      delete window.localStorage;
+
+      expect(isTtsMuted()).toBe(false);
+      expect(() => setTtsMuted(true)).not.toThrow();
+
+      Object.defineProperty(window, 'localStorage', {
+        value: orig,
+        writable: true,
+        configurable: true,
+      });
+    });
   });
 
   describe('Voice Resolution (getVoiceForLang)', () => {
@@ -188,6 +203,13 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
         { name: 'Anna', lang: 'de-DE' },
       ]);
       expect(getVoiceForLang('FR')).toBeNull();
+    });
+
+    it('returns null if getVoices throws an error', () => {
+      mockGetVoices.mockImplementationOnce(() => {
+        throw new Error('Speech synthesis error');
+      });
+      expect(getVoiceForLang('EN')).toBeNull();
     });
   });
 
