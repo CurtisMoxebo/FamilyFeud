@@ -11,6 +11,7 @@ model Game {
   room                   Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
   questions              Question[]
 
+  @@index([roomId])
   @@map("games")
 }
 
