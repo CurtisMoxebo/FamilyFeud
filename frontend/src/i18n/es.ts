@@ -86,6 +86,9 @@ export const es: TranslationDictionary = {
     statusReady: 'Listo',
     statusWaiting: 'Esperando',
     statusDisconnected: 'Desconectado',
+    removePlayer: 'Eliminar',
+    kickedTitle: 'Eliminado del juego',
+    kickedDefaultMessage: 'Has sido eliminado del juego por el anfitrión.',
     backHome: 'Volver al inicio',
   },
   fastMoney: {

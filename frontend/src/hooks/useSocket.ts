@@ -5,6 +5,7 @@ import {
   savePlayerSession,
   getHostSecret,
   getPlayerSession,
+  clearPlayerSession,
   PlayerSessionCredentials,
 } from '../utils/sessionStorage';
 import {
@@ -45,6 +46,10 @@ import {
   NextRoundStartedPayload,
   ReconnectAcknowledgedPayload,
   PlayerLeftAlertPayload,
+  PlayerKickedPayload,
+  GamePausedPayload,
+  StrikeCancelledPayload,
+  AdminErrorPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -129,6 +134,9 @@ export function useSocket(options?: UseSocketOptions) {
     return getHostSecret(options?.roomCode);
   });
   const [playerLeftAlert, setPlayerLeftAlert] = useState<PlayerLeftAlertPayload | null>(null);
+  const [kickedInfo, setKickedInfo] = useState<PlayerKickedPayload | null>(null);
+  const [gamePaused, setGamePaused] = useState<GamePausedPayload | null>(null);
+  const [adminError, setAdminError] = useState<AdminErrorPayload | null>(null);
 
 
   const socketRef = useRef<Socket | null>(null);
@@ -735,11 +743,92 @@ export function useSocket(options?: UseSocketOptions) {
       setPlayerLeftAlert(payload);
     });
 
+    socket.on('player_kicked', (payload: PlayerKickedPayload) => {
+      setKickedInfo(payload);
+      clearPlayerSession(payload.roomCode);
+    });
+
+    socket.on('game_paused', (payload: GamePausedPayload) => {
+      setGamePaused(payload);
+    });
+
+    socket.on('game_resumed', () => {
+      setGamePaused(null);
+    });
+
+    socket.on('admin_error', (payload: AdminErrorPayload) => {
+      setAdminError(payload);
+    });
+
+    socket.on('strike_cancelled', (payload: StrikeCancelledPayload) => {
+      setTeamGuessingState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          strikes: payload.strikeCount,
+        };
+      });
+    });
+
 
     return () => {
       socket.disconnect();
     };
   }, [options?.autoJoin, options?.roomCode, options?.nickname, options?.isHost]);
+
+  const kickPlayer = useCallback(
+    (playerId: string) => {
+      const socket = socketRef.current;
+      const code = options?.roomCode || roomState?.roomCode;
+      if (!socket || !code || !playerId) return;
+      const secret = getHostSecret(code);
+      socket.emit('host_kick_player', {
+        roomCode: code,
+        playerId,
+        hostSecret: secret || undefined,
+      });
+    },
+    [options?.roomCode, roomState?.roomCode]
+  );
+
+  const pauseGame = useCallback(() => {
+    const socket = socketRef.current;
+    const code = options?.roomCode || roomState?.roomCode;
+    if (!socket || !code) return;
+    const secret = getHostSecret(code);
+    socket.emit('host_pause_game', {
+      roomCode: code,
+      hostSecret: secret || undefined,
+    });
+  }, [options?.roomCode, roomState?.roomCode]);
+
+  const resumeGame = useCallback(() => {
+    const socket = socketRef.current;
+    const code = options?.roomCode || roomState?.roomCode;
+    if (!socket || !code) return;
+    const secret = getHostSecret(code);
+    socket.emit('host_resume_game', {
+      roomCode: code,
+      hostSecret: secret || undefined,
+    });
+  }, [options?.roomCode, roomState?.roomCode]);
+
+  const overrideAnswer = useCallback(
+    (rankOrder: number, points?: number, teamId?: 'TEAM_1' | 'TEAM_2') => {
+      const socket = socketRef.current;
+      const code = options?.roomCode || roomState?.roomCode;
+      if (!socket || !code) return;
+      const secret = getHostSecret(code);
+      socket.emit('host_override_answer', {
+        roomCode: code,
+        rankOrder,
+        points,
+        teamId,
+        hostSecret: secret || undefined,
+      });
+    },
+    [options?.roomCode, roomState?.roomCode]
+  );
 
   return {
     socket: socketRef.current,
@@ -819,5 +908,14 @@ export function useSocket(options?: UseSocketOptions) {
     reconnectSession,
     playerLeftAlert,
     clearPlayerLeftAlert: () => setPlayerLeftAlert(null),
+    kickedInfo,
+    clearKickedInfo: () => setKickedInfo(null),
+    gamePaused,
+    adminError,
+    clearAdminError: () => setAdminError(null),
+    kickPlayer,
+    pauseGame,
+    resumeGame,
+    overrideAnswer,
   };
 }

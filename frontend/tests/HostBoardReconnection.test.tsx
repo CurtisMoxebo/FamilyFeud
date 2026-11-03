@@ -107,6 +107,15 @@ describe('US-20 Step 2: HostBoard Reconnection & State Recovery Suite', () => {
     clearMatchOver: vi.fn(),
     playerLeftAlert: null,
     clearPlayerLeftAlert: vi.fn(),
+    kickedInfo: null,
+    clearKickedInfo: vi.fn(),
+    gamePaused: null,
+    adminError: null,
+    clearAdminError: vi.fn(),
+    kickPlayer: vi.fn(),
+    pauseGame: vi.fn(),
+    resumeGame: vi.fn(),
+    overrideAnswer: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-REC1') => {

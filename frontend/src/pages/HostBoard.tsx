@@ -36,6 +36,7 @@ import {
   Sparkles,
   Smartphone,
   Play,
+  UserX,
 } from 'lucide-react';
 
 export interface HostBoardProps {
@@ -128,6 +129,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     suddenDeathInitiated: socketSuddenDeath,
     advanceNextRound,
     playerLeftAlert: socketPlayerLeftAlert,
+    kickPlayer,
   } = useSocket({
     roomCode,
     isHost: true,
@@ -650,15 +652,26 @@ export const HostBoard: React.FC<HostBoardProps> = ({
                   />
                   <span className="font-bold text-sm truncate">{p.nickname}</span>
                 </div>
-                <span
-                  className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                    p.isConnected
-                      ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                  }`}
-                >
-                  {p.isConnected ? t.lobby.statusReady : t.lobby.statusDisconnected}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                      p.isConnected
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}
+                  >
+                    {p.isConnected ? t.lobby.statusReady : t.lobby.statusDisconnected}
+                  </span>
+                  <button
+                    type="button"
+                    title={t.lobby.removePlayer}
+                    data-testid={`host-kick-player-btn-${p.nickname}`}
+                    onClick={() => kickPlayer(p.id)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                  >
+                    <UserX className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

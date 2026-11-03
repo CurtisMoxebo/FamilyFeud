@@ -54,6 +54,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   const [room, setRoom] = useState<Room | null>(initialRoom);
   const [isLoading, setIsLoading] = useState<boolean>(!initialRoom);
   const [error, setError] = useState<string | null>(null);
+  const [kickedMessage, setKickedMessage] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string>(() => {
     const session = getPlayerSession(roomCode);
     if (session?.nickname) return session.nickname;
@@ -106,6 +107,8 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     submitStealGuess,
     scoreboardState: socketScoreboardState,
     matchOver: socketMatchOver,
+    kickedInfo,
+    clearKickedInfo,
   } = useSocket({
     roomCode,
     isHost: false,
@@ -193,6 +196,15 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     }
   }, [roomError, isJoined, roomCode]);
 
+  useEffect(() => {
+    if (kickedInfo) {
+      clearPlayerSession(kickedInfo.roomCode || roomCode);
+      setIsJoined(false);
+      setKickedMessage(kickedInfo.reason || t.lobby.kickedDefaultMessage);
+      clearKickedInfo();
+    }
+  }, [kickedInfo, roomCode, clearKickedInfo, t.lobby.kickedDefaultMessage]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = nickname.trim();
@@ -264,6 +276,36 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     );
   }
 
+  if (kickedMessage) {
+    return (
+      <div
+        data-testid="player-kicked-screen"
+        className="max-w-md w-full bg-feud-slate-card/90 border border-feud-red/40 rounded-3xl p-8 text-center shadow-2xl animate-fade-in"
+      >
+        <div className="w-16 h-16 rounded-full bg-red-950/80 text-feud-red mx-auto flex items-center justify-center mb-4">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 data-testid="player-kicked-title" className="text-2xl font-extrabold text-white mb-2">
+          {t.lobby.kickedTitle}
+        </h2>
+        <p data-testid="player-kicked-message" className="text-slate-300 text-sm mb-6">
+          {kickedMessage}
+        </p>
+        <button
+          type="button"
+          data-testid="player-kicked-back-home"
+          onClick={() => {
+            setKickedMessage(null);
+            navigate('/');
+          }}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-feud-gold text-slate-950 font-bold hover:scale-105 transition-all cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>{t.lobby.backHome}</span>
+        </button>
+      </div>
+    );
+  }
   if (error || !room) {
     return (
       <div className="max-w-md w-full bg-feud-slate-card/90 border border-feud-red/40 rounded-3xl p-8 text-center shadow-2xl">

@@ -727,4 +727,43 @@ export interface PlayerLeftAlertPayload {
   message: string;
 }
 
+export interface PlayerKickedPayload {
+  roomCode: string;
+  playerId: string;
+  reason: string;
+}
+
+export interface GamePausedPayload {
+  roomCode: string;
+  remainingTime: number;
+  pausedByHost: boolean;
+}
+
+export interface GameResumedPayload {
+  roomCode: string;
+  remainingTime: number;
+}
+
+export interface AnswerOverridePayload {
+  roomCode: string;
+  rankOrder: number;
+  answerText: string;
+  pointsAwarded: number;
+  strikeCount: number;
+  roundBank: number;
+  controllingTeam: 'TEAM_1' | 'TEAM_2';
+  isBoardCleared: boolean;
+}
+
+export interface StrikeCancelledPayload {
+  roomCode: string;
+  controllingTeam: 'TEAM_1' | 'TEAM_2';
+  strikeCount: number;
+}
+
+export interface AdminErrorPayload {
+  code: string;
+  message: string;
+}
+
 export type { PlayerSessionCredentials } from '../utils/sessionStorage';

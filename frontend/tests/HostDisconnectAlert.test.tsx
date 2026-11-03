@@ -106,6 +106,15 @@ describe('US-20 Step 4: Host Disconnect Alert Suite (Scenario 4)', () => {
     clearMatchOver: vi.fn(),
     playerLeftAlert: null,
     clearPlayerLeftAlert: vi.fn(),
+    kickedInfo: null,
+    clearKickedInfo: vi.fn(),
+    gamePaused: null,
+    adminError: null,
+    clearAdminError: vi.fn(),
+    kickPlayer: vi.fn(),
+    pauseGame: vi.fn(),
+    resumeGame: vi.fn(),
+    overrideAnswer: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-ALT1') => {

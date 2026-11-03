@@ -86,6 +86,9 @@ export const fr: TranslationDictionary = {
     statusReady: 'Prêt',
     statusWaiting: 'En attente',
     statusDisconnected: 'Déconnecté',
+    removePlayer: 'Retirer',
+    kickedTitle: 'Retiré de la partie',
+    kickedDefaultMessage: 'Vous avez été retiré de la partie par l\'hôte.',
     backHome: 'Retour à l’accueil',
   },
   fastMoney: {

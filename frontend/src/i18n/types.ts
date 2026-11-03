@@ -83,6 +83,9 @@ export interface TranslationDictionary {
     statusReady: string;
     statusWaiting: string;
     statusDisconnected: string;
+    removePlayer: string;
+    kickedTitle: string;
+    kickedDefaultMessage: string;
     backHome: string;
   };
   fastMoney: {
