@@ -223,6 +223,10 @@ export const fr: TranslationDictionary = {
     spacebarShortcutHint: 'Espace',
     manualOverride: 'Validation manuelle',
     overrideAccept: 'Forcer et accepter',
+    closeOverride: 'Fermer',
+    judgeOverrideSubtitle: "Sélectionnez une réponse non révélée ci-dessous pour l'accepter et annuler une croix.",
+    creditTeamLabel: 'Créditer les points à :',
+    overrideConfirmedToast: 'Validation juge : Carte n°{rank} (« {answer} ») acceptée (+{points} pts) !',
   },
 };
 

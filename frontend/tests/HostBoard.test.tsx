@@ -111,6 +111,10 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     pauseGame: vi.fn(),
     resumeGame: vi.fn(),
     overrideAnswer: vi.fn(),
+    hostOverrideOptions: [],
+    answerOverrideAck: null,
+    clearAnswerOverrideAck: vi.fn(),
+    requestOverrideOptions: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {

@@ -51,6 +51,9 @@ import {
   GameResumedPayload,
   StrikeCancelledPayload,
   AdminErrorPayload,
+  HostOverrideAnswerOption,
+  HostOverrideOptionsPayload,
+  AnswerOverridePayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -138,6 +141,8 @@ export function useSocket(options?: UseSocketOptions) {
   const [kickedInfo, setKickedInfo] = useState<PlayerKickedPayload | null>(null);
   const [gamePaused, setGamePaused] = useState<GamePausedPayload | null>(null);
   const [adminError, setAdminError] = useState<AdminErrorPayload | null>(null);
+  const [hostOverrideOptions, setHostOverrideOptions] = useState<HostOverrideAnswerOption[]>([]);
+  const [answerOverrideAck, setAnswerOverrideAck] = useState<AnswerOverridePayload | null>(null);
 
 
   const socketRef = useRef<Socket | null>(null);
@@ -452,6 +457,8 @@ export function useSocket(options?: UseSocketOptions) {
     setFaceOffReset(null);
     setFaceOffAnswer(null);
     setFaceOffError(null);
+    setHostOverrideOptions([]);
+    setAnswerOverrideAck(null);
   }, []);
 
   const clearError = useCallback(() => {
@@ -540,6 +547,8 @@ export function useSocket(options?: UseSocketOptions) {
       setSuddenDeathInitiated(null);
       setP1RevealCompleted(null);
       setDuplicateWarning(null);
+      setHostOverrideOptions([]);
+      setAnswerOverrideAck(null);
     });
 
     // Main Game Teams Assignment (US-11)
@@ -660,6 +669,9 @@ export function useSocket(options?: UseSocketOptions) {
     // Main Game Team Guessing Listeners (US-14)
     socket.on('team_guessing_state', (state: TeamGuessingSessionState) => {
       setTeamGuessingState(state);
+      if (state.phase === 'TEAM_GUESSING' && state.strikes < 3) {
+        setTransitionStealPhase(null);
+      }
     });
 
     socket.on('strike_issued', (payload: StrikeIssuedPayload) => {
@@ -704,6 +716,8 @@ export function useSocket(options?: UseSocketOptions) {
 
     socket.on('next_round_started', (payload: NextRoundStartedPayload) => {
       setNextRoundStarted(payload);
+      setHostOverrideOptions([]);
+      setAnswerOverrideAck(null);
     });
     socket.on('session_granted', (payload: PlayerSessionCredentials) => {
       savePlayerSession(payload);
@@ -774,13 +788,31 @@ export function useSocket(options?: UseSocketOptions) {
     });
 
     socket.on('strike_cancelled', (payload: StrikeCancelledPayload) => {
+      setStrikeIssued(null);
+      if (payload.strikeCount < 3) {
+        setTransitionStealPhase(null);
+      }
       setTeamGuessingState((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
           strikes: payload.strikeCount,
+          phase:
+            prev.phase === 'STEAL_PHASE' && payload.strikeCount < 3
+              ? 'TEAM_GUESSING'
+              : prev.phase,
         };
       });
+    });
+
+    socket.on('host_override_options', (payload: HostOverrideOptionsPayload) => {
+      if (payload && Array.isArray(payload.answers)) {
+        setHostOverrideOptions(payload.answers);
+      }
+    });
+
+    socket.on('answer_override_acknowledged', (payload: AnswerOverridePayload) => {
+      setAnswerOverrideAck(payload);
     });
 
 
@@ -842,6 +874,17 @@ export function useSocket(options?: UseSocketOptions) {
     },
     [options?.roomCode, roomState?.roomCode]
   );
+
+  const requestOverrideOptions = useCallback(() => {
+    const socket = socketRef.current;
+    const code = options?.roomCode || roomState?.roomCode;
+    if (!socket || !code) return;
+    const secret = getHostSecret(code);
+    socket.emit('host_get_override_answers', {
+      roomCode: code,
+      hostSecret: secret || undefined,
+    });
+  }, [options?.roomCode, roomState?.roomCode]);
 
   return {
     socket: socketRef.current,
@@ -930,5 +973,9 @@ export function useSocket(options?: UseSocketOptions) {
     pauseGame,
     resumeGame,
     overrideAnswer,
+    hostOverrideOptions,
+    answerOverrideAck,
+    clearAnswerOverrideAck: () => setAnswerOverrideAck(null),
+    requestOverrideOptions,
   };
 }

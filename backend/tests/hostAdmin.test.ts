@@ -9,6 +9,7 @@ import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import { hostAdminService, ManualOverrideResult } from '../src/services/hostAdminService';
 import { initTeamGuessingSession, removeTeamGuessingSession } from '../src/services/teamGuessingService';
 import { removeFaceOffSession } from '../src/services/faceOffService';
+import { initMatchScoreboard, deleteMatchScoreboard } from '../src/services/mainGameScoreboardService';
 import { initFastMoneySession, clearFastMoneyTimer } from '../src/sockets/fastMoneyHandler';
 import { AdminErrorPayload } from '../src/sockets/adminHandler';
 
@@ -113,6 +114,7 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       clearFastMoneyTimer(c);
       removeTeamGuessingSession(c);
       removeFaceOffSession(c);
+      deleteMatchScoreboard(c);
     });
     await cleanAdminDb();
   });
@@ -841,6 +843,242 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       expect(overrideRes.points).toBe(55);
       expect(overrideRes.answerText).toBe('Apple');
       expect(overrideRes.isBoardCleared).toBe(true);
+    });
+
+    it('delivers unrevealed answer options strictly to Host via host_get_override_answers and blocks non-host sockets (anti-cheat)', async () => {
+      const roomCode = 'FEUD-ADM1';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Override Options Security Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const hostSocket = await connectClient(port);
+      const playerSocket = await connectClient(port);
+      clientSockets.push(hostSocket, playerSocket);
+
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+      await new Promise<void>((resolve) => {
+        playerSocket.emit('join_room', { roomCode, nickname: 'CuriousPlayer' }, () => resolve());
+      });
+
+      const teamSession = initTeamGuessingSession(roomCode, {
+        gameId: 'game-override-options',
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q-cars',
+          questionText: 'Name something people drive to work',
+          answers: [
+            { id: 'a1', rankOrder: 1, answerText: 'Car', points: 45 },
+            { id: 'a2', rankOrder: 2, answerText: 'Truck', points: 30 },
+          ],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+
+      // 1. Non-host player cannot fetch unrevealed override options
+      const [unauthErr, unauthRes] = await Promise.all([
+        waitForEvent<AdminErrorPayload>(playerSocket, 'admin_error'),
+        new Promise<any>((resolve) => {
+          playerSocket.emit('host_get_override_answers', { roomCode }, (res: any) => resolve(res));
+        }),
+      ]);
+      expect(unauthErr.code).toBe('UNAUTHORIZED');
+      expect(unauthRes.success).toBe(false);
+      expect(unauthRes.answers).toEqual([]);
+
+      // 2. Host receives full answer list while player receives nothing on host_override_options
+      let playerLeakedOptions = false;
+      playerSocket.on('host_override_options', () => {
+        playerLeakedOptions = true;
+      });
+
+      const [hostOptionsEvent, hostCallbackRes] = await Promise.all([
+        waitForEvent<{ roomCode: string; answers: any[] }>(hostSocket, 'host_override_options'),
+        new Promise<any>((resolve) => {
+          hostSocket.emit('host_get_override_answers', { roomCode }, (res: any) => resolve(res));
+        }),
+      ]);
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(playerLeakedOptions).toBe(false);
+      expect(hostCallbackRes.success).toBe(true);
+      expect(hostOptionsEvent.answers).toHaveLength(2);
+      expect(hostOptionsEvent.answers[0]).toMatchObject({
+        rankOrder: 1,
+        answerText: 'Car',
+        points: 45,
+        isRevealed: false,
+      });
+
+      teamSession.stopTimer();
+    });
+
+    it('retracts 3rd strike, reverts STEAL_PHASE back to TEAM_GUESSING, and syncs scoreboard_update', async () => {
+      const roomCode = 'FEUD-ADM2';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Third Strike Retract Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const hostSocket = await connectClient(port);
+      const playerSocket = await connectClient(port);
+      clientSockets.push(hostSocket, playerSocket);
+
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+      await new Promise<void>((resolve) => {
+        playerSocket.emit('join_room', { roomCode, nickname: 'Player1' }, () => resolve());
+      });
+
+      initMatchScoreboard(roomCode, 'game-steal-retract', { totalRounds: 3 });
+
+      const teamSession = initTeamGuessingSession(roomCode, {
+        gameId: 'game-steal-retract',
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q-drive',
+          questionText: 'Name a vehicle',
+          answers: [
+            { id: 'a1', rankOrder: 1, answerText: 'Car', points: 45 },
+            { id: 'a2', rankOrder: 2, answerText: 'Motorcycle', points: 25 },
+          ],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [
+          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true },
+          { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', isConnected: true },
+        ],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+
+      // Accumulate 3 strikes -> STEAL_PHASE (active player starts at index 1 = Charlie -> Alice -> Charlie)
+      teamSession.passTurn(teamSession.activePlayer.id);
+      teamSession.passTurn(teamSession.activePlayer.id);
+      const thirdStrikeGuesserId = teamSession.activePlayer.id;
+      teamSession.passTurn(thirdStrikeGuesserId);
+      expect(teamSession.strikes).toBe(3);
+      expect(teamSession.phase).toBe('STEAL_PHASE');
+
+      const sbPromise = waitForEvent<any>(playerSocket, 'scoreboard_update');
+      const statePromise = waitForEvent<any>(playerSocket, 'team_guessing_state');
+      const hostUpdatedOptsPromise = waitForEvent<any>(hostSocket, 'host_override_options');
+
+      // Host overrides and accepts Card #1 ("Car", 45 pts) -> retracts 3rd strike back to 2 strikes & TEAM_GUESSING
+      const overrideRes: ManualOverrideResult = await new Promise((resolve) => {
+        hostSocket.emit(
+          'host_override_answer',
+          { roomCode, rankOrder: 1 },
+          (res: ManualOverrideResult) => resolve(res)
+        );
+      });
+
+      expect(overrideRes.success).toBe(true);
+      expect(overrideRes.strikeCount).toBe(2);
+      expect(overrideRes.roundBank).toBe(45);
+      expect(teamSession.phase).toBe('TEAM_GUESSING');
+
+      const [sbUpdate, tgState, hostOpts] = await Promise.all([
+        sbPromise,
+        statePromise,
+        hostUpdatedOptsPromise,
+      ]);
+
+      expect(sbUpdate.activeRoundBank).toBe(45);
+      expect(tgState.phase).toBe('TEAM_GUESSING');
+      expect(tgState.strikes).toBe(2);
+      expect(tgState.activePlayer?.id).not.toBe(thirdStrikeGuesserId); // Floor advanced cleanly to next teammate
+      expect(hostOpts.answers.find((a: any) => a.rankOrder === 1)?.isRevealed).toBe(true);
+
+      teamSession.stopTimer();
+    });
+
+    it('emits round_cleared, scoreboard_update, and match_over when manual override clears the final card', async () => {
+      const roomCode = 'FEUD-ADM3';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Board Clear Override Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const hostSocket = await connectClient(port);
+      const playerSocket = await connectClient(port);
+      clientSockets.push(hostSocket, playerSocket);
+
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+      await new Promise<void>((resolve) => {
+        playerSocket.emit('join_room', { roomCode, nickname: 'Winner1' }, () => resolve());
+      });
+
+      // 1-round match so clearing the board awards Grand Total and completes the match
+      initMatchScoreboard(roomCode, 'game-clear-override', { totalRounds: 1 });
+
+      const teamSession = initTeamGuessingSession(roomCode, {
+        gameId: 'game-clear-override',
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q-final',
+          questionText: 'Name something with wheels',
+          answers: [{ id: 'a1', rankOrder: 1, answerText: 'Car', points: 60 }],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+
+      const roundClearedPromise = waitForEvent<any>(playerSocket, 'round_cleared');
+      const sbUpdatePromise = waitForEvent<any>(playerSocket, 'scoreboard_update');
+      const matchOverPromise = waitForEvent<any>(playerSocket, 'match_over');
+
+      const overrideRes: ManualOverrideResult = await new Promise((resolve) => {
+        hostSocket.emit(
+          'host_override_answer',
+          { roomCode, rankOrder: 1 },
+          (res: ManualOverrideResult) => resolve(res)
+        );
+      });
+
+      expect(overrideRes.success).toBe(true);
+      expect(overrideRes.isBoardCleared).toBe(true);
+      expect(teamSession.isTimerRunning).toBe(false);
+
+      const [rcPayload, sbPayload, moPayload] = await Promise.all([
+        roundClearedPromise,
+        sbUpdatePromise,
+        matchOverPromise,
+      ]);
+
+      expect(rcPayload.winningTeam).toBe('TEAM_1');
+      expect(rcPayload.totalRoundPoints).toBe(60);
+      expect(sbPayload.team1GrandTotal).toBe(60);
+      expect(sbPayload.phase).toBe('MATCH_OVER');
+      expect(moPayload.winningTeam).toBe('TEAM_1');
     });
   });
 

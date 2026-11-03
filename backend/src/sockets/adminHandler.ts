@@ -8,6 +8,7 @@ import { PrismaClient } from '@prisma/client';
 import defaultPrisma from '../services/db';
 import { normalizeRoomCode } from '../utils/roomCode';
 import { hostAdminService, ManualOverrideResult } from '../services/hostAdminService';
+import { HostOverrideAnswerOption } from '../services/teamGuessingService';
 import { logger } from '../utils/logger';
 
 export interface HostPauseGamePayload {
@@ -293,6 +294,61 @@ export function registerAdminHandlers(
         };
         socket.emit('admin_error', errorPayload);
         if (callback) callback({ success: false, error: errorPayload.message });
+      }
+    }
+  );
+
+  // 5. Host Get Override Answer Options (Strictly Host-Authorized, US-21 Scenario 2)
+  socket.on(
+    'host_get_override_answers',
+    (
+      data: { roomCode: string; hostSecret?: string },
+      callback?: (res: { success: boolean; answers: HostOverrideAnswerOption[]; error?: string }) => void
+    ) => {
+      try {
+        const rawCode = data?.roomCode || socket.data?.roomCode;
+        if (!rawCode) {
+          const err: AdminErrorPayload = {
+            code: 'INVALID_ACTION',
+            message: 'Room code is required to fetch override answers.',
+          };
+          socket.emit('admin_error', err);
+          if (callback) callback({ success: false, answers: [], error: err.message });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(rawCode);
+        if (!hostAdminService.isHostAuthorized(socket, normalizedCode, data?.hostSecret)) {
+          logger.warn(
+            `[ADMIN:UNAUTHORIZED] Unauthorized attempt to fetch override answers in room ${normalizedCode} from socket ${socket.id}`
+          );
+          const err: AdminErrorPayload = {
+            code: 'UNAUTHORIZED',
+            message: 'Only the room host is authorized to inspect unrevealed answers.',
+          };
+          socket.emit('admin_error', err);
+          if (callback) callback({ success: false, answers: [], error: err.message });
+          return;
+        }
+
+        const res = hostAdminService.getHostOverrideOptions(normalizedCode);
+        if (res.success) {
+          socket.emit('host_override_options', {
+            roomCode: normalizedCode,
+            answers: res.answers,
+          });
+        }
+        if (callback) {
+          callback(res);
+        }
+      } catch (err: any) {
+        logger.error(`[ADMIN:OVERRIDE_OPTIONS_ERROR] Error fetching override options: ${err?.message || err}`);
+        const errorPayload: AdminErrorPayload = {
+          code: 'SERVER_ERROR',
+          message: 'An error occurred while fetching override options.',
+        };
+        socket.emit('admin_error', errorPayload);
+        if (callback) callback({ success: false, answers: [], error: errorPayload.message });
       }
     }
   );

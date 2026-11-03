@@ -22,6 +22,7 @@ import { generateAndSaveGameQuestions, saveQuestionsForGame } from '../services/
 import { SupportedLanguage } from '../services/geminiService';
 import { normalizeRoomCode } from '../utils/roomCode';
 import { hostAdminService } from '../services/hostAdminService';
+import { sessionRecoveryService } from '../services/sessionRecoveryService';
 import { logger } from '../utils/logger';
 import {
   getMatchScoreboard,
@@ -230,6 +231,13 @@ export function broadcastTeamGuessingState(
   session: TeamGuessingSession
 ): void {
   io.to(`room:${session.roomCode}`).emit('team_guessing_state', session.getState());
+  const hostSocketId = sessionRecoveryService.getHostSocket(session.roomCode);
+  if (hostSocketId) {
+    io.to(hostSocketId).emit('host_override_options', {
+      roomCode: session.roomCode,
+      answers: session.getHostAnswerOptions(),
+    });
+  }
 }
 
 /**

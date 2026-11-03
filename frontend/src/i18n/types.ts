@@ -220,5 +220,9 @@ export interface TranslationDictionary {
     spacebarShortcutHint: string;
     manualOverride: string;
     overrideAccept: string;
+    closeOverride: string;
+    judgeOverrideSubtitle: string;
+    creditTeamLabel: string;
+    overrideConfirmedToast: string;
   };
 }

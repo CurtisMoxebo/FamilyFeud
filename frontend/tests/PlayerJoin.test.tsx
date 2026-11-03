@@ -106,6 +106,10 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     pauseGame: vi.fn(),
     resumeGame: vi.fn(),
     overrideAnswer: vi.fn(),
+    hostOverrideOptions: [],
+    answerOverrideAck: null,
+    clearAnswerOverrideAck: vi.fn(),
+    requestOverrideOptions: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {

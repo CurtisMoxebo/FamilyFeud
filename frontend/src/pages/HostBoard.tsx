@@ -12,6 +12,8 @@ import {
   SuddenDeathInitiatedPayload,
   PlayerLeftAlertPayload,
   GamePausedPayload,
+  HostOverrideAnswerOption,
+  AnswerOverridePayload,
 } from '../types';
 import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
@@ -39,6 +41,7 @@ import {
   Play,
   Pause,
   UserX,
+  Gavel,
 } from 'lucide-react';
 
 export interface HostBoardProps {
@@ -52,6 +55,8 @@ export interface HostBoardProps {
   initialSuddenDeathInitiated?: SuddenDeathInitiatedPayload | null;
   initialPlayerLeftAlert?: PlayerLeftAlertPayload | null;
   initialGamePaused?: GamePausedPayload | null;
+  initialHostOverrideOptions?: HostOverrideAnswerOption[];
+  initialAnswerOverrideAck?: AnswerOverridePayload | null;
   onAdvanceNextRound?: () => void;
   onReplay?: () => void;
   apiBaseUrl?: string;
@@ -69,6 +74,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   initialSuddenDeathInitiated = null,
   initialPlayerLeftAlert = null,
   initialGamePaused = null,
+  initialHostOverrideOptions = [],
+  initialAnswerOverrideAck = null,
   onAdvanceNextRound,
   onReplay,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
@@ -137,6 +144,10 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     gamePaused: socketGamePaused,
     pauseGame,
     resumeGame,
+    overrideAnswer,
+    hostOverrideOptions: socketHostOverrideOptions,
+    answerOverrideAck: socketAnswerOverrideAck,
+    requestOverrideOptions,
   } = useSocket({
     roomCode,
     isHost: true,
@@ -167,8 +178,38 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const activeGamePaused = socketGamePaused ?? initialGamePaused;
   const isPaused = Boolean(activeGamePaused);
   const pausedRemainingSeconds = activeGamePaused?.remainingTime;
+  const hostOverrideOptions =
+    socketHostOverrideOptions.length > 0
+      ? socketHostOverrideOptions
+      : initialHostOverrideOptions;
+  const answerOverrideAck = socketAnswerOverrideAck ?? initialAnswerOverrideAck;
+
+  const [isManualOverrideOpen, setIsManualOverrideOpen] = useState<boolean>(false);
 
   const isFastMoneyRoom = room?.gameMode === 'FAST_MONEY';
+  const canManualOverride = Boolean(
+    !isFastMoneyRoom &&
+      teamGuessingState &&
+      (teamGuessingState.phase === 'TEAM_GUESSING' ||
+        teamGuessingState.phase === 'STEAL_PHASE') &&
+      !matchOver
+  );
+
+  useEffect(() => {
+    if (!canManualOverride && isManualOverrideOpen) {
+      setIsManualOverrideOpen(false);
+    }
+  }, [canManualOverride, isManualOverrideOpen]);
+
+  const handleToggleManualOverride = useCallback(() => {
+    setIsManualOverrideOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        requestOverrideOptions();
+      }
+      return next;
+    });
+  }, [requestOverrideOptions]);
   const isActiveGameStage = Boolean(
     (isFastMoneyRoom &&
       fastMoneyHostState &&
@@ -373,8 +414,26 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     isActiveGameStage ? (
       <div
         data-testid="host-admin-controls"
-        className="w-full max-w-5xl flex items-center justify-end gap-2 mb-3 px-1"
+        className="w-full max-w-5xl flex items-center justify-end gap-2 mb-3 px-1 flex-wrap"
       >
+        {canManualOverride && (
+          <button
+            type="button"
+            onClick={handleToggleManualOverride}
+            data-testid="host-manual-override-toggle"
+            aria-expanded={isManualOverrideOpen}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${
+              isManualOverrideOpen
+                ? 'bg-indigo-500 hover:bg-indigo-400 text-white border-indigo-300 shadow-indigo-500/25'
+                : 'bg-slate-800/90 hover:bg-slate-700 text-indigo-300 border-indigo-500/40'
+            }`}
+          >
+            <Gavel className="w-3.5 h-3.5" />
+            <span>
+              {isManualOverrideOpen ? t.admin.closeOverride : t.admin.manualOverride}
+            </span>
+          </button>
+        )}
         <button
           type="button"
           onClick={handleTogglePause}
@@ -518,6 +577,14 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           timerTick={timerTick}
           isPaused={isPaused}
           pausedRemainingSeconds={pausedRemainingSeconds}
+          isManualOverrideOpen={isManualOverrideOpen}
+          onCloseManualOverride={() => setIsManualOverrideOpen(false)}
+          hostOverrideOptions={hostOverrideOptions}
+          answerOverrideAck={answerOverrideAck}
+          onOverrideAnswer={(rankOrder, points, teamId) => {
+            overrideAnswer(rankOrder, points, teamId);
+            setIsManualOverrideOpen(false);
+          }}
           strikeIssued={strikeIssued}
           roundCleared={roundCleared}
           transitionStealPhase={transitionStealPhase}

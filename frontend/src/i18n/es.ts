@@ -223,6 +223,10 @@ export const es: TranslationDictionary = {
     spacebarShortcutHint: 'Espacio',
     manualOverride: 'Anulación manual',
     overrideAccept: 'Anular y aceptar',
+    closeOverride: 'Cerrar',
+    judgeOverrideSubtitle: 'Selecciona una casilla sin revelar abajo para aceptar la respuesta y retirar un fallo.',
+    creditTeamLabel: 'Acreditar puntos a:',
+    overrideConfirmedToast: 'Anulación del juez: ¡Casilla #{rank} ("{answer}") aceptada (+{points} pts)!',
   },
 };
 

@@ -107,6 +107,10 @@ describe('US-21 Step 2: Lobby Kick & Moderation Flow', () => {
     pauseGame: vi.fn(),
     resumeGame: vi.fn(),
     overrideAnswer: vi.fn(),
+    hostOverrideOptions: [],
+    answerOverrideAck: null,
+    clearAnswerOverrideAck: vi.fn(),
+    requestOverrideOptions: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-KICK') => {

@@ -496,6 +496,12 @@ export interface TeamGuessingSessionState {
     id: string;
     questionText: string;
     answerCount: number;
+    answers?: Array<{
+      id: string;
+      rankOrder: number;
+      answerText: string;
+      points: number;
+    }>;
   };
   winningTeam?: 'TEAM_1' | 'TEAM_2' | null;
 }
@@ -742,6 +748,19 @@ export interface GamePausedPayload {
 export interface GameResumedPayload {
   roomCode: string;
   remainingTime: number;
+}
+
+export interface HostOverrideAnswerOption {
+  id: string;
+  rankOrder: number;
+  answerText: string;
+  points: number;
+  isRevealed: boolean;
+}
+
+export interface HostOverrideOptionsPayload {
+  roomCode: string;
+  answers: HostOverrideAnswerOption[];
 }
 
 export interface AnswerOverridePayload {

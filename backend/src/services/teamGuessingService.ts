@@ -46,6 +46,14 @@ export interface TeamRevealedAnswer {
   revealedByTeam?: TeamId;
 }
 
+export interface HostOverrideAnswerOption {
+  id: string;
+  rankOrder: number;
+  answerText: string;
+  points: number;
+  isRevealed: boolean;
+}
+
 export interface TeamGuessResult {
   playerId: string;
   playerNickname: string;
@@ -405,20 +413,40 @@ export class TeamGuessingSession {
     this.revealedAnswers.push(revealedItem);
     this.roundBank += points;
 
+    const wasStealPhase = this.phase === 'STEAL_PHASE';
+    const wasTimerRunning = this.timer !== null;
+
     // Retract strike if strikes > 0 (Scenario 2: "and cancels any strike issued")
     if (this.strikes > 0) {
       this.strikes = Math.max(0, this.strikes - 1);
-      if (this.phase === 'STEAL_PHASE' && this.strikes < 3) {
+      if (wasStealPhase && this.strikes < 3) {
         this.phase = 'TEAM_GUESSING';
       }
     }
 
     const isBoardCleared = this.revealedAnswers.length >= this.question.answers.length;
     if (isBoardCleared) {
+      this.stopTimer();
       this.phase = 'ROUND_CLEARED';
-      this.winningTeam = this.controllingTeam;
+      this.winningTeam = team;
       if (this.onRoundClearedCallback) {
-        this.onRoundClearedCallback(this.controllingTeam, this.roundBank);
+        this.onRoundClearedCallback(team, this.roundBank);
+      }
+    } else if (wasStealPhase && this.phase === 'TEAM_GUESSING') {
+      this.stopTimer();
+      this.advanceTurn();
+      if (this.isPaused) {
+        this.remainingSecondsOnPause = this.timerDurationSeconds;
+        this.remainingSeconds = this.timerDurationSeconds;
+      } else if (wasTimerRunning || this.autoStartStealTimer) {
+        this.startAuthoritativeTimer();
+      }
+    } else if (this.phase === 'TEAM_GUESSING') {
+      if (this.isPaused) {
+        this.remainingSecondsOnPause = this.timerDurationSeconds;
+        this.remainingSeconds = this.timerDurationSeconds;
+      } else if (wasTimerRunning) {
+        this.startAuthoritativeTimer();
       }
     }
 
@@ -427,9 +455,24 @@ export class TeamGuessingSession {
       strikeCount: this.strikes,
       roundBank: this.roundBank,
       pointsAwarded: points,
-      controllingTeam: this.controllingTeam,
+      controllingTeam: team,
       isBoardCleared,
     };
+  }
+
+  /**
+   * Returns all survey answers with reveal flags strictly for the authorized Host display (US-21 Scenario 2).
+   */
+  public getHostAnswerOptions(): HostOverrideAnswerOption[] {
+    return [...this.question.answers]
+      .sort((a, b) => a.rankOrder - b.rankOrder)
+      .map((a) => ({
+        id: a.id,
+        rankOrder: a.rankOrder,
+        answerText: a.answerText,
+        points: a.points,
+        isRevealed: this.revealedAnswers.some((r) => r.rankOrder === a.rankOrder),
+      }));
   }
 
   /**

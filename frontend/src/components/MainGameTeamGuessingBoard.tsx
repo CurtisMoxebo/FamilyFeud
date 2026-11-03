@@ -14,6 +14,8 @@ import {
   StealResolvedPayload,
   RoundWinnerPayload,
   TeamRevealedAnswer,
+  HostOverrideAnswerOption,
+  AnswerOverridePayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
@@ -45,6 +47,9 @@ import {
   Zap,
   ShieldCheck,
   Play,
+  Gavel,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
 
 export interface MainGameTeamGuessingBoardProps {
@@ -52,6 +57,11 @@ export interface MainGameTeamGuessingBoardProps {
   timerTick?: TimerTickPayload | null;
   isPaused?: boolean;
   pausedRemainingSeconds?: number;
+  isManualOverrideOpen?: boolean;
+  onCloseManualOverride?: () => void;
+  hostOverrideOptions?: HostOverrideAnswerOption[];
+  answerOverrideAck?: AnswerOverridePayload | null;
+  onOverrideAnswer?: (rankOrder: number, points?: number, teamId?: 'TEAM_1' | 'TEAM_2') => void;
   strikeIssued?: StrikeIssuedPayload | null;
   roundCleared?: RoundClearedPayload | null;
   transitionStealPhase?: TransitionStealPhasePayload | null;
@@ -74,6 +84,11 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   timerTick,
   isPaused = false,
   pausedRemainingSeconds,
+  isManualOverrideOpen = false,
+  onCloseManualOverride,
+  hostOverrideOptions = [],
+  answerOverrideAck = null,
+  onOverrideAnswer,
   strikeIssued,
   roundCleared,
   transitionStealPhase,
@@ -137,6 +152,37 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     count: number;
     message?: string;
   } | null>(null);
+
+  // Judge Manual Override state (US-21 Scenario 2)
+  const [creditTeam, setCreditTeam] = useState<'TEAM_1' | 'TEAM_2'>(snapshot.controllingTeam);
+  const [overrideToast, setOverrideToast] = useState<AnswerOverridePayload | null>(null);
+  const prevStrikesRef = useRef<number>(snapshot.strikes);
+
+  useEffect(() => {
+    setCreditTeam(snapshot.controllingTeam);
+  }, [snapshot.controllingTeam]);
+
+  // Dismiss strike overlay immediately & reset steal flag if strike is retracted via Host Override
+  useEffect(() => {
+    if (snapshot.strikes < prevStrikesRef.current) {
+      setActiveStrikeOverlay(null);
+      if (snapshot.phase === 'TEAM_GUESSING' && snapshot.strikes < 3) {
+        hasAnnouncedSteal.current = false;
+      }
+    }
+    prevStrikesRef.current = snapshot.strikes;
+  }, [snapshot.strikes, snapshot.phase]);
+
+  useEffect(() => {
+    if (answerOverrideAck) {
+      setActiveStrikeOverlay(null);
+      setOverrideToast(answerOverrideAck);
+      const toastTimer = setTimeout(() => {
+        setOverrideToast(null);
+      }, 4000);
+      return () => clearTimeout(toastTimer);
+    }
+  }, [answerOverrideAck]);
 
   // Track handled strikes and board reveals to avoid duplicate sound triggers
   const lastHandledStrikeTimestamp = useRef<number>(0);
@@ -288,6 +334,31 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       });
     }
   }
+
+  // Map of host-only unrevealed/revealed survey slot options for Judge Manual Override (US-21 Scenario 2)
+  const overrideOptionMap = new Map<number, { rankOrder: number; answerText: string; points: number }>();
+  if (snapshot.question.answers) {
+    snapshot.question.answers.forEach((a) => {
+      overrideOptionMap.set(a.rankOrder, {
+        rankOrder: a.rankOrder,
+        answerText: a.answerText,
+        points: a.points,
+      });
+    });
+  }
+  hostOverrideOptions.forEach((opt) => {
+    overrideOptionMap.set(opt.rankOrder, {
+      rankOrder: opt.rankOrder,
+      answerText: opt.answerText,
+      points: opt.points,
+    });
+  });
+
+  const showOverrideControls = Boolean(
+    isManualOverrideOpen &&
+      onOverrideAnswer &&
+      (snapshot.phase === 'TEAM_GUESSING' || snapshot.phase === 'STEAL_PHASE')
+  );
 
   // Total answer count for card grid
   const totalSlots = Math.max(
@@ -501,6 +572,92 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       </div>
 
+      {/* Judge Override Confirmation Toast (US-21 Scenario 2) */}
+      {overrideToast && (
+        <div
+          data-testid="host-override-toast"
+          role="status"
+          className="relative z-20 w-full max-w-5xl mx-auto mb-4 px-5 py-3 rounded-2xl bg-emerald-950/90 border border-emerald-400/60 text-emerald-200 flex items-center justify-between gap-3 shadow-xl"
+        >
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span className="text-sm font-extrabold tracking-wide">
+              {t.admin.overrideConfirmedToast
+                .replace('{rank}', String(overrideToast.rankOrder))
+                .replace('{answer}', overrideToast.answerText)
+                .replace('{points}', String(overrideToast.pointsAwarded))}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOverrideToast(null)}
+            className="p-1 rounded-lg hover:bg-emerald-900/60 text-emerald-300 transition-colors cursor-pointer"
+            aria-label="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Discrete Judge Manual Override Panel (US-21 Scenario 2) */}
+      {showOverrideControls && (
+        <section
+          data-testid="host-manual-override-panel"
+          className="relative z-20 w-full max-w-5xl mx-auto mb-4 p-4 rounded-2xl bg-indigo-950/90 border-2 border-indigo-400/70 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300">
+              <Gavel className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-indigo-200">
+                {t.admin.manualOverride}
+              </h3>
+              <p className="text-xs text-slate-300">{t.admin.judgeOverrideSubtitle}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            <span className="text-xs font-bold text-slate-300">{t.admin.creditTeamLabel}</span>
+            <button
+              type="button"
+              data-testid="host-override-team-1"
+              onClick={() => setCreditTeam('TEAM_1')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase border transition-all cursor-pointer ${
+                creditTeam === 'TEAM_1'
+                  ? 'bg-blue-600 text-white border-blue-300 shadow'
+                  : 'bg-slate-900/80 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              {t.mainGame.team1}
+            </button>
+            <button
+              type="button"
+              data-testid="host-override-team-2"
+              onClick={() => setCreditTeam('TEAM_2')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase border transition-all cursor-pointer ${
+                creditTeam === 'TEAM_2'
+                  ? 'bg-emerald-600 text-white border-emerald-300 shadow'
+                  : 'bg-slate-900/80 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              {t.mainGame.team2}
+            </button>
+            {onCloseManualOverride && (
+              <button
+                type="button"
+                data-testid="host-manual-override-close"
+                onClick={onCloseManualOverride}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 transition-colors cursor-pointer"
+                title={t.admin.closeOverride}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Answer Board Card Grid (4 to 8 Flip Cards) with Steal Match & Board Clearance Highlighting */}
       <main className="relative z-10 w-full max-w-5xl mx-auto flex-1 flex flex-col justify-center">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 p-4 md:p-6 bg-slate-900/80 border-2 border-blue-900/60 rounded-3xl shadow-2xl backdrop-blur-sm">
@@ -510,6 +667,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
             const isRevealed = Boolean(revealedItem);
             const isRemaining = Boolean(revealedItem?.isRemainingReveal);
             const isStealMatch = Boolean(revealedItem?.isStealMatch);
+            const candidateOption = overrideOptionMap.get(rankOrder);
 
             return (
               <div
@@ -522,6 +680,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                       : isRemaining
                       ? 'bg-gradient-to-r from-slate-800 to-indigo-950/80 border-amber-500/60 shadow-[0_4px_15px_rgba(245,158,11,0.2)]'
                       : 'bg-gradient-to-r from-blue-700 to-indigo-800 border-yellow-400/70 shadow-[0_4px_20px_rgba(59,130,246,0.3)]'
+                    : showOverrideControls
+                    ? 'bg-gradient-to-r from-indigo-950/90 to-slate-900 border-indigo-400/70 shadow-[0_0_20px_rgba(99,102,241,0.25)]'
                     : 'bg-gradient-to-r from-slate-900 to-slate-800 border-slate-700/80 hover:border-slate-600'
                 }`}
               >
@@ -566,6 +726,38 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                     >
                       {revealedItem.points}
                     </span>
+                  </div>
+                ) : showOverrideControls && onOverrideAnswer ? (
+                  <div className="w-full flex items-center justify-between gap-3 py-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-8 h-8 rounded-full bg-indigo-500/30 border border-indigo-400 text-indigo-200 font-black flex items-center justify-center text-sm shrink-0">
+                        {rankOrder}
+                      </span>
+                      <div
+                        data-testid={`host-override-slot-label-${rankOrder}`}
+                        className="flex flex-col min-w-0"
+                      >
+                        <span className="font-extrabold text-indigo-100 text-sm md:text-base truncate">
+                          {candidateOption ? `"${candidateOption.answerText}"` : `Slot #${rankOrder}`}
+                        </span>
+                        {candidateOption && (
+                          <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
+                            {candidateOption.points} PTS
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      data-testid={`host-override-slot-btn-${rankOrder}`}
+                      onClick={() =>
+                        onOverrideAnswer(rankOrder, candidateOption?.points, creditTeam)
+                      }
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 text-slate-950 font-black text-xs uppercase tracking-wide shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0"
+                    >
+                      <Gavel className="w-3.5 h-3.5" />
+                      <span>{t.admin.overrideAccept}</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="w-full flex items-center justify-center">

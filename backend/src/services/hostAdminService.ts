@@ -10,7 +10,9 @@ import { normalizeRoomCode } from '../utils/roomCode';
 import { sessionRecoveryService } from './sessionRecoveryService';
 import {
   getTeamGuessingSession,
+  HostOverrideAnswerOption,
 } from './teamGuessingService';
+import { getMatchScoreboard } from './mainGameScoreboardService';
 import {
   getFaceOffSession,
 } from './faceOffService';
@@ -286,8 +288,89 @@ export class HostAdminService {
       strikeCount: overrideRes.strikeCount,
     });
 
+    // Synchronize match scoreboard & round-cleared resolution if override cleared the board
+    const scoreboard = getMatchScoreboard(normalizedCode);
+    if (overrideRes.isBoardCleared) {
+      io.to(`room:${normalizedCode}`).emit('round_cleared', {
+        roomCode: normalizedCode,
+        winningTeam: overrideRes.controllingTeam,
+        totalRoundPoints: overrideRes.roundBank,
+      });
+      io.to(`room:${normalizedCode}`).emit('round_winner', {
+        roomCode: normalizedCode,
+        winningTeam: overrideRes.controllingTeam,
+        pointsAwarded: overrideRes.roundBank,
+        roundBank: overrideRes.roundBank,
+        message: `Team ${overrideRes.controllingTeam === 'TEAM_1' ? '1' : '2'} cleared the board!`,
+      });
+
+      if (scoreboard) {
+        const sbState = scoreboard.awardRoundPoints(
+          overrideRes.controllingTeam,
+          overrideRes.roundBank,
+          'ROUND_CLEARED'
+        );
+        io.to(`room:${normalizedCode}`).emit('scoreboard_update', {
+          roomCode: normalizedCode,
+          activeRoundBank: 0,
+          winningTeam: overrideRes.controllingTeam,
+          pointsAwarded: overrideRes.roundBank,
+          team1GrandTotal: sbState.team1GrandTotal,
+          team2GrandTotal: sbState.team2GrandTotal,
+          currentRoundNumber: sbState.currentRoundNumber,
+          totalRounds: sbState.totalRounds,
+          phase: sbState.phase,
+          matchWinner: sbState.matchWinner,
+          isSuddenDeath: sbState.isSuddenDeath,
+        });
+
+        if (sbState.phase === 'MATCH_OVER' && sbState.matchWinner && sbState.matchWinner !== 'TIE') {
+          io.to(`room:${normalizedCode}`).emit('match_over', {
+            roomCode: normalizedCode,
+            winningTeam: sbState.matchWinner,
+            team1GrandTotal: sbState.team1GrandTotal,
+            team2GrandTotal: sbState.team2GrandTotal,
+            totalRounds: sbState.totalRounds,
+            isSuddenDeath: sbState.isSuddenDeath,
+            message: `🏆 TEAM ${sbState.matchWinner === 'TEAM_1' ? '1' : '2'} WINS THE GAME! (${sbState.team1GrandTotal} vs ${sbState.team2GrandTotal})`,
+          });
+        } else if (sbState.phase === 'SUDDEN_DEATH') {
+          io.to(`room:${normalizedCode}`).emit('sudden_death_initiated', {
+            roomCode: normalizedCode,
+            team1GrandTotal: sbState.team1GrandTotal,
+            team2GrandTotal: sbState.team2GrandTotal,
+            roundNumber: sbState.currentRoundNumber + 1,
+            message: 'Scores are tied! Sudden Death tie-breaker initiated!',
+          });
+        }
+      }
+    } else if (scoreboard) {
+      scoreboard.updateActiveRoundBank(overrideRes.roundBank);
+      const sbState = scoreboard.getState();
+      io.to(`room:${normalizedCode}`).emit('scoreboard_update', {
+        roomCode: normalizedCode,
+        activeRoundBank: overrideRes.roundBank,
+        team1GrandTotal: sbState.team1GrandTotal,
+        team2GrandTotal: sbState.team2GrandTotal,
+        currentRoundNumber: sbState.currentRoundNumber,
+        totalRounds: sbState.totalRounds,
+        phase: sbState.phase,
+        matchWinner: sbState.matchWinner,
+        isSuddenDeath: sbState.isSuddenDeath,
+      });
+    }
+
     // Broadcast updated team guessing state
     io.to(`room:${normalizedCode}`).emit('team_guessing_state', teamSession.getState());
+
+    // Send updated host-only answer options strictly to the Host socket
+    const hostSocketId = sessionRecoveryService.getHostSocket(normalizedCode);
+    if (hostSocketId) {
+      io.to(hostSocketId).emit('host_override_options', {
+        roomCode: normalizedCode,
+        answers: teamSession.getHostAnswerOptions(),
+      });
+    }
 
     // Broadcast dedicated answer_override_acknowledged event
     io.to(`room:${normalizedCode}`).emit('answer_override_acknowledged', {
@@ -311,6 +394,29 @@ export class HostAdminService {
       roundBank: overrideRes.roundBank,
       controllingTeam: overrideRes.controllingTeam,
       isBoardCleared: overrideRes.isBoardCleared,
+    };
+  }
+
+  /**
+   * Retrieves host-only answer options for the Manual Override panel (US-21 Scenario 2).
+   */
+  public getHostOverrideOptions(roomCode: string): {
+    success: boolean;
+    answers: HostOverrideAnswerOption[];
+    error?: string;
+  } {
+    const normalizedCode = normalizeRoomCode(roomCode);
+    const teamSession = getTeamGuessingSession(normalizedCode);
+    if (!teamSession) {
+      return {
+        success: false,
+        answers: [],
+        error: 'No active team guessing session found.',
+      };
+    }
+    return {
+      success: true,
+      answers: teamSession.getHostAnswerOptions(),
     };
   }
 

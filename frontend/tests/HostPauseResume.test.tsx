@@ -235,6 +235,10 @@ describe('US-21 Step 3: Authoritative Pause / Resume, Spacebar Shortcut & Input 
     pauseGame: vi.fn(),
     resumeGame: vi.fn(),
     overrideAnswer: vi.fn(),
+    hostOverrideOptions: [],
+    answerOverrideAck: null,
+    clearAnswerOverrideAck: vi.fn(),
+    requestOverrideOptions: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-PAUS') => {

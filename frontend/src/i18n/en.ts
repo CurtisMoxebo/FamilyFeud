@@ -223,6 +223,10 @@ export const en: TranslationDictionary = {
     spacebarShortcutHint: 'Spacebar',
     manualOverride: 'Manual Override',
     overrideAccept: 'Override & Accept',
+    closeOverride: 'Close Override',
+    judgeOverrideSubtitle: 'Select an unrevealed survey slot below to accept a valid answer and retract any strike.',
+    creditTeamLabel: 'Credit Points To:',
+    overrideConfirmedToast: 'Judge Override: Card #{rank} ("{answer}") accepted (+{points} pts)!',
   },
 };
 

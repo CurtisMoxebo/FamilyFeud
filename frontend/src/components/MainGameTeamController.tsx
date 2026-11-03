@@ -73,6 +73,15 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const lastStrikeTimestamp = useRef<number>(0);
+  const prevStrikesRef = useRef<number>(snapshot.strikes);
+
+  // Dismiss mobile strike alert immediately if strike is retracted by Host Override (US-21 Scenario 2)
+  useEffect(() => {
+    if (snapshot.strikes < prevStrikesRef.current) {
+      setLocalStrikeAlert(null);
+    }
+    prevStrikesRef.current = snapshot.strikes;
+  }, [snapshot.strikes]);
 
   // Authoritative remaining seconds
   const currentSeconds =

@@ -651,6 +651,13 @@ export function registerLobbyHandlers(
         }
         if (gameState.teamGuessingState) {
           socket.emit('team_guessing_state', gameState.teamGuessingState);
+          const activeTeamSession = getTeamGuessingSession(normalizedCode);
+          if (activeTeamSession) {
+            socket.emit('host_override_options', {
+              roomCode: normalizedCode,
+              answers: activeTeamSession.getHostAnswerOptions(),
+            });
+          }
         }
         if (gameState.scoreboardState) {
           socket.emit('scoreboard_update', gameState.scoreboardState);
