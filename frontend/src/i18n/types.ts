@@ -183,5 +183,16 @@ export interface TranslationDictionary {
     roundClearedSubtitle: string;
     passTurnBtn: string;
     teamGuessInputPlaceholder: string;
+    // US-15: 3-Strike Steal Phase & Round Resolution
+    stealPhaseTitle: string;
+    spokespersonTurnPrompt: string;
+    teammateConsultPrompt: string;
+    defendingTeamFingersCrossed: string;
+    stealSuccessAnnouncement: string;
+    stealFailedAnnouncement: string;
+    submitStealAnswer: string;
+    stealInputPlaceholder: string;
+    remainingAnswersTitle: string;
+    roundWinnerBanner: string;
   };
 }

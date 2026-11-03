@@ -186,6 +186,17 @@ export const en: TranslationDictionary = {
     roundClearedSubtitle: '{team} cleared the board and wins {points} points!',
     passTurnBtn: 'Pass Turn',
     teamGuessInputPlaceholder: 'Guess an answer on the board...',
+    // US-15: 3-Strike Steal Phase & Round Resolution
+    stealPhaseTitle: 'Chance to Steal!',
+    spokespersonTurnPrompt: "⚡ CHANCE TO STEAL! You have 15 seconds to submit your team's answer",
+    teammateConsultPrompt: "🗣️ Consult together! {spokesperson} has the floor to submit your team's steal answer",
+    defendingTeamFingersCrossed: '🤞 Fingers crossed! Waiting to see if the opposing team steals your points...',
+    stealSuccessAnnouncement: 'Steal Successful! {team} stole {points} points!',
+    stealFailedAnnouncement: 'Steal Failed! {team} retains {points} points!',
+    submitStealAnswer: 'Submit Steal Answer',
+    stealInputPlaceholder: 'Enter official steal answer...',
+    remainingAnswersTitle: 'Remaining Unrevealed Answers',
+    roundWinnerBanner: '{team} Wins the Round!',
   },
 };
 

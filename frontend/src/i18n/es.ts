@@ -186,6 +186,17 @@ export const es: TranslationDictionary = {
     roundClearedSubtitle: '¡El {team} despejó el tablero y gana {points} puntos!',
     passTurnBtn: 'Pasar turno',
     teamGuessInputPlaceholder: 'Adivina una respuesta en el tablero...',
+    // US-15: 3-Strike Steal Phase & Round Resolution
+    stealPhaseTitle: '¡Oportunidad de robo!',
+    spokespersonTurnPrompt: "⚡ ¡OPORTUNIDAD DE ROBAR! Tienes 15 segundos para enviar la respuesta de tu equipo",
+    teammateConsultPrompt: "🗣️ ¡Consúltense! {spokesperson} tiene la palabra para enviar la respuesta de su equipo",
+    defendingTeamFingersCrossed: '🤞 ¡Crucen los dedos! Esperando a ver si el equipo contrario roba sus puntos...',
+    stealSuccessAnnouncement: '¡Robo exitoso! ¡El {team} robó {points} puntos!',
+    stealFailedAnnouncement: '¡Robo fallido! ¡El {team} retiene {points} puntos!',
+    submitStealAnswer: 'Enviar respuesta de robo',
+    stealInputPlaceholder: 'Ingresa la respuesta oficial del robo...',
+    remainingAnswersTitle: 'Respuestas no reveladas restantes',
+    roundWinnerBanner: '¡El {team} gana la ronda!',
   },
 };
 

@@ -411,6 +411,82 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       ).toBe('¡El Equipo 1 despejó el tablero y gana 100 puntos!');
     });
 
+    it('defines US-15 3-Strike Steal Phase and Round Resolution translations in all languages', () => {
+      for (const lang of supportedLanguages) {
+        const mg = translations[lang].mainGame;
+        expect(mg.stealPhaseTitle).toBeTruthy();
+        expect(mg.spokespersonTurnPrompt).toBeTruthy();
+        expect(mg.teammateConsultPrompt).toBeTruthy();
+        expect(mg.defendingTeamFingersCrossed).toBeTruthy();
+        expect(mg.stealSuccessAnnouncement).toBeTruthy();
+        expect(mg.stealFailedAnnouncement).toBeTruthy();
+        expect(mg.submitStealAnswer).toBeTruthy();
+        expect(mg.stealInputPlaceholder).toBeTruthy();
+        expect(mg.remainingAnswersTitle).toBeTruthy();
+        expect(mg.roundWinnerBanner).toBeTruthy();
+      }
+
+      // Scenario 4 Mobile View prompts
+      expect(translations.EN.mainGame.spokespersonTurnPrompt).toContain('CHANCE TO STEAL!');
+      expect(translations.EN.mainGame.teammateConsultPrompt.replace('{spokesperson}', 'David')).toBe(
+        "🗣️ Consult together! David has the floor to submit your team's steal answer"
+      );
+      expect(translations.EN.mainGame.defendingTeamFingersCrossed).toBe(
+        '🤞 Fingers crossed! Waiting to see if the opposing team steals your points...'
+      );
+
+      // French prompts
+      expect(translations.FR.mainGame.spokespersonTurnPrompt).toContain('OCCASION DE VOLER !');
+      expect(translations.FR.mainGame.teammateConsultPrompt.replace('{spokesperson}', 'David')).toBe(
+        '🗣️ Concertez-vous ! David a la parole pour proposer la réponse de votre équipe'
+      );
+      expect(translations.FR.mainGame.defendingTeamFingersCrossed).toBe(
+        "🤞 Croisons les doigts ! En attente de voir si l'équipe adverse vole vos points..."
+      );
+
+      // Spanish prompts
+      expect(translations.ES.mainGame.spokespersonTurnPrompt).toContain('¡OPORTUNIDAD DE ROBAR!');
+      expect(translations.ES.mainGame.teammateConsultPrompt.replace('{spokesperson}', 'David')).toBe(
+        '🗣️ ¡Consúltense! David tiene la palabra para enviar la respuesta de su equipo'
+      );
+      expect(translations.ES.mainGame.defendingTeamFingersCrossed).toBe(
+        '🤞 ¡Crucen los dedos! Esperando a ver si el equipo contrario roba sus puntos...'
+      );
+
+      // Announcement interpolations
+      expect(
+        translations.EN.mainGame.stealSuccessAnnouncement
+          .replace('{team}', 'Team 2')
+          .replace('{points}', '70')
+      ).toBe('Steal Successful! Team 2 stole 70 points!');
+      expect(
+        translations.FR.mainGame.stealSuccessAnnouncement
+          .replace('{team}', 'Équipe 2')
+          .replace('{points}', '70')
+      ).toBe("Vol réussi ! L'Équipe 2 a volé 70 points !");
+      expect(
+        translations.ES.mainGame.stealSuccessAnnouncement
+          .replace('{team}', 'Equipo 2')
+          .replace('{points}', '70')
+      ).toBe('¡Robo exitoso! ¡El Equipo 2 robó 70 puntos!');
+
+      expect(
+        translations.EN.mainGame.stealFailedAnnouncement
+          .replace('{team}', 'Team 1')
+          .replace('{points}', '70')
+      ).toBe('Steal Failed! Team 1 retains 70 points!');
+      expect(
+        translations.FR.mainGame.stealFailedAnnouncement
+          .replace('{team}', 'Équipe 1')
+          .replace('{points}', '70')
+      ).toBe("Vol échoué ! L'Équipe 1 conserve 70 points !");
+      expect(
+        translations.ES.mainGame.stealFailedAnnouncement
+          .replace('{team}', 'Equipo 1')
+          .replace('{points}', '70')
+      ).toBe('¡Robo fallido! ¡El Equipo 1 retiene 70 puntos!');
+    });
+
     it('gracefully falls back to English when rendered outside of LanguageProvider', () => {
       const { result } = renderHook(() => useTranslation());
 
