@@ -10,10 +10,14 @@ import * as soundModule from '../src/utils/soundEffects';
 vi.mock('../src/utils/tts', () => ({
   speakQuestion: vi.fn(),
   cancelSpeech: vi.fn(),
+  speakPlayOrPassDecision: vi.fn(),
+  getPlayOrPassPhrase: vi.fn(),
 }));
 
 vi.mock('../src/utils/soundEffects', () => ({
   playFaceOffBuzzer: vi.fn(),
+  playDing: vi.fn(),
+  playPointsChime: vi.fn(),
   sfx: {
     playFaceOffBuzzer: vi.fn(),
   },
@@ -254,5 +258,187 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     expect(answerEl).toBeInTheDocument();
     expect(answerEl).toHaveTextContent('Cell Phone');
   });
-});
 
+  describe('US-13: Face-Off Scoring, Card Flip-Board, and Pass or Play Decision', () => {
+    it('satisfies Scenario 1: reveals #1 card with gold badge, triggers playDing, and shows Pass or Play prompt', () => {
+      const p1WinSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'PASS_OR_PLAY',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+        revealedAnswers: [
+          {
+            id: 'a1',
+            answerText: 'KEYS',
+            points: 45,
+            rankOrder: 1,
+            revealedByPlayerId: 'p1',
+            revealedByNickname: 'Alice',
+            revealedByTeam: 'TEAM_1',
+          },
+        ],
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: 'keys',
+          isMatched: true,
+          points: 45,
+          rankOrder: 1,
+          isNumberOneAnswer: true,
+        },
+      };
+
+      renderBoard({ snapshot: p1WinSnapshot });
+
+      // Survey board shows revealed card 1 and concealed cards 2 and 3
+      const card1 = screen.getByTestId('face-off-card-1');
+      expect(card1).toBeInTheDocument();
+      expect(card1).toHaveTextContent('KEYS');
+      expect(screen.getByTestId('face-off-points-1')).toHaveTextContent('45 pts');
+      expect(screen.getByTestId('number-one-badge')).toHaveTextContent('#1 ANSWER');
+
+      expect(screen.getByTestId('face-off-card-concealed-2')).toBeInTheDocument();
+      expect(screen.getByTestId('face-off-card-concealed-3')).toBeInTheDocument();
+
+      // Sound cue ding triggered
+      expect(soundModule.playDing).toHaveBeenCalled();
+
+      // Pass or Play banner
+      const banner = screen.getByTestId('face-off-pass-play-banner');
+      expect(banner).toBeInTheDocument();
+      expect(banner).toHaveTextContent('Waiting for Alice to choose Play or Pass...');
+    });
+
+    it('satisfies Scenario 2: displays opponent challenge banner when contender 1 does not find #1', () => {
+      const oppTurnSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'OPPONENT_GUESS',
+        activeRespondentId: 'p2',
+        revealedAnswers: [
+          {
+            id: 'a2',
+            answerText: 'PHONE',
+            points: 30,
+            rankOrder: 2,
+            revealedByPlayerId: 'p1',
+            revealedByNickname: 'Alice',
+            revealedByTeam: 'TEAM_1',
+          },
+        ],
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: 'phone',
+          isMatched: true,
+          points: 30,
+          rankOrder: 2,
+          isNumberOneAnswer: false,
+        },
+      };
+
+      renderBoard({ snapshot: oppTurnSnapshot });
+
+      // Card 2 is revealed
+      expect(screen.getByTestId('face-off-card-2')).toHaveTextContent('PHONE');
+      expect(screen.getByTestId('face-off-points-2')).toHaveTextContent('30 pts');
+
+      // Opponent Challenge Banner displayed
+      const challengeBanner = screen.getByTestId('face-off-opponent-challenge-banner');
+      expect(challengeBanner).toBeInTheDocument();
+      expect(challengeBanner).toHaveTextContent('Can you beat phone (30 pts)?');
+    });
+
+    it('satisfies Scenario 4: displays opponent steal chance banner when contender 1 misses', () => {
+      const oppMissSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'OPPONENT_GUESS',
+        activeRespondentId: 'p2',
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: 'elephant',
+          isMatched: false,
+          points: 0,
+          isNumberOneAnswer: false,
+        },
+      };
+
+      renderBoard({ snapshot: oppMissSnapshot });
+
+      const challengeBanner = screen.getByTestId('face-off-opponent-challenge-banner');
+      expect(challengeBanner).toBeInTheDocument();
+      expect(challengeBanner).toHaveTextContent(
+        'Alice missed! Any valid answer on the board wins the Face-Off!'
+      );
+    });
+
+    it('satisfies Scenario 6: displays Team 1 will play, triggers points chime and speech on PLAY', () => {
+      const playSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'ROUND_CONTROL_ASSIGNED',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+        controllingTeam: 'TEAM_1',
+        passOrPlayDecision: 'play',
+      };
+
+      renderBoard({
+        snapshot: playSnapshot,
+        roundControlAssigned: {
+          roomCode: 'FEUD-TEST',
+          winnerPlayerId: 'p1',
+          winnerTeam: 'TEAM_1',
+          decision: 'play',
+          controllingTeam: 'TEAM_1',
+          controllingTeamName: 'Team 1',
+          message: 'Team 1 has chosen to PLAY!',
+        },
+      });
+
+      const controlBanner = screen.getByTestId('face-off-control-assigned-banner');
+      expect(controlBanner).toBeInTheDocument();
+      expect(controlBanner).toHaveTextContent('Team 1 has chosen to PLAY!');
+
+      // Audio & TTS cues
+      expect(soundModule.playPointsChime).toHaveBeenCalled();
+      expect(ttsModule.speakPlayOrPassDecision).toHaveBeenCalledWith('Team 1', 'play', 'EN');
+    });
+
+    it('satisfies Scenario 7: displays Control passes to Team 2, triggers chime and speech on PASS', () => {
+      const passSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'ROUND_CONTROL_ASSIGNED',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+        controllingTeam: 'TEAM_2',
+        passOrPlayDecision: 'pass',
+      };
+
+      renderBoard({
+        snapshot: passSnapshot,
+        roundControlAssigned: {
+          roomCode: 'FEUD-TEST',
+          winnerPlayerId: 'p1',
+          winnerTeam: 'TEAM_1',
+          decision: 'pass',
+          controllingTeam: 'TEAM_2',
+          controllingTeamName: 'Team 2',
+          message: 'Team 1 has PASSED to Team 2!',
+        },
+      });
+
+      const controlBanner = screen.getByTestId('face-off-control-assigned-banner');
+      expect(controlBanner).toBeInTheDocument();
+      expect(controlBanner).toHaveTextContent('Control passes to Team 2!');
+
+      expect(soundModule.playPointsChime).toHaveBeenCalled();
+      expect(ttsModule.speakPlayOrPassDecision).toHaveBeenCalledWith('Team 2', 'pass', 'EN');
+    });
+  });
+});

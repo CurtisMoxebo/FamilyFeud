@@ -252,6 +252,9 @@ export type FaceOffPhase =
   | 'AWAITING_READY'
   | 'BUZZER_ACTIVE'
   | 'ANSWERING'
+  | 'OPPONENT_GUESS'
+  | 'PASS_OR_PLAY'
+  | 'ROUND_CONTROL_ASSIGNED'
   | 'DEADLOCK_RESET'
   | 'RESOLVED';
 
@@ -281,6 +284,30 @@ export interface FaceOffContender extends FaceOffPlayer {
   isReady: boolean;
 }
 
+export interface FaceOffRevealedAnswer {
+  id: string;
+  answerText: string;
+  points: number;
+  rankOrder: number;
+  revealedByPlayerId: string;
+  revealedByNickname?: string;
+  revealedByTeam?: 'TEAM_1' | 'TEAM_2';
+}
+
+export interface FaceOffGuessResult {
+  playerId: string;
+  playerNickname: string;
+  playerTeam: 'TEAM_1' | 'TEAM_2';
+  rawAnswer: string;
+  isMatched: boolean;
+  matchedAnswer?: FaceOffQuestionAnswer;
+  points: number;
+  rankOrder?: number;
+  isNumberOneAnswer: boolean;
+  isDuplicate?: boolean;
+}
+
+
 export interface FaceOffSessionState {
   roomCode: string;
   gameId: string;
@@ -305,6 +332,14 @@ export interface FaceOffSessionState {
   endsAt: number | null;
   isTimerRunning: boolean;
   submittedAnswer?: string | null;
+  revealedAnswers?: FaceOffRevealedAnswer[];
+  firstGuessResult?: FaceOffGuessResult | null;
+  secondGuessResult?: FaceOffGuessResult | null;
+  winnerPlayerId?: string | null;
+  winnerNickname?: string | null;
+  winnerTeam?: 'TEAM_1' | 'TEAM_2' | null;
+  controllingTeam?: 'TEAM_1' | 'TEAM_2' | null;
+  passOrPlayDecision?: 'play' | 'pass' | null;
 }
 
 export interface BuzzerLockedPayload {
@@ -365,4 +400,49 @@ export interface FaceOffAnswerSubmittedPayload {
   playerId: string;
   questionId: string;
   rawAnswer: string;
+}
+
+
+export interface PromptPassPlayPayload {
+  roomCode: string;
+  winnerPlayerId: string;
+  winnerNickname: string;
+  winnerTeam: 'TEAM_1' | 'TEAM_2';
+  roundNumber: number;
+  outcome?: string;
+  message?: string;
+}
+
+export interface RoundControlAssignedPayload {
+  roomCode: string;
+  winnerPlayerId: string;
+  winnerTeam: 'TEAM_1' | 'TEAM_2';
+  decision: 'play' | 'pass';
+  controllingTeam: 'TEAM_1' | 'TEAM_2';
+  controllingTeamName: string;
+  message: string;
+}
+
+export interface OpponentTurnPromptPayload {
+  roomCode: string;
+  nextRespondentId: string;
+  nextRespondentNickname: string;
+  nextRespondentTeam: 'TEAM_1' | 'TEAM_2';
+  endsAt: number;
+  duration: number;
+  initialPoints: number;
+  initialRawAnswer: string;
+  message?: string;
+}
+
+export interface FaceOffBoardRevealPayload {
+  roomCode: string;
+  slotRank?: number;
+  rankOrder?: number;
+  answerText: string;
+  points: number;
+  playerId: string;
+  playerNickname: string;
+  playerTeam: 'TEAM_1' | 'TEAM_2';
+  isNumberOneAnswer: boolean;
 }

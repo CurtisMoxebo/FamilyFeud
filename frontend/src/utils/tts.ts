@@ -103,3 +103,42 @@ export function speakDefeat(language: string = 'EN', finalScore: number = 0, cus
   const text = customText || getDefeatPhrase(language, finalScore);
   speakQuestion(text, language);
 }
+
+export const PLAY_OR_PASS_PHRASES: Record<string, { play: (team: string) => string; pass: (team: string) => string }> = {
+  EN: {
+    play: (team: string) => `${team} will play!`,
+    pass: (team: string) => `Control passes to ${team}!`,
+  },
+  FR: {
+    play: (team: string) => `L'${team} va jouer !`,
+    pass: (team: string) => `La main passe à l'${team} !`,
+  },
+  ES: {
+    play: (team: string) => `¡${team} jugará!`,
+    pass: (team: string) => `¡El control pasa a ${team}!`,
+  },
+};
+
+export function getPlayOrPassPhrase(
+  teamName: string,
+  decision: 'play' | 'pass',
+  language: string = 'EN'
+): string {
+  const norm = language.toUpperCase();
+  const dict = PLAY_OR_PASS_PHRASES[norm] || PLAY_OR_PASS_PHRASES.EN;
+  return dict[decision](teamName);
+}
+
+/**
+ * Host Speech Synthesis for Main Game Face-Off Pass or Play Decision (US-13 Scenarios 6 & 7)
+ * Announces: "Team [X] will play!" or "Control passes to Team [Y]!"
+ */
+export function speakPlayOrPassDecision(
+  teamName: string,
+  decision: 'play' | 'pass',
+  language: string = 'EN',
+  customText?: string
+): void {
+  const text = customText || getPlayOrPassPhrase(teamName, decision, language);
+  speakQuestion(text, language);
+}

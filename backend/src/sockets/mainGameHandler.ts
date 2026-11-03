@@ -364,6 +364,7 @@ export function registerMainGameHandlers(
           isNumberOneAnswer: evalResult.guessResult.isNumberOneAnswer,
         };
         io.to(`room:${normalizedCode}`).emit('board_reveal', boardRevealData);
+        io.to(`room:${normalizedCode}`).emit('face_off_board_reveal', boardRevealData);
       }
 
       // Emit evaluation outcome

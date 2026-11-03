@@ -353,4 +353,109 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
       expect(result.current.p2TurnEnded).toBeNull();
     });
   });
+
+  describe('US-13: Face-Off Scoring and Pass or Play Hook Events', () => {
+    it('handles prompt_pass_play and choosePlayPass action', () => {
+      const { result } = renderHook(() => useSocket());
+
+      const promptPayload = {
+        roomCode: 'FEUD-9999',
+        winnerPlayerId: 'p-1',
+        winnerNickname: 'Contender 1',
+        winnerTeam: 'TEAM_1' as const,
+        roundNumber: 1,
+      };
+
+      act(() => {
+        eventHandlers['prompt_pass_play'](promptPayload);
+      });
+      expect(result.current.promptPassPlay).toEqual(promptPayload);
+
+      // Emit choosePlayPass
+      act(() => {
+        result.current.choosePlayPass('FEUD-9999', 'p-1', 'play');
+      });
+      expect(mockSocket.emit).toHaveBeenCalledWith('choose_play_pass', {
+        roomCode: 'FEUD-9999',
+        playerId: 'p-1',
+        decision: 'play',
+      });
+    });
+
+    it('handles round_control_assigned event', () => {
+      const { result } = renderHook(() => useSocket());
+
+      const controlPayload = {
+        roomCode: 'FEUD-9999',
+        winnerPlayerId: 'p-1',
+        winnerTeam: 'TEAM_1' as const,
+        decision: 'play' as const,
+        controllingTeam: 'TEAM_1' as const,
+        controllingTeamName: 'Team 1',
+        message: 'Team 1 has chosen to PLAY!',
+      };
+
+      act(() => {
+        eventHandlers['round_control_assigned'](controlPayload);
+      });
+      expect(result.current.roundControlAssigned).toEqual(controlPayload);
+    });
+
+    it('handles opponent_turn_prompt, face_off_board_reveal, and submitFaceOffGuess', () => {
+      const { result } = renderHook(() => useSocket());
+
+      const opponentPrompt = {
+        roomCode: 'FEUD-9999',
+        nextRespondentId: 'p-2',
+        nextRespondentNickname: 'Contender 2',
+        nextRespondentTeam: 'TEAM_2' as const,
+        endsAt: Date.now() + 15000,
+        duration: 15,
+        initialPoints: 20,
+        initialRawAnswer: 'CAR',
+      };
+
+      act(() => {
+        eventHandlers['opponent_turn_prompt'](opponentPrompt);
+      });
+      expect(result.current.opponentTurnPrompt).toEqual(opponentPrompt);
+
+      const boardRevealPayload = {
+        roomCode: 'FEUD-9999',
+        slotRank: 1,
+        rankOrder: 1,
+        answerText: 'KEYS',
+        points: 45,
+        playerId: 'p-1',
+        playerNickname: 'Contender 1',
+        playerTeam: 'TEAM_1' as const,
+        isNumberOneAnswer: true,
+      };
+
+      act(() => {
+        eventHandlers['face_off_board_reveal'](boardRevealPayload);
+      });
+      expect(result.current.faceOffBoardReveal).toEqual(boardRevealPayload);
+
+      // Emit submitFaceOffGuess
+      act(() => {
+        result.current.submitFaceOffGuess('FEUD-9999', 'p-2', 'q-1', 'WALLET');
+      });
+      expect(mockSocket.emit).toHaveBeenCalledWith('submit_face_off_guess', {
+        roomCode: 'FEUD-9999',
+        playerId: 'p-2',
+        questionId: 'q-1',
+        rawAnswer: 'WALLET',
+      });
+
+      // Clear state
+      act(() => {
+        result.current.clearFaceOffState();
+      });
+      expect(result.current.promptPassPlay).toBeNull();
+      expect(result.current.roundControlAssigned).toBeNull();
+      expect(result.current.opponentTurnPrompt).toBeNull();
+      expect(result.current.faceOffBoardReveal).toBeNull();
+    });
+  });
 });

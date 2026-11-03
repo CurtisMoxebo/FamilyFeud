@@ -11,6 +11,9 @@ import {
   speakDefeat,
   getDefeatPhrase,
   DEFEAT_PHRASES,
+  speakPlayOrPassDecision,
+  getPlayOrPassPhrase,
+  PLAY_OR_PASS_PHRASES,
 } from '../src/utils/tts';
 
 describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
@@ -239,6 +242,56 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(getDefeatPhrase('FR', 120)).toBe('Score final : 120 points. Partie terminée !');
       expect(getDefeatPhrase('ES', 120)).toBe('Puntuación final: 120 puntos. ¡Juego terminado!');
       expect(getDefeatPhrase('DE', 120)).toBe('Final score: 120 points. Game over!');
+    });
+  });
+
+  describe('speakPlayOrPassDecision (US-13 Scenarios 6 & 7)', () => {
+    it('speaks English play decision', () => {
+      speakPlayOrPassDecision('Team 1', 'play', 'EN');
+      expect(mockCancel).toHaveBeenCalled();
+      expect(mockSpeak).toHaveBeenCalled();
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Team 1 will play!');
+      expect(utterance.lang).toBe('en-US');
+    });
+
+    it('speaks English pass decision', () => {
+      speakPlayOrPassDecision('Team 2', 'pass', 'EN');
+      expect(mockCancel).toHaveBeenCalled();
+      expect(mockSpeak).toHaveBeenCalled();
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Control passes to Team 2!');
+      expect(utterance.lang).toBe('en-US');
+    });
+
+    it('speaks French play and pass decisions', () => {
+      speakPlayOrPassDecision('Équipe 1', 'play', 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe("L'Équipe 1 va jouer !");
+      expect(mockSpeak.mock.calls[0][0].lang).toBe('fr-FR');
+
+      mockSpeak.mockClear();
+      speakPlayOrPassDecision('Équipe 2', 'pass', 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe("La main passe à l'Équipe 2 !");
+    });
+
+    it('speaks Spanish play and pass decisions', () => {
+      speakPlayOrPassDecision('Equipo 1', 'play', 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('¡Equipo 1 jugará!');
+      expect(mockSpeak.mock.calls[0][0].lang).toBe('es-ES');
+
+      mockSpeak.mockClear();
+      speakPlayOrPassDecision('Equipo 2', 'pass', 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('¡El control pasa a Equipo 2!');
+    });
+
+    it('speaks customText when provided', () => {
+      speakPlayOrPassDecision('Team 1', 'play', 'EN', 'Custom Announcement!');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Custom Announcement!');
+    });
+
+    it('getPlayOrPassPhrase falls back to English for unknown locales', () => {
+      expect(getPlayOrPassPhrase('Team A', 'play', 'JA')).toBe('Team A will play!');
+      expect(getPlayOrPassPhrase('Team B', 'pass', 'JA')).toBe('Control passes to Team B!');
     });
   });
 });
