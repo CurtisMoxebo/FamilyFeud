@@ -338,6 +338,79 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       );
     });
 
+    it('defines US-14 Team Guessing Turn, Board Flips & 3-Strike System dictionary keys and templates for all supported languages', () => {
+      for (const lang of supportedLanguages) {
+        const mg = translations[lang].mainGame;
+        expect(mg.teamGuessingTitle).toBeTruthy();
+        expect(mg.yourTurnToGuess).toBeTruthy();
+        expect(mg.waitingForTeammate).toBeTruthy();
+        expect(mg.controllingTeamPlaying).toBeTruthy();
+        expect(mg.roundBankTitle).toBeTruthy();
+        expect(mg.strikeTitle).toBeTruthy();
+        expect(mg.strikesCount).toBeTruthy();
+        expect(mg.duplicateAnswerWarning).toBeTruthy();
+        expect(mg.notOnBoard).toBeTruthy();
+        expect(mg.threeStrikes).toBeTruthy();
+        expect(mg.chanceToSteal).toBeTruthy();
+        expect(mg.roundClearedTitle).toBeTruthy();
+        expect(mg.roundClearedSubtitle).toBeTruthy();
+        expect(mg.passTurnBtn).toBeTruthy();
+        expect(mg.teamGuessInputPlaceholder).toBeTruthy();
+      }
+
+      // Exact values
+      expect(translations.EN.mainGame.yourTurnToGuess).toBe("It's your turn to guess!");
+      expect(translations.EN.mainGame.threeStrikes).toBe('Three Strikes!');
+      expect(translations.EN.mainGame.passTurnBtn).toBe('Pass Turn');
+
+      expect(translations.FR.mainGame.yourTurnToGuess).toBe("C'est à votre tour de deviner !");
+      expect(translations.FR.mainGame.threeStrikes).toBe('Trois Fautes !');
+      expect(translations.FR.mainGame.passTurnBtn).toBe('Passer son tour');
+
+      expect(translations.ES.mainGame.yourTurnToGuess).toBe('¡Es tu turno de adivinar!');
+      expect(translations.ES.mainGame.threeStrikes).toBe('¡Tres Fallos!');
+      expect(translations.ES.mainGame.passTurnBtn).toBe('Pasar turno');
+
+      // Interpolations
+      expect(translations.EN.mainGame.waitingForTeammate.replace('{name}', 'Bob')).toBe(
+        'Waiting for Bob to guess...'
+      );
+      expect(translations.FR.mainGame.waitingForTeammate.replace('{name}', 'Bob')).toBe(
+        'En attente de la réponse de Bob...'
+      );
+      expect(translations.ES.mainGame.waitingForTeammate.replace('{name}', 'Bob')).toBe(
+        'Esperando la respuesta de Bob...'
+      );
+
+      expect(translations.EN.mainGame.chanceToSteal.replace('{team}', 'Team 2')).toBe(
+        'Team 2 has a chance to STEAL!'
+      );
+      expect(translations.FR.mainGame.chanceToSteal.replace('{team}', 'Équipe 2')).toBe(
+        "L'Équipe 2 a une chance de VOLER les points !"
+      );
+      expect(translations.ES.mainGame.chanceToSteal.replace('{team}', 'Equipo 2')).toBe(
+        '¡El Equipo 2 tiene la oportunidad de ROBAR!'
+      );
+
+      expect(
+        translations.EN.mainGame.roundClearedSubtitle
+          .replace('{team}', 'Team 1')
+          .replace('{points}', '100')
+      ).toBe('Team 1 cleared the board and wins 100 points!');
+
+      expect(
+        translations.FR.mainGame.roundClearedSubtitle
+          .replace('{team}', 'Équipe 1')
+          .replace('{points}', '100')
+      ).toBe("L'Équipe 1 a vidé le tableau et remporte 100 points !");
+
+      expect(
+        translations.ES.mainGame.roundClearedSubtitle
+          .replace('{team}', 'Equipo 1')
+          .replace('{points}', '100')
+      ).toBe('¡El Equipo 1 despejó el tablero y gana 100 puntos!');
+    });
+
     it('gracefully falls back to English when rendered outside of LanguageProvider', () => {
       const { result } = renderHook(() => useTranslation());
 

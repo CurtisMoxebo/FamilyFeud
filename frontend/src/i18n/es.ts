@@ -170,6 +170,22 @@ export const es: TranslationDictionary = {
     controlPassesTo: '¡El control pasa al equipo {team}!',
     waitingForWinnerChoice: 'Esperando que {winner} elija Jugar o Pasar...',
     cardRevealed: 'Carta #{rank} revelada: {answer} ({points} pts)',
+    // US-14: Team Guessing Turn, Board Flips & 3-Strike System
+    teamGuessingTitle: 'Turno de adivinanzas de equipo',
+    yourTurnToGuess: '¡Es tu turno de adivinar!',
+    waitingForTeammate: 'Esperando la respuesta de {name}...',
+    controllingTeamPlaying: '¡El {team} está jugando este tablero!',
+    roundBankTitle: 'Banca de la ronda',
+    strikeTitle: 'Fallo',
+    strikesCount: '{count} Fallo(s)',
+    duplicateAnswerWarning: '¡Duplicado! ¡Esa respuesta ya está en el tablero!',
+    notOnBoard: '¡Eso no está en el tablero!',
+    threeStrikes: '¡Tres Fallos!',
+    chanceToSteal: '¡El {team} tiene la oportunidad de ROBAR!',
+    roundClearedTitle: '¡Tablero despejado!',
+    roundClearedSubtitle: '¡El {team} despejó el tablero y gana {points} puntos!',
+    passTurnBtn: 'Pasar turno',
+    teamGuessInputPlaceholder: 'Adivina una respuesta en el tablero...',
   },
 };
 

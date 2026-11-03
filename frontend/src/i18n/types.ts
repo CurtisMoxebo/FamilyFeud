@@ -167,5 +167,21 @@ export interface TranslationDictionary {
     controlPassesTo: string;
     waitingForWinnerChoice: string;
     cardRevealed: string;
+    // US-14: Team Guessing Turn, Board Flips & 3-Strike System
+    teamGuessingTitle: string;
+    yourTurnToGuess: string;
+    waitingForTeammate: string;
+    controllingTeamPlaying: string;
+    roundBankTitle: string;
+    strikeTitle: string;
+    strikesCount: string;
+    duplicateAnswerWarning: string;
+    notOnBoard: string;
+    threeStrikes: string;
+    chanceToSteal: string;
+    roundClearedTitle: string;
+    roundClearedSubtitle: string;
+    passTurnBtn: string;
+    teamGuessInputPlaceholder: string;
   };
 }

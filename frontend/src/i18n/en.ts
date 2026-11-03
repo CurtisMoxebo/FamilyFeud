@@ -170,6 +170,22 @@ export const en: TranslationDictionary = {
     controlPassesTo: 'Control passes to Team {team}!',
     waitingForWinnerChoice: 'Waiting for {winner} to choose Play or Pass...',
     cardRevealed: 'Card #{rank} Revealed: {answer} ({points} pts)',
+    // US-14: Team Guessing Turn, Board Flips & 3-Strike System
+    teamGuessingTitle: 'Team Guessing Turn',
+    yourTurnToGuess: "It's your turn to guess!",
+    waitingForTeammate: 'Waiting for {name} to guess...',
+    controllingTeamPlaying: '{team} is playing this board!',
+    roundBankTitle: 'Round Bank',
+    strikeTitle: 'Strike',
+    strikesCount: '{count} Strike(s)',
+    duplicateAnswerWarning: 'Duplicate! That answer is already on the board!',
+    notOnBoard: "That's not on the board!",
+    threeStrikes: 'Three Strikes!',
+    chanceToSteal: '{team} has a chance to STEAL!',
+    roundClearedTitle: 'Board Cleared!',
+    roundClearedSubtitle: '{team} cleared the board and wins {points} points!',
+    passTurnBtn: 'Pass Turn',
+    teamGuessInputPlaceholder: 'Guess an answer on the board...',
   },
 };
 
