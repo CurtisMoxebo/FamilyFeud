@@ -190,6 +190,8 @@ export class TeamGuessingSession {
   public stealSpokespersonId: string | null = null;
   public stealSpokesperson: TeamGuessingPlayer | null = null;
   public autoStartStealTimer: boolean = true;
+  public persistAudit: boolean = false;
+  public prismaClient: PrismaClient = defaultPrisma;
 
   public timerDurationSeconds: number = 15;
   private timer: NodeJS.Timeout | null = null;
@@ -220,6 +222,8 @@ export class TeamGuessingSession {
     this.controllingTeam = config.controllingTeam;
     this.opposingTeam = config.controllingTeam === 'TEAM_1' ? 'TEAM_2' : 'TEAM_1';
     this.timerDurationSeconds = config.timerDurationSeconds ?? 15;
+    this.persistAudit = config.persistAudit ?? false;
+    this.prismaClient = config.prismaClient || defaultPrisma;
 
     // Clone and sort players by battingOrder
     this.team1Players = [...config.team1Players].sort(
