@@ -50,6 +50,9 @@ export const es: TranslationDictionary = {
     linkCopied: '¡Copiado!',
     gameMode: 'Modo de juego',
     language: 'Idioma',
+    enterFullscreen: 'Pantalla completa',
+    exitFullscreen: 'Salir de pantalla completa',
+    fullscreenHint: 'F11',
   },
   joinRoom: {
     title: 'Unirse a la sala',

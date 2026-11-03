@@ -23,7 +23,7 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
   return (
     <div
       data-testid="main-game-teams-stage"
-      className="w-full max-w-5xl flex flex-col items-center gap-8 animate-fadeIn"
+      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-8 animate-fadeIn"
     >
       {/* Stage Header Banner */}
       <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">

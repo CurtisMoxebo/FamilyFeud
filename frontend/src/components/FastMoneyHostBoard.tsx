@@ -541,7 +541,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   return (
     <div
       data-testid="fast-money-host-board"
-      className="w-full max-w-5xl flex flex-col items-center gap-6 animate-fade-in"
+      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-6 2xl:gap-8 animate-fade-in"
     >
       {/* Top TV Scoreboard Header */}
       <div className="w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">

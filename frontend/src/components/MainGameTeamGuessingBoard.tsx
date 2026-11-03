@@ -389,14 +389,14 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
   return (
     <div
-      className="min-h-screen bg-slate-950 text-white flex flex-col p-4 md:p-6 select-none relative overflow-hidden"
+      className="w-full min-h-screen min-h-dvh-safe bg-slate-950 text-white flex flex-col p-4 md:p-6 2xl:px-10 3xl:px-14 rounded-3xl select-none relative overflow-hidden"
       data-testid="main-game-team-guessing-board"
     >
       {/* Dynamic Background Glow */}
       <div className="absolute inset-0 bg-radial-gradient from-blue-900/20 via-transparent to-transparent pointer-events-none" />
 
       {/* Persistent Grand Total Header (US-16 Scenario 1 & 2) */}
-      <div className="relative z-20 w-full max-w-5xl mx-auto mb-4">
+      <div className="relative z-20 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto mb-4">
         <MainGameScoreboardHeader
           team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
           team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
@@ -471,17 +471,17 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       </header>
 
       {/* Prominent Survey Question Display */}
-      <section className="relative z-10 w-full max-w-4xl mx-auto mb-6">
-        <div className="p-4 md:p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/40 shadow-2xl text-center relative overflow-hidden">
+      <section className="relative z-10 w-full max-w-4xl 2xl:max-w-6xl 3xl:max-w-[1440px] 4k:max-w-[1800px] mx-auto mb-6">
+        <div className="p-4 md:p-6 2xl:p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/40 shadow-2xl text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-80" />
-          <h2 className="text-xl md:text-3xl font-black text-yellow-300 tracking-wide drop-shadow-md">
+          <h2 className="text-xl md:text-3xl 2xl:text-4xl 3xl:text-5xl font-black text-yellow-300 tracking-wide drop-shadow-md">
             "{snapshot.question.questionText}"
           </h2>
         </div>
       </section>
 
       {/* Main Game Stage Scoreboard & Centerpieces */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+      <div className="relative z-10 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
         {/* Active Guesser / Steal Spokesperson & Timer */}
         <div className="flex items-center gap-4 bg-slate-900/90 border border-slate-700 px-5 py-3 rounded-2xl shadow-lg w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">
@@ -603,7 +603,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       {showOverrideControls && (
         <section
           data-testid="host-manual-override-panel"
-          className="relative z-20 w-full max-w-5xl mx-auto mb-4 p-4 rounded-2xl bg-indigo-950/90 border-2 border-indigo-400/70 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3"
+          className="relative z-20 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto mb-4 p-4 rounded-2xl bg-indigo-950/90 border-2 border-indigo-400/70 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3"
         >
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300">
@@ -659,8 +659,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       )}
 
       {/* Answer Board Card Grid (4 to 8 Flip Cards) with Steal Match & Board Clearance Highlighting */}
-      <main className="relative z-10 w-full max-w-5xl mx-auto flex-1 flex flex-col justify-center">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 p-4 md:p-6 bg-slate-900/80 border-2 border-blue-900/60 rounded-3xl shadow-2xl backdrop-blur-sm">
+      <main className="relative z-10 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex-1 flex flex-col justify-center">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 2xl:gap-5 p-4 md:p-6 2xl:p-8 bg-slate-900/80 border-2 border-blue-900/60 rounded-3xl shadow-2xl backdrop-blur-sm">
           {Array.from({ length: totalSlots }).map((_, idx) => {
             const rankOrder = idx + 1;
             const revealedItem = revealedMap.get(rankOrder);
@@ -673,7 +673,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
               <div
                 key={rankOrder}
                 data-testid={`team-board-card-${rankOrder}`}
-                className={`relative min-h-[70px] rounded-2xl border-2 flex items-center px-5 transition-all duration-500 shadow-md ${
+                className={`relative min-h-[70px] 2xl:min-h-[88px] 3xl:min-h-[104px] rounded-2xl border-2 flex items-center px-5 2xl:px-7 transition-all duration-500 shadow-md ${
                   isRevealed
                     ? isStealMatch
                       ? 'bg-gradient-to-r from-emerald-700 via-teal-800 to-emerald-900 border-yellow-300 shadow-[0_4px_25px_rgba(16,185,129,0.5)] animate-pulse'

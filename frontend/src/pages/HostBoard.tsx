@@ -19,6 +19,7 @@ import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
+import { useFullscreen } from '../hooks/useFullscreen';
 import { FastMoneyHostBoard } from '../components/FastMoneyHostBoard';
 import { MainGameTeamsStage } from '../components/MainGameTeamsStage';
 import { MainGameFaceOffBoard } from '../components/MainGameFaceOffBoard';
@@ -42,6 +43,8 @@ import {
   Pause,
   UserX,
   Gavel,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 export interface HostBoardProps {
@@ -85,6 +88,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 }) => {
   const { setLanguage, t } = useTranslation();
   const { navigate } = useRouter();
+  const { isFullscreen, toggleFullscreen } = useFullscreen({ enableShortcut: true });
 
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => !isTtsMuted());
 
@@ -410,11 +414,47 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       </div>
     ) : null;
 
+  const renderFullscreenToggleButton = (variant: 'header' | 'toolbar' = 'toolbar') => (
+    <button
+      type="button"
+      onClick={() => {
+        void toggleFullscreen();
+      }}
+      data-testid="host-fullscreen-toggle"
+      aria-pressed={isFullscreen}
+      aria-label={isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}
+      title={`${isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen} (${t.host.fullscreenHint})`}
+      className={
+        variant === 'header'
+          ? `inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer ${
+              isFullscreen
+                ? 'bg-feud-gold/20 hover:bg-feud-gold/30 text-feud-gold border-feud-gold/50 shadow-md'
+                : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 hover:text-white border-slate-700'
+            }`
+          : `inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${
+              isFullscreen
+                ? 'bg-feud-gold/20 hover:bg-feud-gold/30 text-feud-gold border-feud-gold/50'
+                : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border-slate-600/60'
+            }`
+      }
+    >
+      {isFullscreen ? (
+        <Minimize2 className="w-4 h-4 text-feud-gold" />
+      ) : (
+        <Maximize2 className="w-4 h-4 text-feud-gold" />
+      )}
+      <span>{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
+      <kbd className="hidden sm:inline-block ml-0.5 px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-950/60 border border-white/15 opacity-80">
+        {t.host.fullscreenHint}
+      </kbd>
+    </button>
+  );
+
   const renderAdminControls = () =>
     isActiveGameStage ? (
       <div
         data-testid="host-admin-controls"
-        className="w-full max-w-5xl flex items-center justify-end gap-2 mb-3 px-1 flex-wrap"
+        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-3 px-1 flex-wrap"
       >
         {canManualOverride && (
           <button
@@ -459,8 +499,16 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             {t.admin.spacebarShortcutHint}
           </kbd>
         </button>
+        {renderFullscreenToggleButton('toolbar')}
       </div>
-    ) : null;
+    ) : (
+      <div
+        data-testid="host-stage-display-controls"
+        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-3 px-1 flex-wrap"
+      >
+        {renderFullscreenToggleButton('toolbar')}
+      </div>
+    );
 
   const renderPausedBanner = () =>
     isPaused ? (
@@ -468,7 +516,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         data-testid="host-game-paused-banner"
         role="status"
         aria-live="assertive"
-        className="w-full max-w-5xl mb-4 p-5 rounded-3xl bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-2 border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.45)] flex flex-col sm:flex-row items-center justify-between gap-4 z-40"
+        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mb-4 p-5 rounded-3xl bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-2 border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.45)] flex flex-col sm:flex-row items-center justify-between gap-4 z-40"
       >
         <div className="flex items-center gap-3.5 text-center sm:text-left">
           <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/50 text-amber-300">
@@ -639,8 +687,9 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   if (!isFastMoney && activeTeams) {
     return (
-      <>
+      <div className="w-full flex flex-col items-center">
         {renderAlert()}
+        {renderAdminControls()}
         <MainGameTeamsStage
           roomCode={room.roomCode}
           roomName={room.roomName}
@@ -648,7 +697,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           team2={activeTeams.team2}
           onLeave={() => navigate('/')}
         />
-      </>
+      </div>
     );
   }
 
@@ -671,7 +720,10 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     : roomState?.startDisabledReason ?? t.lobby.mainGameEvenCountRequired;
 
   return (
-    <div className="w-full max-w-4xl flex flex-col items-center gap-8">
+    <div
+      data-testid="host-widescreen-container"
+      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-6 2xl:gap-8"
+    >
       {renderAlert()}
       {/* Host TV Header Banner */}
       <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">
@@ -695,7 +747,9 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {renderFullscreenToggleButton('header')}
+
             <button
               type="button"
               onClick={handleToggleAudio}
@@ -730,7 +784,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             </div>
             <div
               data-testid="host-room-code"
-              className="text-4xl sm:text-6xl font-extrabold font-game text-transparent bg-clip-text bg-gradient-to-r from-feud-gold-light via-feud-gold to-yellow-200 tracking-wider mt-1 drop-shadow-md select-all"
+              className="text-4xl sm:text-6xl 2xl:text-7xl 3xl:text-8xl font-extrabold font-game text-transparent bg-clip-text bg-gradient-to-r from-feud-gold-light via-feud-gold to-yellow-200 tracking-wider mt-1 drop-shadow-md select-all"
             >
               {room.roomCode}
             </div>
@@ -844,7 +898,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         ) : (
           <div
             data-testid="host-player-roster"
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-6"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-3 mb-6"
           >
             {players.map((p) => (
               <div
@@ -946,7 +1000,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             fgColor="#0f172a"
             bgColor="#ffffff"
             data-testid="host-qr-code"
-            className="w-40 h-40 sm:w-44 sm:h-44"
+            className="w-40 h-40 sm:w-44 sm:h-44 2xl:w-52 2xl:h-52 3xl:w-60 3xl:h-60"
           />
         </div>
 

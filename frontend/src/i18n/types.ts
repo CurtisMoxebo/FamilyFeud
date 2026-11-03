@@ -48,6 +48,9 @@ export interface TranslationDictionary {
     linkCopied: string;
     gameMode: string;
     language: string;
+    enterFullscreen: string;
+    exitFullscreen: string;
+    fullscreenHint: string;
   };
   joinRoom: {
     title: string;
