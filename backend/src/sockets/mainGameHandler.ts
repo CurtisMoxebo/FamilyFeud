@@ -1571,6 +1571,8 @@ export function registerMainGameHandlers(
         question: newQuestion,
         language,
         timerDurationSeconds: 15,
+        persistAudit: true,
+        prismaClient: _db,
         onTick: (secondsRemaining, endsAt) => {
           io.to(`room:${normalizedCode}`).emit('timer_tick', {
             roomCode: normalizedCode,
@@ -1745,6 +1747,8 @@ export function registerMainGameHandlers(
         question: newQuestion,
         language,
         timerDurationSeconds: 15,
+        persistAudit: true,
+        prismaClient: _db,
         onTick: (secondsRemaining, endsAt) => {
           io.to(`room:${normalizedCode}`).emit('timer_tick', {
             roomCode: normalizedCode,

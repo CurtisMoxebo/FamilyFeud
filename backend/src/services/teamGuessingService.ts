@@ -1,3 +1,5 @@
+import { PrismaClient } from '@prisma/client';
+import { prisma as defaultPrisma } from './db';
 import { logger } from '../utils/logger';
 import { evaluatePlayerAnswer } from './answerValidationService';
 import { SupportedLanguage } from './geminiService';
@@ -112,6 +114,8 @@ export interface TeamGuessingSessionConfig {
   language?: SupportedLanguage | string;
   autoStartTimer?: boolean;
   autoStartStealTimer?: boolean;
+  persistAudit?: boolean;
+  prismaClient?: PrismaClient;
   onTick?: (secondsRemaining: number, endsAt: number) => void;
   onTimeout?: (result: TeamGuessingTimeoutResult) => void;
   onTurnAdvanced?: (nextPlayer: TeamGuessingPlayer, endsAt: number) => void;
@@ -401,7 +405,8 @@ export class TeamGuessingSession {
           })),
           rawInput: trimmedInput,
           language: this.language as SupportedLanguage,
-          persistAudit: false,
+          persistAudit: this.persistAudit,
+          prismaClient: this.prismaClient,
         });
 
         if (validation.isMatched && validation.matchedAnswer) {
@@ -838,7 +843,8 @@ export class TeamGuessingSession {
           })),
           rawInput: trimmedInput,
           language: this.language as SupportedLanguage,
-          persistAudit: false,
+          persistAudit: this.persistAudit,
+          prismaClient: this.prismaClient,
         });
 
         if (validation.isMatched && validation.matchedAnswer) {
@@ -1079,6 +1085,8 @@ export function createTeamGuessingSessionFromFaceOff(
     initialBank,
     language: faceOffSession.language,
     stealSpokespersonId: opposingContender?.id,
+    persistAudit: faceOffSession.persistAudit,
+    prismaClient: faceOffSession.prismaClient,
     ...overrides,
   };
 

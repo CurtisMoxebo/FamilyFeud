@@ -1,3 +1,5 @@
+import { PrismaClient } from '@prisma/client';
+import { prisma as defaultPrisma } from './db';
 import { logger } from '../utils/logger';
 import { evaluatePlayerAnswer } from './answerValidationService';
 import { SupportedLanguage } from './geminiService';
@@ -127,6 +129,8 @@ export interface FaceOffSessionConfig {
   question: FaceOffQuestion;
   language?: string;
   timerDurationSeconds?: number;
+  persistAudit?: boolean;
+  prismaClient?: PrismaClient;
   onTick?: (secondsRemaining: number, endsAt: number) => void;
   onTimeout?: (result: FaceOffTimeoutResult) => void;
 }
@@ -199,6 +203,8 @@ export class FaceOffSession {
   public winnerTeam: 'TEAM_1' | 'TEAM_2' | null = null;
   public controllingTeam: 'TEAM_1' | 'TEAM_2' | null = null;
   public passOrPlayDecision: 'play' | 'pass' | null = null;
+  public persistAudit: boolean = false;
+  public prismaClient: PrismaClient = defaultPrisma;
 
   private timerInterval: NodeJS.Timeout | null = null;
   private onTickCallback?: (secondsRemaining: number, endsAt: number) => void;
@@ -213,6 +219,8 @@ export class FaceOffSession {
     this.timerDurationSeconds = config.timerDurationSeconds || 15;
     this.onTickCallback = config.onTick;
     this.onTimeoutCallback = config.onTimeout;
+    this.persistAudit = config.persistAudit ?? false;
+    this.prismaClient = config.prismaClient || defaultPrisma;
 
     // Sort players by batting order 1..N
     this.team1Players = [...config.team1Players].sort(
@@ -646,7 +654,8 @@ export class FaceOffSession {
         candidateAnswers: this.question.answers,
         rawInput: rawAnswer,
         language: this.language as SupportedLanguage,
-        persistAudit: false,
+        persistAudit: this.persistAudit,
+        prismaClient: this.prismaClient,
       });
 
       const matchedAlready = evalOutcome.matchedAnswer
