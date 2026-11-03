@@ -57,19 +57,35 @@ describe('US-20 Step 2: Host Display Fast Reconnection & State Recovery Suite', 
     });
   };
 
-  beforeAll(async () => {
-    if (prisma.playerResponse) {
-      await prisma.playerResponse.deleteMany({});
-    }
-    await prisma.player.deleteMany({});
-    await prisma.game.deleteMany({});
-    await prisma.room.deleteMany({
-      where: {
-        roomCode: {
-          in: ['FEUD-REC1', 'FEUD-REC2', 'FEUD-REC3', 'FEUD-REC4'],
-        },
-      },
+  const HOST_REC_CODES = ['FEUD-REC1', 'FEUD-REC2', 'FEUD-REC3', 'FEUD-REC4'];
+
+  const cleanHostDb = async () => {
+    const rooms = await prisma.room.findMany({
+      where: { roomCode: { in: HOST_REC_CODES } },
+      select: { id: true },
     });
+    const roomIds = rooms.map((r) => r.id);
+    if (prisma.playerResponse) {
+      await prisma.playerResponse.deleteMany({
+        where: { player: { roomId: { in: roomIds } } },
+      });
+    }
+    await prisma.player.deleteMany({
+      where: { roomId: { in: roomIds } },
+    });
+    await prisma.game.deleteMany({
+      where: { roomId: { in: roomIds } },
+    });
+    await prisma.room.deleteMany({
+      where: { roomCode: { in: HOST_REC_CODES } },
+    });
+    for (const code of HOST_REC_CODES) {
+      sessionRecoveryService.clearRoomSessions(code);
+    }
+  };
+
+  beforeAll(async () => {
+    await cleanHostDb();
 
     await prisma.room.createMany({
       data: [
@@ -123,18 +139,7 @@ describe('US-20 Step 2: Host Display Fast Reconnection & State Recovery Suite', 
     if (testServer) {
       await new Promise<void>((resolve) => testServer.close(() => resolve()));
     }
-    if (prisma.playerResponse) {
-      await prisma.playerResponse.deleteMany({});
-    }
-    await prisma.player.deleteMany({});
-    await prisma.game.deleteMany({});
-    await prisma.room.deleteMany({
-      where: {
-        roomCode: {
-          in: ['FEUD-REC1', 'FEUD-REC2', 'FEUD-REC3', 'FEUD-REC4'],
-        },
-      },
-    });
+    await cleanHostDb();
   });
 
   beforeEach(() => {

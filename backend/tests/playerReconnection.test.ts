@@ -53,19 +53,35 @@ describe('US-20 Step 3: Player Automatic Reconnection & Turn Resumption Suite', 
     });
   };
 
-  beforeAll(async () => {
-    if (prisma.playerResponse) {
-      await prisma.playerResponse.deleteMany({});
-    }
-    await prisma.player.deleteMany({});
-    await prisma.game.deleteMany({});
-    await prisma.room.deleteMany({
-      where: {
-        roomCode: {
-          in: ['FEUD-PR01', 'FEUD-PR02', 'FEUD-PR03'],
-        },
-      },
+  const PR_ROOM_CODES = ['FEUD-PR01', 'FEUD-PR02', 'FEUD-PR03'];
+
+  const cleanPrDb = async () => {
+    const rooms = await prisma.room.findMany({
+      where: { roomCode: { in: PR_ROOM_CODES } },
+      select: { id: true },
     });
+    const roomIds = rooms.map((r) => r.id);
+    if (prisma.playerResponse) {
+      await prisma.playerResponse.deleteMany({
+        where: { player: { roomId: { in: roomIds } } },
+      });
+    }
+    await prisma.player.deleteMany({
+      where: { roomId: { in: roomIds } },
+    });
+    await prisma.game.deleteMany({
+      where: { roomId: { in: roomIds } },
+    });
+    await prisma.room.deleteMany({
+      where: { roomCode: { in: PR_ROOM_CODES } },
+    });
+    for (const code of PR_ROOM_CODES) {
+      sessionRecoveryService.clearRoomSessions(code);
+    }
+  };
+
+  beforeAll(async () => {
+    await cleanPrDb();
 
     // Create test rooms with players in DB
     const room1 = await prisma.room.create({
@@ -142,18 +158,7 @@ describe('US-20 Step 3: Player Automatic Reconnection & Turn Resumption Suite', 
     if (testServer) {
       await new Promise<void>((resolve) => testServer.close(() => resolve()));
     }
-    if (prisma.playerResponse) {
-      await prisma.playerResponse.deleteMany({});
-    }
-    await prisma.player.deleteMany({});
-    await prisma.game.deleteMany({});
-    await prisma.room.deleteMany({
-      where: {
-        roomCode: {
-          in: ['FEUD-PR01', 'FEUD-PR02', 'FEUD-PR03'],
-        },
-      },
-    });
+    await cleanPrDb();
   });
 
   beforeEach(() => {

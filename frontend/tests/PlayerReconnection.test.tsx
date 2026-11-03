@@ -125,6 +125,8 @@ describe('US-20 Step 3: Player Automatic Reconnection & State Recovery Suite', (
     advanceNextRound: vi.fn(),
     getScoreboardState: vi.fn(),
     clearMatchOver: vi.fn(),
+    playerLeftAlert: null,
+    clearPlayerLeftAlert: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {

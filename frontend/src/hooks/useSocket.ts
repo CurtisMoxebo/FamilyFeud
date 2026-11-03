@@ -44,6 +44,7 @@ import {
   SuddenDeathInitiatedPayload,
   NextRoundStartedPayload,
   ReconnectAcknowledgedPayload,
+  PlayerLeftAlertPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -127,6 +128,7 @@ export function useSocket(options?: UseSocketOptions) {
   const [hostSecret, setHostSecret] = useState<string | null>(() => {
     return getHostSecret(options?.roomCode);
   });
+  const [playerLeftAlert, setPlayerLeftAlert] = useState<PlayerLeftAlertPayload | null>(null);
 
 
   const socketRef = useRef<Socket | null>(null);
@@ -729,6 +731,10 @@ export function useSocket(options?: UseSocketOptions) {
       }
     });
 
+    socket.on('player_left_alert', (payload: PlayerLeftAlertPayload) => {
+      setPlayerLeftAlert(payload);
+    });
+
 
     return () => {
       socket.disconnect();
@@ -811,5 +817,7 @@ export function useSocket(options?: UseSocketOptions) {
     clearError,
     reconnectHost,
     reconnectSession,
+    playerLeftAlert,
+    clearPlayerLeftAlert: () => setPlayerLeftAlert(null),
   };
 }

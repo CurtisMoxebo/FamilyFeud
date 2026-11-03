@@ -10,6 +10,8 @@ import {
   broadcastFastMoneyState,
   registerFastMoneyHandlers,
   getFastMoneySession,
+  clearFastMoneyTimer,
+  TurnEndedPayload,
 } from './fastMoneyHandler';
 import {
   initFaceOffSession,
@@ -26,6 +28,9 @@ import {
   broadcastFaceOffState,
   registerMainGameHandlers,
   handleFaceOffTimeoutBroadcast,
+  broadcastTeamGuessingState,
+  handleTeamGuessingTimeoutBroadcast,
+  handleStealResolvedBroadcast,
 } from './mainGameHandler';
 import { FastMoneyQuestionItem } from '../services/fastMoneySession';
 import {
@@ -133,6 +138,13 @@ export interface ReconnectAcknowledgedPayload {
     team: string;
   };
   message?: string;
+}
+
+export interface PlayerLeftAlertPayload {
+  roomCode: string;
+  playerId: string;
+  nickname: string;
+  message: string;
 }
 
 /**
@@ -278,6 +290,108 @@ export async function buildFullGameState(
     fastMoneyHostState: fastMoneySession ? fastMoneySession.getHostSnapshot() : null,
     timerTick,
   };
+}
+
+/**
+ * Automatically forfeits active turn if an expired disconnected player is holding turn action (US-20 Scenario 4).
+ */
+export async function handleAutoForfeitIfActiveTimer(
+  io: SocketIOServer,
+  roomCode: string,
+  playerId: string,
+  db: PrismaClient = defaultPrisma
+): Promise<boolean> {
+  const normalizedCode = normalizeRoomCode(roomCode);
+
+  // 1. Fast Money Turn Forfeit
+  const fmSession = getFastMoneySession(normalizedCode);
+  if (fmSession) {
+    const phase = fmSession.getPhase();
+    if (phase === 'P1_PLAYING' && fmSession.player1Id === playerId) {
+      logger.info(
+        `[AUTO_FORFEIT:FAST_MONEY] Forfeiting Player 1 (${playerId}) turn in room ${normalizedCode}`
+      );
+      clearFastMoneyTimer(normalizedCode);
+      fmSession.expireTimer();
+      fmSession.startRevealPhase();
+
+      const turnEndedPayload: TurnEndedPayload = {
+        roomCode: normalizedCode,
+        reason: 'TIME_EXPIRED',
+        answeredCount: fmSession.getPlayer1AnsweredCount(),
+        totalQuestions: 5,
+      };
+
+      io.to(`room:${normalizedCode}`).emit('p1_turn_ended', turnEndedPayload);
+      broadcastFastMoneyState(io, fmSession);
+      return true;
+    }
+
+    if (phase === 'P2_PLAYING' && fmSession.player2Id === playerId) {
+      logger.info(
+        `[AUTO_FORFEIT:FAST_MONEY] Forfeiting Player 2 (${playerId}) turn in room ${normalizedCode}`
+      );
+      clearFastMoneyTimer(normalizedCode);
+      fmSession.expireTimer();
+
+      const turnEndedPayload: TurnEndedPayload = {
+        roomCode: normalizedCode,
+        reason: 'TIME_EXPIRED',
+        answeredCount: fmSession.getPlayer2AnsweredCount(),
+        totalQuestions: 5,
+      };
+
+      io.to(`room:${normalizedCode}`).emit('p2_turn_ended', turnEndedPayload);
+      broadcastFastMoneyState(io, fmSession);
+      return true;
+    }
+  }
+
+  // 2. Team Guessing Turn Forfeit
+  const teamSession = getTeamGuessingSession(normalizedCode);
+  if (teamSession) {
+    const state = teamSession.getState();
+    if (state.phase === 'TEAM_GUESSING' && state.activePlayer?.id === playerId) {
+      logger.info(
+        `[AUTO_FORFEIT:TEAM_GUESSING] Forfeiting active turn for player ${playerId} in room ${normalizedCode}`
+      );
+      const timeoutRes = teamSession.handleTimeout();
+      handleTeamGuessingTimeoutBroadcast(io, normalizedCode, timeoutRes);
+      broadcastTeamGuessingState(io, teamSession);
+      return true;
+    }
+
+    if (state.phase === 'STEAL_PHASE' && state.stealSpokesperson?.id === playerId) {
+      logger.info(
+        `[AUTO_FORFEIT:STEAL_PHASE] Forfeiting steal turn for spokesperson ${playerId} in room ${normalizedCode}`
+      );
+      const stealRes = teamSession.handleStealTimeout();
+      handleStealResolvedBroadcast(io, normalizedCode, stealRes, db);
+      broadcastTeamGuessingState(io, teamSession);
+      return true;
+    }
+  }
+
+  // 3. Face-Off Duel Turn Forfeit
+  const faceOffSession = getFaceOffSession(normalizedCode);
+  if (faceOffSession) {
+    const isBuzzedPlayer = faceOffSession.buzzedPlayerId === playerId;
+    const isRespondent = faceOffSession.activeRespondentId === playerId;
+    if (
+      (faceOffSession.phase === 'ANSWERING' && isBuzzedPlayer) ||
+      (faceOffSession.phase === 'OPPONENT_GUESS' && isRespondent)
+    ) {
+      logger.info(
+        `[AUTO_FORFEIT:FACEOFF] Forfeiting duel turn for player ${playerId} in room ${normalizedCode}`
+      );
+      const timeoutResult = faceOffSession.handleTimeout();
+      await handleFaceOffTimeoutBroadcast(io, normalizedCode, timeoutResult, db);
+      broadcastFaceOffState(io, faceOffSession);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -938,7 +1052,7 @@ export function registerLobbyHandlers(
     }
   );
 
-  // Handle player departure or disconnect (US-04 Scenario 4)
+  // Handle player departure or disconnect (US-04 Scenario 4 & US-20 Scenario 4)
   socket.on('disconnect', async () => {
     const { roomCode, playerId } = socket.data || {};
     if (!roomCode) return;
@@ -959,6 +1073,35 @@ export function registerLobbyHandlers(
           const state = buildRoomStateUpdate(refreshedRoom);
           io.to(`room:${roomCode}`).emit('room_state_update', state);
         }
+
+        // US-20 Scenario 4: Start 30-second disconnect grace period
+        sessionRecoveryService.startGraceTimer(playerId, 30000, async () => {
+          try {
+            const session = sessionRecoveryService.getPlayerSession(playerId);
+            if (session && session.isConnected) {
+              return;
+            }
+
+            const player = await db.player.findUnique({ where: { id: playerId } });
+            const nickname = player?.nickname || session?.nickname || 'Player';
+
+            const alertPayload: PlayerLeftAlertPayload = {
+              roomCode,
+              playerId,
+              nickname,
+              message: `${nickname} has left the game`,
+            };
+
+            io.to(`room:${roomCode}`).emit('player_left_alert', alertPayload);
+            logger.info(
+              `[GRACE_PERIOD:EXPIRED] Broadcast player_left_alert for ${nickname} (${playerId}) in room ${roomCode}`
+            );
+
+            await handleAutoForfeitIfActiveTimer(io, roomCode, playerId, db);
+          } catch (expireErr) {
+            logger.error(`Error handling grace timer expiration for player ${playerId}:`, expireErr);
+          }
+        });
       } catch (err) {
         logger.warn(`Failed to update player disconnect for ${playerId}: ${err}`);
       }

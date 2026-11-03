@@ -154,6 +154,63 @@ class SessionRecoveryService {
   }
 
   /**
+   * Starts a disconnect grace period timer for a disconnected player (US-20 Scenario 4).
+   */
+  public startGraceTimer(
+    playerId: string,
+    durationMs: number = 30000,
+    onExpire: () => void
+  ): NodeJS.Timeout | null {
+    const session = this.playerSessions.get(playerId);
+    if (!session) {
+      logger.warn(`[SESSION:GRACE] Session not found for player ${playerId}`);
+      return null;
+    }
+
+    if (session.graceTimer) {
+      clearTimeout(session.graceTimer);
+      session.graceTimer = undefined;
+    }
+
+    session.isConnected = false;
+    session.disconnectedAt = Date.now();
+
+    session.graceTimer = setTimeout(() => {
+      session.graceTimer = undefined;
+      logger.info(
+        `[SESSION:GRACE_EXPIRED] Disconnect grace timer expired (${durationMs}ms) for player ${session.nickname} (${playerId}) in room ${session.roomCode}`
+      );
+      onExpire();
+    }, durationMs);
+
+    logger.info(
+      `[SESSION:GRACE_START] Started ${durationMs}ms grace timer for player ${session.nickname} (${playerId}) in room ${session.roomCode}`
+    );
+
+    return session.graceTimer;
+  }
+
+  /**
+   * Cancels any active disconnect grace timer for a player.
+   */
+  public cancelGraceTimer(playerId: string): void {
+    const session = this.playerSessions.get(playerId);
+    if (session?.graceTimer) {
+      clearTimeout(session.graceTimer);
+      session.graceTimer = undefined;
+      logger.info(`[SESSION:GRACE_CANCELLED] Cancelled grace timer for player ${playerId}`);
+    }
+  }
+
+  /**
+   * Checks if a player currently has an active grace period timer running.
+   */
+  public isPlayerInGracePeriod(playerId: string): boolean {
+    const session = this.playerSessions.get(playerId);
+    return Boolean(session?.graceTimer);
+  }
+
+  /**
    * Retrieves all registered player sessions for a given room.
    */
   public getRoomPlayerSessions(roomCode: string): PlayerSessionRecord[] {

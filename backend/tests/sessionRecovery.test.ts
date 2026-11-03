@@ -7,6 +7,12 @@ import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 describe('US-20: Session Recovery Service & Token Architecture Suite (Step 1)', () => {
   const TEST_ROOM_CODES = ['REC-01', 'REC-02', 'REC-03'];
 
+  const clearTestSessions = () => {
+    for (const code of TEST_ROOM_CODES) {
+      sessionRecoveryService.clearRoomSessions(code);
+    }
+  };
+
   beforeAll(async () => {
     await prisma.room.deleteMany({
       where: { roomCode: { in: TEST_ROOM_CODES } },
@@ -14,14 +20,14 @@ describe('US-20: Session Recovery Service & Token Architecture Suite (Step 1)', 
   });
 
   afterAll(async () => {
-    sessionRecoveryService.clearAllSessions();
+    clearTestSessions();
     await prisma.room.deleteMany({
       where: { roomCode: { in: TEST_ROOM_CODES } },
     });
   });
 
   beforeEach(() => {
-    sessionRecoveryService.clearAllSessions();
+    clearTestSessions();
   });
 
   describe('Host Secret Management', () => {

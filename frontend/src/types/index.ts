@@ -720,4 +720,11 @@ export interface ReconnectAcknowledgedPayload {
   message?: string;
 }
 
+export interface PlayerLeftAlertPayload {
+  roomCode: string;
+  playerId: string;
+  nickname: string;
+  message: string;
+}
+
 export type { PlayerSessionCredentials } from '../utils/sessionStorage';

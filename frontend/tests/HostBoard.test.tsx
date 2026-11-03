@@ -100,6 +100,8 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     advanceNextRound: vi.fn(),
     getScoreboardState: vi.fn(),
     clearMatchOver: vi.fn(),
+    playerLeftAlert: null,
+    clearPlayerLeftAlert: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {
