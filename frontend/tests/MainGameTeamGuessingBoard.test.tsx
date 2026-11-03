@@ -13,6 +13,7 @@ import * as tts from '../src/utils/tts';
 
 // Mock audio and tts
 vi.mock('../src/utils/soundEffects', () => ({
+  playCorrectDing: vi.fn(),
   playDing: vi.fn(),
   playPointsChime: vi.fn(),
   playStrikeBuzzer: vi.fn(),
@@ -157,7 +158,7 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       </LanguageProvider>
     );
 
-    expect(soundEffects.playDing).toHaveBeenCalled();
+    expect(soundEffects.playCorrectDing).toHaveBeenCalled();
     act(() => {
       vi.advanceTimersByTime(400);
     });

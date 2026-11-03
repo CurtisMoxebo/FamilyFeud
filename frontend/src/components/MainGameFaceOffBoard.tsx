@@ -19,8 +19,8 @@ import {
   setTtsMuted,
 } from '../utils/tts';
 import {
-  playFaceOffBuzzer,
-  playDing,
+  playBuzzerHit,
+  playCorrectDing,
   playPointsChime,
 } from '../utils/soundEffects';
 import {
@@ -129,7 +129,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         // Immediate speech cancellation to cut off host question reading
         cancelSpeech();
         // Synthesize classic game show podium buzzer tone
-        playFaceOffBuzzer();
+        playBuzzerHit();
       }
     } else if (!isBuzzerLocked) {
       lastHandledLockoutWinnerId.current = null;
@@ -141,7 +141,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   useEffect(() => {
     const currentCount = snapshot.revealedAnswers?.length || 0;
     if (currentCount > previousRevealedCount.current) {
-      playDing();
+      playCorrectDing();
     }
     previousRevealedCount.current = currentCount;
   }, [snapshot.revealedAnswers]);
