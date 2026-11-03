@@ -6,6 +6,10 @@
 
 let sharedAudioCtx: AudioContext | null = null;
 let isSoundMuted = false;
+let autoplayListenerRegistered = false;
+let cleanupAutoplayListener: (() => void) | null = null;
+
+const STORAGE_KEY_MUTED = 'family_feud_tts_muted';
 
 /**
  * Lazily initializes and caches the singleton Web Audio context.
@@ -37,24 +41,94 @@ export function getAudioContext(): AudioContext | null {
     });
   }
 
+  if (!autoplayListenerRegistered) {
+    cleanupAutoplayListener = registerAutoplayResumeListener();
+    autoplayListenerRegistered = true;
+  }
+
   return sharedAudioCtx;
+}
+
+/**
+ * Resumes the AudioContext explicitly, usually in response to a user gesture.
+ */
+export async function resumeAudioContext(): Promise<void> {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    await ctx.resume().catch(() => {});
+  }
+}
+
+/**
+ * Scenario 3: AudioContext Autoplay Policy Handling
+ * Attaches passive event listeners on user interactions (click, keydown, touchstart)
+ * to resume the AudioContext automatically upon first user gesture.
+ */
+export function registerAutoplayResumeListener(): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const resume = () => {
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+  };
+
+  window.addEventListener('click', resume, { passive: true });
+  window.addEventListener('keydown', resume, { passive: true });
+  window.addEventListener('touchstart', resume, { passive: true });
+
+  return () => {
+    window.removeEventListener('click', resume);
+    window.removeEventListener('keydown', resume);
+    window.removeEventListener('touchstart', resume);
+  };
+}
+
+/**
+ * Resets the cached AudioContext and listener for test isolation.
+ */
+export function _resetAudioContextForTesting(): void {
+  if (cleanupAutoplayListener) {
+    cleanupAutoplayListener();
+    cleanupAutoplayListener = null;
+  }
+  sharedAudioCtx = null;
+  autoplayListenerRegistered = false;
+  isSoundMuted = false;
 }
 
 export function setMuted(muted: boolean): void {
   isSoundMuted = muted;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY_MUTED, String(muted));
+    } catch {
+      // Defensive fallback if localStorage throws in sandboxed iframes
+    }
+  }
 }
 
 export function isMuted(): boolean {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY_MUTED);
+      if (stored !== null) {
+        return stored === 'true';
+      }
+    } catch {
+      // Fallback to in-memory state
+    }
+  }
   return isSoundMuted;
 }
 
 /**
- * Scenario 1: Bright Game Show "Ding!"
- * Plays a clean bell chime when contestant answer card flips open.
- * Uses a fundamental tone with harmonic overtone and exponential decay envelope.
+ * US-18 Scenario 1: Correct Answer Ding Playback
+ * High-frequency two-tone sine chime (880Hz -> 1320Hz) with < 10ms latency.
+ * Plays when a contestant submits a correct answer and the card flips open.
  */
-export function playDing(): void {
-  if (isSoundMuted) return;
+export function playCorrectDing(): void {
+  if (isMuted()) return;
 
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -62,46 +136,44 @@ export function playDing(): void {
   try {
     const now = ctx.currentTime;
 
-    // Fundamental Bell Oscillator (1200 Hz)
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(1200, now);
+    // High-frequency two-tone sine chime: 880Hz (A5) -> 1320Hz (E6)
+    const tones = [
+      { freq: 880, start: now, duration: 0.35, gain: 0.3 },
+      { freq: 1320, start: now + 0.08, duration: 0.45, gain: 0.32 },
+    ];
 
-    gain1.gain.setValueAtTime(0.3, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    tones.forEach(({ freq, start, duration, gain }) => {
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
 
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
 
-    osc1.start(now);
-    osc1.stop(now + 0.6);
+      gainNode.gain.setValueAtTime(gain, start);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, start + duration);
 
-    // Harmonic Shimmer Oscillator (2400 Hz)
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(2400, now);
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
 
-    gain2.gain.setValueAtTime(0.12, now);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-
-    osc2.start(now);
-    osc2.stop(now + 0.4);
+      osc.start(start);
+      osc.stop(start + duration);
+    });
   } catch (err) {
-    console.warn('[SFX:WARN] Failed to synthesize Ding sound:', err);
+    console.warn('[SFX:WARN] Failed to synthesize Correct Ding sound:', err);
   }
 }
+
+/**
+ * Backward-compatible alias for playCorrectDing.
+ */
+export const playDing = playCorrectDing;
 
 /**
  * Scenario 1 & 3: Cheerful Ascending "Points Tally Chime"
  * Plays an ascending three-tone arpeggio (C6 -> E6 -> G6) when points are revealed.
  */
 export function playPointsChime(): void {
-  if (isSoundMuted) return;
+  if (isMuted()) return;
 
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -138,7 +210,7 @@ export function playPointsChime(): void {
  * Plays a short, distinct buzzer for 0 points / unmatched answers.
  */
 export function playBuzzerBlip(): void {
-  if (isSoundMuted) return;
+  if (isMuted()) return;
 
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -169,12 +241,11 @@ export function playBuzzerBlip(): void {
 }
 
 /**
- * Scenario 2: Game Show Duplicate Answer Alarm (US-09)
- * Plays a classic alternating two-tone alarm / buzz when a duplicate answer is submitted.
- * Distinct from 0-point single buzzer; warns contestant to give another answer.
+ * US-18: Game Show Duplicate Answer Alarm (US-09)
+ * Rapid warning pulses (440Hz and 330Hz) when a duplicate answer is submitted.
  */
-export function playDuplicateWarning(): void {
-  if (isSoundMuted) return;
+export function playDuplicateAlarm(): void {
+  if (isMuted()) return;
 
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -209,13 +280,16 @@ export function playDuplicateWarning(): void {
 }
 
 /**
- * Scenario 2: Game Show Victory Fanfare (US-10)
- * Plays a triumphant celebratory brass/synth fanfare when contestants reach >= 200 points.
- * Ascending triumphant sequence: C5 (523.25 Hz) -> E5 (659.25 Hz) -> G5 (783.99 Hz) -> C6 (1046.5 Hz)
- * with a sustaining celebratory major chord (E6 + G6).
+ * Backward-compatible alias for playDuplicateAlarm.
+ */
+export const playDuplicateWarning = playDuplicateAlarm;
+
+/**
+ * US-18: Game Show Victory Fanfare (US-10)
+ * Triumphant C-major arpeggio: C5 -> E5 -> G5 -> C6 with sustaining major chord (E6 + G6).
  */
 export function playVictoryFanfare(): void {
-  if (isSoundMuted) return;
+  if (isMuted()) return;
 
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -255,10 +329,9 @@ export function playVictoryFanfare(): void {
 /**
  * Scenario 3: Game Show Defeat Sound (US-10)
  * Plays a classic descending sad trombone / wah-wah sequence when contestants fall short of 200 points.
- * Descending tones: 370 Hz -> 349.23 Hz -> 329.63 Hz -> 311.13 Hz with pitch drop.
  */
 export function playDefeatSound(): void {
-  if (isSoundMuted) return;
+  if (isMuted()) return;
 
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -296,14 +369,12 @@ export function playDefeatSound(): void {
   }
 }
 
-
 /**
- * US-12 Scenario 2: Classic Game Show Face-Off Podium Buzzer
- * Plays an instantaneous, harsh, punchy buzzer cue upon successful buzzer press.
- * Fundamental 220Hz dropping to 180Hz sawtooth with aggressive 0.35s envelope.
+ * US-18: Instant Electronic Podium Buzzer (240Hz / 220Hz -> 180Hz)
+ * Plays an instantaneous, punchy electronic buzzer cue upon successful buzzer press.
  */
-export function playFaceOffBuzzer(): void {
-  if (isSoundMuted) return;
+export function playBuzzerHit(): void {
+  if (isMuted()) return;
 
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -314,7 +385,7 @@ export function playFaceOffBuzzer(): void {
     const gain = ctx.createGain();
 
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.setValueAtTime(240, now);
     osc.frequency.setValueAtTime(180, now + 0.15);
 
     gain.gain.setValueAtTime(0.35, now);
@@ -326,17 +397,22 @@ export function playFaceOffBuzzer(): void {
     osc.start(now);
     osc.stop(now + 0.35);
   } catch (err) {
-    console.warn('[SFX:WARN] Failed to synthesize Face-Off Buzzer sound:', err);
+    console.warn('[SFX:WARN] Failed to synthesize Buzzer Hit sound:', err);
   }
 }
 
 /**
- * US-14 Scenario 2 & 4: Classic Game Show Strike Buzzer (X, XX, XXX)
- * Synthesizes harsh, punchy dual-sawtooth strike buzzer pulses using Web Audio API.
+ * Backward-compatible alias for playBuzzerHit.
+ */
+export const playFaceOffBuzzer = playBuzzerHit;
+
+/**
+ * US-18 Scenario 2: Strike Buzzer Playback (X, XX, XXX)
+ * Low harsh sawtooth tone (130Hz / dual 110Hz & 116Hz).
  * Emits `count` distinct audible buzzes (e.g., 1 for X, 2 for XX, 3 for XXX).
  */
 export function playStrikeBuzzer(count: number = 1): void {
-  if (isSoundMuted) return;
+  if (isMuted()) return;
 
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -350,7 +426,7 @@ export function playStrikeBuzzer(count: number = 1): void {
     for (let i = 0; i < safeCount; i++) {
       const pulseStart = now + i * (pulseDuration + gap);
 
-      // Low dual-sawtooth oscillators (110 Hz & 116 Hz)
+      // Low dual-sawtooth oscillators (110 Hz & 116 Hz) for harsh buzzing effect
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -378,14 +454,19 @@ export function playStrikeBuzzer(count: number = 1): void {
 }
 
 export const sfx = {
-  playFaceOffBuzzer,
-  playStrikeBuzzer,
+  playCorrectDing,
   playDing,
-  playPointsChime,
-  playBuzzerBlip,
+  playStrikeBuzzer,
+  playBuzzerHit,
+  playFaceOffBuzzer,
+  playDuplicateAlarm,
   playDuplicateWarning,
   playVictoryFanfare,
+  playPointsChime,
+  playBuzzerBlip,
   playDefeatSound,
+  resumeAudioContext,
+  registerAutoplayResumeListener,
   setMuted,
   isMuted,
   getAudioContext,
