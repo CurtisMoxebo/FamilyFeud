@@ -974,4 +974,197 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       expect(replayBtn).toBeDisabled();
     });
   });
+
+  describe('US-17: Multilingual Automated Host Speech (TTS) Full Scenario Suite', () => {
+    let mockSpeak: any;
+    let mockCancel: any;
+    let mockGetVoices: any;
+
+    beforeEach(() => {
+      localStorage.clear();
+      mockSpeak = vi.fn();
+      mockCancel = vi.fn();
+
+      if (typeof (globalThis as any).SpeechSynthesisUtterance === 'undefined') {
+        (globalThis as any).SpeechSynthesisUtterance = class {
+          text: string;
+          lang: string = 'en-US';
+          rate: number = 1.0;
+          pitch: number = 1.0;
+          voice: any = null;
+          onend: any = null;
+          onerror: any = null;
+          constructor(text: string) {
+            this.text = text;
+          }
+        };
+      }
+      mockGetVoices = vi.fn().mockReturnValue([
+        { name: 'Google Français', lang: 'fr-FR' },
+        { name: 'Google Español', lang: 'es-ES' },
+        { name: 'Google US English', lang: 'en-US' },
+      ]);
+
+      Object.defineProperty(window, 'speechSynthesis', {
+        value: {
+          speak: mockSpeak,
+          cancel: mockCancel,
+          getVoices: mockGetVoices,
+        },
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      localStorage.clear();
+      vi.restoreAllMocks();
+    });
+
+    it('satisfies Scenario 1: vocalizes Question 1 in French with rate 1.05 and pitch 1.0', () => {
+      render(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...readyHostSnapshot,
+            phase: 'P1_PLAYING',
+            currentQuestionText: "Nommez quelque chose que l'on trouve dans un salon",
+          }}
+          language="FR"
+          roomName="Soirée Famille"
+          enableTTS={true}
+        />
+      );
+
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe("Nommez quelque chose que l'on trouve dans un salon");
+      expect(utterance.lang).toBe('fr-FR');
+      expect(utterance.rate).toBe(1.05);
+      expect(utterance.pitch).toBe(1.0);
+    });
+
+    it('satisfies Scenario 1 (Spanish): vocalizes Question 1 in Spanish with Spanish voice', () => {
+      render(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...readyHostSnapshot,
+            phase: 'P1_PLAYING',
+            currentQuestionText: 'Mencione algo que encuentra en la sala',
+          }}
+          language="ES"
+          roomName="Noche Familiar"
+          enableTTS={true}
+        />
+      );
+
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+      const utterance = mockSpeak.mock.calls[0][0];
+      expect(utterance.text).toBe('Mencione algo que encuentra en la sala');
+      expect(utterance.lang).toBe('es-ES');
+      expect(utterance.rate).toBe(1.05);
+      expect(utterance.pitch).toBe(1.0);
+    });
+
+    it('satisfies Scenario 2: cancels pending utterance when player passes or submits an answer quickly', () => {
+      const { rerender } = render(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...readyHostSnapshot,
+            phase: 'P1_PLAYING',
+            currentQuestionText: 'Question 1: Name a fruit',
+          }}
+          language="EN"
+          roomName="Fast Money"
+          enableTTS={true}
+        />
+      );
+
+      expect(mockCancel).toHaveBeenCalled();
+      expect(mockSpeak).toHaveBeenCalledTimes(1);
+
+      // Rapid pass / answer submission
+      rerender(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...readyHostSnapshot,
+            phase: 'P1_PLAYING',
+            currentQuestionText: 'Question 2: Name an animal',
+          }}
+          language="EN"
+          roomName="Fast Money"
+          enableTTS={true}
+        />
+      );
+
+      expect(mockCancel).toHaveBeenCalled();
+      expect(mockSpeak).toHaveBeenCalledTimes(2);
+      expect(mockSpeak.mock.calls[1][0].text).toBe('Question 2: Name an animal');
+    });
+
+    it('satisfies Scenario 3: degrades gracefully when window.speechSynthesis is not supported', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      // @ts-ignore
+      delete window.speechSynthesis;
+
+      expect(() => {
+        render(
+          <FastMoneyHostBoard
+            snapshot={{
+              ...readyHostSnapshot,
+              phase: 'P1_PLAYING',
+              currentQuestionText: 'Test unsupported question',
+            }}
+            language="EN"
+            roomName="Fast Money"
+            enableTTS={true}
+          />
+        );
+      }).not.toThrow();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[HOST_TTS:WARN] Speech synthesis is not supported in this browser.')
+      );
+    });
+
+    it('satisfies Scenario 4: mute button mutes TTS immediately and saves preference in localStorage', () => {
+      render(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...readyHostSnapshot,
+            phase: 'P1_PLAYING',
+            currentQuestionText: 'Question to be muted',
+          }}
+          language="EN"
+          roomName="Fast Money"
+          enableTTS={true}
+        />
+      );
+
+      const muteBtn = screen.getByTestId('host-audio-toggle');
+      expect(muteBtn).toHaveAttribute('title', 'Mute Sounds & TTS');
+
+      // Click to mute
+      fireEvent.click(muteBtn);
+      expect(localStorage.getItem('family_feud_tts_muted')).toBe('true');
+      expect(mockCancel).toHaveBeenCalled();
+      expect(muteBtn).toHaveAttribute('title', 'Unmute Sounds & TTS');
+
+      // Subsequent question should not speak
+      mockSpeak.mockClear();
+      render(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...readyHostSnapshot,
+            phase: 'P1_PLAYING',
+            currentQuestionText: 'Should not speak while muted',
+          }}
+          language="EN"
+          roomName="Fast Money"
+          enableTTS={true}
+        />
+      );
+
+      expect(mockSpeak).not.toHaveBeenCalled();
+    });
+  });
 });
