@@ -5,7 +5,7 @@ import React from 'react';
 import { PlayerJoin } from '../src/pages/PlayerJoin';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
 import { RouterProvider } from '../src/router/router';
-import { Room, RoomStateUpdate, TeamsAssignedPayload, FaceOffSessionState } from '../src/types';
+import { Room, RoomStateUpdate, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState } from '../src/types';
 import * as socketHook from '../src/hooks/useSocket';
 
 describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
@@ -1022,5 +1022,107 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       await user.click(playBtn);
 
       expect(mockChoosePlayPass).toHaveBeenCalledWith('FEUD-8888', 'p1', 'play');
+    });
+
+    it('satisfies US-14: transitions joined player to MainGameTeamController when teamGuessingState is active', async () => {
+      const user = userEvent.setup();
+      const mockSubmitTeamGuess = vi.fn();
+      const mockPassTeamTurn = vi.fn();
+
+      const mainGameRoomEN: Room = {
+        id: 'room-main-tg',
+        roomCode: 'FEUD-9999',
+        roomName: 'Team Guessing Duel',
+        language: 'EN',
+        gameMode: 'MAIN_GAME',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+      };
+
+      const mockTeamGuessingState: TeamGuessingSessionState = {
+        roomCode: 'FEUD-9999',
+        gameId: 'game-tg-99',
+        roundNumber: 1,
+        language: 'EN',
+        phase: 'TEAM_GUESSING',
+        question: {
+          id: 'q-tg-99',
+          questionText: 'Name something in your refrigerator',
+          answerCount: 4,
+        },
+        controllingTeam: 'TEAM_1',
+        controllingTeamName: 'Team 1',
+        opposingTeam: 'TEAM_2',
+        opposingTeamName: 'Team 2',
+        controllingTeamPlayers: [
+          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+          { id: 'p2', nickname: 'Bob', team: 'TEAM_1', battingOrder: 2 },
+        ],
+        opposingTeamPlayers: [
+          { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        ],
+        activePlayerIndex: 0,
+        activePlayer: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+        strikes: 1,
+        roundBank: 40,
+        remainingSeconds: 15,
+        endsAt: Date.now() + 15000,
+        isTimerRunning: true,
+        revealedAnswers: [
+          {
+            id: 'a1',
+            answerText: 'MILK',
+            points: 40,
+            rankOrder: 1,
+            revealedByPlayerId: 'p1',
+            revealedByNickname: 'Alice',
+            revealedByTeam: 'TEAM_1',
+          },
+        ],
+        totalAnswersCount: 4,
+        revealedAnswersCount: 1,
+        remainingAnswersCount: 3,
+        winningTeam: null,
+      };
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        roomState: {
+          roomCode: 'FEUD-9999',
+          roomName: 'Team Guessing Duel',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'ACTIVE',
+          playerCount: 2,
+          maxPlayers: 10,
+          canStart: true,
+          players: [
+            { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isReady: true, isConnected: true },
+            { id: 'p2', nickname: 'Bob', team: 'TEAM_1', isReady: true, isConnected: true },
+          ],
+        },
+        teamGuessingState: mockTeamGuessingState,
+        submitTeamGuess: mockSubmitTeamGuess,
+        passTeamTurn: mockPassTeamTurn,
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-9999" initialRoom={mainGameRoomEN} />);
+
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Alice');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('main-game-team-controller')).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId('active-guesser-banner')).toBeInTheDocument();
+      expect(screen.getByTestId('player-round-bank')).toHaveTextContent('40');
+
+      const guessInput = screen.getByTestId('player-guess-input');
+      await user.type(guessInput, 'CHEESE');
+      await user.click(screen.getByTestId('player-submit-guess-btn'));
+
+      expect(mockSubmitTeamGuess).toHaveBeenCalledWith('FEUD-9999', 'p1', 'CHEESE');
     });
   });

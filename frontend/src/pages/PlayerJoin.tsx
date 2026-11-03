@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Room, TeamsAssignedPayload, FaceOffSessionState } from '../types';
+import { Room, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
@@ -7,6 +7,7 @@ import { FastMoneyController } from '../components/FastMoneyController';
 import { FastMoneyIsolation } from '../components/FastMoneyIsolation';
 import { MainGamePlayerView } from '../components/MainGamePlayerView';
 import { MainGameFaceOffController } from '../components/MainGameFaceOffController';
+import { MainGameTeamController } from '../components/MainGameTeamController';
 import {
   User,
   ArrowRight,
@@ -25,6 +26,7 @@ export interface PlayerJoinProps {
   initialRoom?: Room | null;
   initialTeamsAssigned?: TeamsAssignedPayload | null;
   initialFaceOffState?: FaceOffSessionState | null;
+  initialTeamGuessingState?: TeamGuessingSessionState | null;
   apiBaseUrl?: string;
   onJoined?: (playerData: { room: Room; nickname: string }) => void;
 }
@@ -34,6 +36,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   initialRoom = null,
   initialTeamsAssigned = null,
   initialFaceOffState = null,
+  initialTeamGuessingState = null,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -82,10 +85,17 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     submitFaceOffAnswer,
     submitFaceOffGuess,
     choosePlayPass,
+    teamGuessingState: socketTeamGuessingState,
+    strikeIssued,
+    roundCleared,
+    transitionStealPhase,
+    submitTeamGuess,
+    passTeamTurn,
   } = useSocket();
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
   const faceOffState = initialFaceOffState ?? socketFaceOffState;
+  const teamGuessingState = initialTeamGuessingState ?? socketTeamGuessingState;
 
   useEffect(() => {
     if (initialRoom) {
@@ -293,6 +303,32 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           snapshot={fastMoneyP2State}
           timerTick={timerTick}
           onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
+          onLeave={() => navigate('/')}
+        />
+      );
+    }
+
+    // Main Game Team Guessing Controller (US-14)
+    if (!isFastMoney && teamGuessingState) {
+      return (
+        <MainGameTeamController
+          snapshot={teamGuessingState}
+          timerTick={timerTick}
+          strikeIssued={strikeIssued}
+          roundCleared={roundCleared}
+          transitionStealPhase={transitionStealPhase}
+          currentNickname={nickname.trim()}
+          currentPlayerId={currentPlayer?.id}
+          roomCode={room.roomCode}
+          roomName={room.roomName}
+          onSubmitGuess={(rawAnswer) =>
+            submitTeamGuess &&
+            submitTeamGuess(roomCode, currentPlayer?.id || 'player', rawAnswer)
+          }
+          onPassTurn={() =>
+            passTeamTurn &&
+            passTeamTurn(roomCode, currentPlayer?.id || 'player')
+          }
           onLeave={() => navigate('/')}
         />
       );

@@ -1,0 +1,264 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import React from 'react';
+import { MainGameTeamController } from '../src/components/MainGameTeamController';
+import { LanguageProvider } from '../src/i18n/LanguageContext';
+import { TeamGuessingSessionState } from '../src/types';
+
+describe('US-14 MainGameTeamController Component Tests', () => {
+  const baseSnapshot: TeamGuessingSessionState = {
+    roomCode: 'FEUD-5555',
+    gameId: 'game-55',
+    roundNumber: 1,
+    language: 'EN',
+    phase: 'TEAM_GUESSING',
+    question: {
+      id: 'q-55',
+      questionText: 'Name something found in a refrigerator',
+      answerCount: 4,
+    },
+    controllingTeam: 'TEAM_1',
+    controllingTeamName: 'Team 1',
+    opposingTeam: 'TEAM_2',
+    opposingTeamName: 'Team 2',
+    controllingTeamPlayers: [
+      { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+      { id: 'p2', nickname: 'Bob', team: 'TEAM_1', battingOrder: 2 },
+    ],
+    opposingTeamPlayers: [
+      { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+    ],
+    activePlayerIndex: 0,
+    activePlayer: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+    strikes: 1,
+    roundBank: 40,
+    remainingSeconds: 15,
+    endsAt: Date.now() + 15000,
+    isTimerRunning: true,
+    revealedAnswers: [
+      {
+        id: 'a1',
+        answerText: 'MILK',
+        points: 40,
+        rankOrder: 1,
+        revealedByPlayerId: 'p1',
+        revealedByNickname: 'Alice',
+        revealedByTeam: 'TEAM_1',
+      },
+    ],
+    totalAnswersCount: 4,
+    revealedAnswersCount: 1,
+    remainingAnswersCount: 3,
+    winningTeam: null,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+  });
+
+  const renderComponent = (props: Partial<React.ComponentProps<typeof MainGameTeamController>> = {}) => {
+    return render(
+      <LanguageProvider>
+        <MainGameTeamController
+          snapshot={baseSnapshot}
+          currentNickname="Alice"
+          currentPlayerId="p1"
+          roomCode="FEUD-5555"
+          roomName="Family Feud Championship"
+          {...props}
+        />
+      </LanguageProvider>
+    );
+  };
+
+  it('renders Active Guesser view with question, bank, timer, input field, and action buttons', () => {
+    renderComponent();
+
+    // Survey question
+    expect(screen.getByText(/"Name something found in a refrigerator"/i)).toBeInTheDocument();
+
+    // Round bank & strikes
+    expect(screen.getByTestId('player-round-bank')).toHaveTextContent('40');
+    expect(screen.getByTestId('player-strike-box-1')).toHaveTextContent('X');
+    expect(screen.getByTestId('player-strike-box-2')).toHaveTextContent('2');
+    expect(screen.getByTestId('player-strike-box-3')).toHaveTextContent('3');
+
+    // Active guesser banner
+    expect(screen.getByTestId('active-guesser-banner')).toBeInTheDocument();
+    expect(screen.getByText(/It's your turn to guess!/i)).toBeInTheDocument();
+    expect(screen.getByTestId('player-turn-timer')).toHaveTextContent('15s');
+
+    // Input form & buttons
+    expect(screen.getByTestId('player-guess-input')).toBeInTheDocument();
+    expect(screen.getByTestId('player-submit-guess-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('player-pass-turn-btn')).toBeInTheDocument();
+  });
+
+  it('submits valid guess and clears input when form is submitted', () => {
+    const onSubmitGuess = vi.fn();
+    renderComponent({ onSubmitGuess });
+
+    const input = screen.getByTestId('player-guess-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'CHEESE' } });
+    expect(input.value).toBe('CHEESE');
+
+    const submitBtn = screen.getByTestId('player-submit-guess-btn');
+    fireEvent.click(submitBtn);
+
+    expect(onSubmitGuess).toHaveBeenCalledWith('CHEESE');
+    expect(input.value).toBe('');
+
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+  });
+
+  it('prevents submission when input is empty or only whitespace', () => {
+    const onSubmitGuess = vi.fn();
+    renderComponent({ onSubmitGuess });
+
+    const input = screen.getByTestId('player-guess-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '   ' } });
+
+    const submitBtn = screen.getByTestId('player-submit-guess-btn');
+    fireEvent.click(submitBtn);
+
+    expect(onSubmitGuess).not.toHaveBeenCalled();
+  });
+
+  it('calls onPassTurn when Pass Turn button is clicked', () => {
+    const onPassTurn = vi.fn();
+    renderComponent({ onPassTurn });
+
+    const passBtn = screen.getByTestId('player-pass-turn-btn');
+    fireEvent.click(passBtn);
+
+    expect(onPassTurn).toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+  });
+
+  it('renders Waiting Teammate view when player is on controlling team but not active guesser', () => {
+    renderComponent({
+      currentNickname: 'Bob',
+      currentPlayerId: 'p2',
+    });
+
+    expect(screen.getByTestId('waiting-teammate-banner')).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for Alice to guess.../i)).toBeInTheDocument();
+    expect(screen.queryByTestId('player-guess-form')).not.toBeInTheDocument();
+  });
+
+  it('renders Opposing Team view when player is on opposing team', () => {
+    renderComponent({
+      currentNickname: 'Charlie',
+      currentPlayerId: 'p3',
+    });
+
+    expect(screen.getByTestId('opposing-team-banner')).toBeInTheDocument();
+    expect(screen.getByText(/Team 1 is playing this board!/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('player-guess-form')).not.toBeInTheDocument();
+  });
+
+  it('displays strike alert popup when strikeIssued arrives', () => {
+    renderComponent({
+      strikeIssued: {
+        roomCode: 'FEUD-5555',
+        team: 'TEAM_1',
+        strikeCount: 2,
+        maxStrikes: 3,
+        isDuplicate: false,
+        isTimeout: false,
+        player: { id: 'p1', nickname: 'Alice' },
+      },
+    });
+
+    expect(screen.getByTestId('mobile-strike-alert')).toBeInTheDocument();
+    expect(screen.getByText(/2 Strike\(s\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/That's not on the board!/i)).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2600);
+    });
+    expect(screen.queryByTestId('mobile-strike-alert')).not.toBeInTheDocument();
+  });
+
+  it('displays duplicate answer warning in strike alert when duplicate answer strike is issued', () => {
+    renderComponent({
+      strikeIssued: {
+        roomCode: 'FEUD-5555',
+        team: 'TEAM_1',
+        strikeCount: 1,
+        maxStrikes: 3,
+        isDuplicate: true,
+        isTimeout: false,
+        player: { id: 'p1', nickname: 'Alice' },
+      },
+    });
+
+    expect(screen.getByTestId('mobile-strike-alert')).toBeInTheDocument();
+    expect(screen.getByText(/Duplicate! That answer is already on the board!/i)).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2600);
+    });
+  });
+
+  it('displays Round Cleared victory banner when phase is ROUND_CLEARED', () => {
+    renderComponent({
+      snapshot: {
+        ...baseSnapshot,
+        phase: 'ROUND_CLEARED',
+        roundBank: 100,
+      },
+      roundCleared: {
+        roomCode: 'FEUD-5555',
+        winningTeam: 'TEAM_1',
+        totalRoundPoints: 100,
+      },
+    });
+
+    expect(screen.getByTestId('mobile-round-cleared-banner')).toBeInTheDocument();
+    expect(screen.getByText(/Board Cleared!/i)).toBeInTheDocument();
+    expect(screen.getByText(/Team 1 cleared the board and wins 100 points!/i)).toBeInTheDocument();
+  });
+
+  it('displays Steal Phase transition banner when phase is STEAL_PHASE', () => {
+    renderComponent({
+      snapshot: {
+        ...baseSnapshot,
+        phase: 'STEAL_PHASE',
+        strikes: 3,
+        roundBank: 75,
+      },
+      transitionStealPhase: {
+        roomCode: 'FEUD-5555',
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        roundBank: 75,
+      },
+    });
+
+    expect(screen.getByTestId('mobile-steal-phase-banner')).toBeInTheDocument();
+    expect(screen.getByText(/Three Strikes!/i)).toBeInTheDocument();
+    expect(screen.getByText(/Team 2 has a chance to STEAL!/i)).toBeInTheDocument();
+  });
+
+  it('invokes onLeave when leave button is clicked', () => {
+    const onLeave = vi.fn();
+    renderComponent({ onLeave });
+
+    const leaveBtn = screen.getByTitle('Leave Room');
+    fireEvent.click(leaveBtn);
+
+    expect(onLeave).toHaveBeenCalled();
+  });
+});
