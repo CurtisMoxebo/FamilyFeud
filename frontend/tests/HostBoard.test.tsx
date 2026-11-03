@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { HostBoard } from '../src/pages/HostBoard';
@@ -929,5 +929,55 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     await user.click(audioToggle);
     expect(localStorage.getItem('family_feud_tts_muted')).toBe('false');
     expect(audioToggle).toHaveAttribute('title', 'Mute Sounds & TTS');
+  });
+
+  it('satisfies US-17 Scenario 4: preserves host mute preference when transitioning from lobby to FastMoneyHostBoard', async () => {
+    localStorage.clear();
+    const user = userEvent.setup();
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />, '/host/FEUD-7890');
+
+    const audioToggle = screen.getByTestId('host-audio-toggle');
+    expect(audioToggle).toHaveAttribute('title', 'Mute Sounds & TTS');
+
+    // Mute in lobby
+    await user.click(audioToggle);
+    expect(localStorage.getItem('family_feud_tts_muted')).toBe('true');
+
+    // Simulate transition to FastMoneyHostBoard
+    const mockHostSnapshot = {
+      phase: 'P1_PLAYING',
+      activeQuestionNumber: 1,
+      totalQuestions: 5,
+      answeredCount: 0,
+      remainingSeconds: 60,
+      isTimerRunning: true,
+      currentQuestionText: 'Nommez un aliment pour le petit déjeuner',
+      slots: [
+        { slotNumber: 1, isFilled: false },
+        { slotNumber: 2, isFilled: false },
+        { slotNumber: 3, isFilled: false },
+        { slotNumber: 4, isFilled: false },
+        { slotNumber: 5, isFilled: false },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      roomState: {
+        roomCode: 'FEUD-7890',
+        status: 'PLAYING',
+        playerCount: 2,
+        maxPlayers: 2,
+        players: [],
+      },
+      fastMoneyHostState: mockHostSnapshot,
+    } as any);
+
+    cleanup();
+    renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
+
+    // FastMoneyHostBoard button should be in unmuted / muted state according to localStorage
+    const gameAudioToggle = screen.getByTestId('host-audio-toggle');
+    expect(gameAudioToggle).toHaveAttribute('title', 'Unmute Sounds & TTS');
   });
 });
