@@ -265,5 +265,226 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       'Buzzer locked! Opponent buzz arrived first.'
     );
   });
-});
 
+  describe('US-13: Mobile Player Pass or Play Decision Modal & Opponent Guess Turn', () => {
+    it('satisfies Scenario 1 & 6: winning contender receives Pass or Play modal, #1 badge, and clicking PLAY triggers onChoosePlayPass', () => {
+      const handleChoosePlayPass = vi.fn();
+      const passPlaySnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'PASS_OR_PLAY',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: 'traffic',
+          isMatched: true,
+          points: 40,
+          rankOrder: 1,
+          isNumberOneAnswer: true,
+        },
+      };
+
+      renderController({
+        snapshot: passPlaySnapshot,
+        onChoosePlayPass: handleChoosePlayPass,
+      });
+
+      // Pass or Play Modal
+      const modal = screen.getByTestId('face-off-pass-play-modal');
+      expect(modal).toBeInTheDocument();
+      expect(screen.getByText('Play or Pass?')).toBeInTheDocument();
+      expect(screen.getByTestId('number-one-badge')).toHaveTextContent('#1 ANSWER!');
+
+      // Action buttons
+      const playBtn = screen.getByTestId('face-off-play-btn');
+      const passBtn = screen.getByTestId('face-off-pass-btn');
+      expect(playBtn).toBeInTheDocument();
+      expect(passBtn).toBeInTheDocument();
+
+      // Click PLAY
+      fireEvent.click(playBtn);
+      expect(handleChoosePlayPass).toHaveBeenCalledWith('play');
+    });
+
+    it('satisfies Scenario 7: winning contender clicks PASS to transfer control to opponent', () => {
+      const handleChoosePlayPass = vi.fn();
+      const passPlaySnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'PASS_OR_PLAY',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+      };
+
+      renderController({
+        snapshot: passPlaySnapshot,
+        onChoosePlayPass: handleChoosePlayPass,
+      });
+
+      const passBtn = screen.getByTestId('face-off-pass-btn');
+      fireEvent.click(passBtn);
+      expect(handleChoosePlayPass).toHaveBeenCalledWith('pass');
+    });
+
+    it('satisfies Scenario 1 & 3: opponent / spectator displays waiting banner during PASS_OR_PLAY phase', () => {
+      const passPlaySnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'PASS_OR_PLAY',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+      };
+
+      // Render as Bob (opponent on Team 2)
+      renderController({
+        snapshot: passPlaySnapshot,
+        currentNickname: 'Bob',
+        currentPlayerId: 'p2',
+      });
+
+      const spectatorCard = screen.getByTestId('face-off-pass-play-spectator');
+      expect(spectatorCard).toBeInTheDocument();
+      expect(spectatorCard).toHaveTextContent('Waiting for Alice to choose Play or Pass...');
+
+      // Buttons are NOT rendered for opponent
+      expect(screen.queryByTestId('face-off-play-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-pass-btn')).not.toBeInTheDocument();
+    });
+
+    it('satisfies Scenario 2 & 3: opponent receives challenge prompt and active input form in OPPONENT_GUESS phase', () => {
+      const handleSubmitAnswer = vi.fn();
+      const oppGuessSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'OPPONENT_GUESS',
+        activeRespondentId: 'p2',
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: 'alarm clock',
+          isMatched: true,
+          points: 35,
+          rankOrder: 2,
+          isNumberOneAnswer: false,
+        },
+      };
+
+      // Render as Bob (Contender 2)
+      renderController({
+        snapshot: oppGuessSnapshot,
+        currentNickname: 'Bob',
+        currentPlayerId: 'p2',
+        onSubmitAnswer: handleSubmitAnswer,
+      });
+
+      // Opponent Challenge Banner
+      const challengeBanner = screen.getByTestId('controller-opponent-challenge-banner');
+      expect(challengeBanner).toHaveTextContent('Can you beat alarm clock (35 pts)?');
+
+      // Bob has the active input form
+      const input = screen.getByTestId('face-off-answer-input');
+      expect(input).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: 'Traffic' } });
+      const submitBtn = screen.getByTestId('face-off-submit-btn');
+      fireEvent.click(submitBtn);
+
+      expect(handleSubmitAnswer).toHaveBeenCalledWith('Traffic');
+      expect(screen.getByTestId('controller-submitted-card')).toHaveTextContent('Traffic');
+    });
+
+    it('satisfies Scenario 4: displays steal challenge banner when Contender 1 misses', () => {
+      const oppMissSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'OPPONENT_GUESS',
+        activeRespondentId: 'p2',
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: 'coffee spill',
+          isMatched: false,
+          points: 0,
+          isNumberOneAnswer: false,
+        },
+      };
+
+      // Render as Bob
+      renderController({
+        snapshot: oppMissSnapshot,
+        currentNickname: 'Bob',
+        currentPlayerId: 'p2',
+      });
+
+      const challengeBanner = screen.getByTestId('controller-opponent-challenge-banner');
+      expect(challengeBanner).toHaveTextContent(
+        'Alice missed! Any valid answer on the board wins the Face-Off!'
+      );
+    });
+
+    it('satisfies Scenario 2: non-active contender displays waiting card while opponent is answering', () => {
+      const oppGuessSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'OPPONENT_GUESS',
+        activeRespondentId: 'p2',
+      };
+
+      // Render as Alice (waiting for Bob)
+      renderController({
+        snapshot: oppGuessSnapshot,
+        currentNickname: 'Alice',
+        currentPlayerId: 'p1',
+      });
+
+      const waitingCard = screen.getByTestId('opponent-turn-waiting-card');
+      expect(waitingCard).toBeInTheDocument();
+      expect(waitingCard).toHaveTextContent('Opponent is answering to steal control');
+      expect(screen.queryByTestId('face-off-answer-input')).not.toBeInTheDocument();
+    });
+
+    it('satisfies Scenario 6 & 7: renders round control assigned announcement banner for PLAY and PASS decisions', () => {
+      const controlAssignedSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'ROUND_CONTROL_ASSIGNED',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+        controllingTeam: 'TEAM_1',
+        passOrPlayDecision: 'play',
+      };
+
+      const { rerender } = renderController({
+        snapshot: controlAssignedSnapshot,
+      });
+
+      const banner = screen.getByTestId('controller-round-control-banner');
+      expect(banner).toHaveTextContent('Team 1 has chosen to PLAY!');
+
+      // Rerender with PASS decision
+      const passControlSnapshot: FaceOffSessionState = {
+        ...controlAssignedSnapshot,
+        controllingTeam: 'TEAM_2',
+        passOrPlayDecision: 'pass',
+      };
+
+      rerender(
+        <LanguageProvider initialLanguage="EN">
+          <MainGameFaceOffController
+            snapshot={passControlSnapshot}
+            currentNickname="Alice"
+            currentPlayerId="p1"
+            roomCode="FEUD-CTRL"
+            roomName="Family Feud Duel"
+          />
+        </LanguageProvider>
+      );
+
+      expect(screen.getByTestId('controller-round-control-banner')).toHaveTextContent(
+        'Control passes to Team 2!'
+      );
+    });
+  });
+});

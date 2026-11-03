@@ -649,4 +649,428 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       expect(state.team2Contender.nickname).toBe('Bob');
     });
   });
+
+  /* -------------------------------------------------------------
+   * US-13: Face-Off Scoring & Pass or Play Choice
+   * ------------------------------------------------------------- */
+  describe('US-13: Face-Off Scoring & Pass or Play Choice', () => {
+    /* Scenario 1: Immediate Win with the #1 Answer */
+    it('satisfies Scenario 1: immediate win when Contender 1 guesses #1 answer, bypassing Contender 2', async () => {
+      const session = initFaceOffSession('FEUD-US13-S1', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1'); // Alice (p1, Team 1) wins buzzer
+
+      // Alice guesses the #1 answer ("Registration / Insurance", rank 1, 38 pts)
+      const result = await session.evaluateContenderAnswer('p1', 'Registration / Insurance');
+
+      expect(result.outcome).toBe('NUMBER_ONE_WIN');
+      expect(result.guessResult.isMatched).toBe(true);
+      expect(result.guessResult.rankOrder).toBe(1);
+      expect(result.guessResult.points).toBe(38);
+      expect(result.guessResult.isNumberOneAnswer).toBe(true);
+      expect(result.winnerPlayerId).toBe('p1');
+      expect(result.winnerNickname).toBe('Alice');
+      expect(result.winnerTeam).toBe('TEAM_1');
+
+      // Card #1 is in revealed answers
+      expect(session.revealedAnswers).toHaveLength(1);
+      expect(session.revealedAnswers[0].rankOrder).toBe(1);
+      expect(session.revealedAnswers[0].points).toBe(38);
+      expect(session.revealedAnswers[0].revealedByPlayerId).toBe('p1');
+
+      // Contender 2 is bypassed -> phase is PASS_OR_PLAY immediately and timer stopped
+      expect(session.phase).toBe('PASS_OR_PLAY');
+      expect(session.isTimerRunning).toBe(false);
+      expect(session.winnerPlayerId).toBe('p1');
+    });
+
+    /* Scenario 2: Opponent Opportunity when #1 Answer is Not Found */
+    it('satisfies Scenario 2: Contender 1 guesses non-#1 answer, prompting Contender 2 with 15s timer', async () => {
+      const session = initFaceOffSession('FEUD-US13-S2', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1'); // Alice wins buzzer
+
+      // Alice guesses rank 4 ("Tire Pressure Gauge", 12 pts)
+      const result = await session.evaluateContenderAnswer('p1', 'Tire Pressure Gauge');
+
+      expect(result.outcome).toBe('OPPONENT_TURN');
+      expect(result.guessResult.isMatched).toBe(true);
+      expect(result.guessResult.rankOrder).toBe(4);
+      expect(result.guessResult.points).toBe(12);
+      expect(result.guessResult.isNumberOneAnswer).toBe(false);
+
+      // Card #4 is revealed
+      expect(session.revealedAnswers).toHaveLength(1);
+      expect(session.revealedAnswers[0].rankOrder).toBe(4);
+
+      // Opponent (Bob, p2, Team 2) gets floor with 15s timer
+      expect(session.phase).toBe('OPPONENT_GUESS');
+      expect(session.activeRespondentId).toBe('p2');
+      expect(session.isTimerRunning).toBe(true);
+      expect(session.remainingSeconds).toBe(15);
+      expect(result.nextRespondentId).toBe('p2');
+      expect(result.nextRespondentNickname).toBe('Bob');
+    });
+
+    /* Scenario 3: Opponent Beats Initial Guess */
+    it('satisfies Scenario 3: Contender 2 submits higher-scoring answer and wins face-off', async () => {
+      const session = initFaceOffSession('FEUD-US13-S3', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1');
+
+      // Alice got 12 pts (rank 4)
+      await session.evaluateContenderAnswer('p1', 'Tire Pressure Gauge');
+
+      // Bob submits rank 2 ("Flashlight", 24 pts) -> beats 12 pts!
+      const result = await session.evaluateContenderAnswer('p2', 'Flashlight');
+
+      expect(result.outcome).toBe('OPPONENT_WON');
+      expect(result.guessResult.points).toBe(24);
+      expect(result.winnerPlayerId).toBe('p2');
+      expect(result.winnerNickname).toBe('Bob');
+      expect(result.winnerTeam).toBe('TEAM_2');
+      expect(session.phase).toBe('PASS_OR_PLAY');
+      expect(session.revealedAnswers).toHaveLength(2);
+      expect(session.isTimerRunning).toBe(false);
+    });
+
+    it('satisfies Scenario 3: Contender 2 submits lower-scoring answer and Contender 1 wins face-off', async () => {
+      const session = initFaceOffSession('FEUD-US13-S3-LOWER', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1');
+
+      // Alice got 24 pts (rank 2, "Flashlight")
+      await session.evaluateContenderAnswer('p1', 'Flashlight');
+
+      // Bob submits rank 5 ("Sunglasses", 10 pts) -> fails to beat 24 pts!
+      const result = await session.evaluateContenderAnswer('p2', 'Sunglasses');
+
+      expect(result.outcome).toBe('INITIAL_WINNER_WON');
+      expect(result.winnerPlayerId).toBe('p1');
+      expect(result.winnerNickname).toBe('Alice');
+      expect(result.winnerTeam).toBe('TEAM_1');
+      expect(session.phase).toBe('PASS_OR_PLAY');
+      expect(session.revealedAnswers).toHaveLength(2);
+    });
+
+    /* Scenario 4: Contender 1 Misses (0 Points) and Contender 2 Capitalizes */
+    it('satisfies Scenario 4: Contender 1 misses (0 pts) and Contender 2 wins with any valid answer', async () => {
+      const session = initFaceOffSession('FEUD-US13-S4', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1');
+
+      // Alice misses completely ("Elephant", 0 pts)
+      const r1 = await session.evaluateContenderAnswer('p1', 'Elephant');
+      expect(r1.outcome).toBe('OPPONENT_TURN');
+      expect(r1.guessResult.isMatched).toBe(false);
+      expect(r1.guessResult.points).toBe(0);
+      expect(session.revealedAnswers).toHaveLength(0);
+
+      // Floor passed to Bob with 15s timer
+      expect(session.phase).toBe('OPPONENT_GUESS');
+      expect(session.activeRespondentId).toBe('p2');
+
+      // Bob submits ANY valid answer on board (rank 5, "Sunglasses", 10 pts)
+      const r2 = await session.evaluateContenderAnswer('p2', 'Sunglasses');
+      expect(r2.outcome).toBe('OPPONENT_WON');
+      expect(r2.winnerPlayerId).toBe('p2');
+      expect(r2.winnerNickname).toBe('Bob');
+      expect(r2.winnerTeam).toBe('TEAM_2');
+      expect(session.phase).toBe('PASS_OR_PLAY');
+      expect(session.revealedAnswers).toHaveLength(1);
+    });
+
+    /* Scenario 5: Both Contenders Guess Incorrectly */
+    it('satisfies Scenario 5: both contenders miss, cascading opportunity to next teammate on Team 1', async () => {
+      const session = initFaceOffSession('FEUD-US13-S5', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers, // [Alice (p1), David (p4)]
+        team2Players: team2FourPlayers, // [Bob (p2), Charlie (p3)]
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1');
+
+      // Alice misses
+      await session.evaluateContenderAnswer('p1', 'Elephant');
+
+      // Bob also misses ("Giraffe")
+      const r2 = await session.evaluateContenderAnswer('p2', 'Giraffe');
+
+      expect(r2.outcome).toBe('BOTH_MISSED_CASCADE');
+      expect(r2.nextRespondentId).toBe('p4'); // David (Team 1 next teammate!)
+      expect(r2.nextRespondentNickname).toBe('David');
+      expect(r2.nextRespondentTeam).toBe('TEAM_1');
+
+      expect(session.phase).toBe('ANSWERING');
+      expect(session.activeRespondentId).toBe('p4');
+      expect(session.remainingSeconds).toBe(15);
+      expect(session.isTimerRunning).toBe(true);
+
+      // David lands a valid answer ("Napkins / Tissues", rank 3, 16 pts) -> Team 1 wins face-off!
+      const r3 = await session.evaluateContenderAnswer('p4', 'Napkins / Tissues');
+      expect(r3.outcome).toBe('INITIAL_WINNER_WON');
+      expect(r3.winnerPlayerId).toBe('p4');
+      expect(r3.winnerNickname).toBe('David');
+      expect(r3.winnerTeam).toBe('TEAM_1');
+      expect(session.phase).toBe('PASS_OR_PLAY');
+    });
+
+    it('satisfies Scenario 5: deadlock resets when all available players miss without answer', async () => {
+      const session = initFaceOffSession('FEUD-US13-S5-DEADLOCK', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1TwoPlayers, // Only Alice (p1)
+        team2Players: team2TwoPlayers, // Only Bob (p2)
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1');
+
+      await session.evaluateContenderAnswer('p1', 'Wrong 1');
+      const r2 = await session.evaluateContenderAnswer('p2', 'Wrong 2');
+
+      expect(r2.outcome).toBe('DEADLOCK_RESET');
+      expect(session.phase).toBe('DEADLOCK_RESET');
+      expect(session.activeRespondentId).toBeNull();
+    });
+
+    /* Scenario 6: Choosing "Play" */
+    it('satisfies Scenario 6: winner chooses PLAY, awarding control to winner team', () => {
+      const session = initFaceOffSession('FEUD-US13-S6', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.phase = 'PASS_OR_PLAY';
+      session.winnerPlayerId = 'p1';
+      session.winnerNickname = 'Alice';
+      session.winnerTeam = 'TEAM_1';
+
+      const decisionRes = session.choosePlayOrPass('p1', 'play');
+
+      expect(decisionRes.success).toBe(true);
+      expect(decisionRes.decision).toBe('play');
+      expect(decisionRes.controllingTeam).toBe('TEAM_1');
+      expect(decisionRes.controllingTeamName).toBe('Team 1');
+
+      expect(session.controllingTeam).toBe('TEAM_1');
+      expect(session.passOrPlayDecision).toBe('play');
+      expect(session.phase).toBe('ROUND_CONTROL_ASSIGNED');
+    });
+
+    /* Scenario 7: Choosing "Pass" */
+    it('satisfies Scenario 7: winner chooses PASS, transferring control to opponent team', () => {
+      const session = initFaceOffSession('FEUD-US13-S7', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.phase = 'PASS_OR_PLAY';
+      session.winnerPlayerId = 'p1';
+      session.winnerNickname = 'Alice';
+      session.winnerTeam = 'TEAM_1';
+
+      const decisionRes = session.choosePlayOrPass('p1', 'pass');
+
+      expect(decisionRes.success).toBe(true);
+      expect(decisionRes.decision).toBe('pass');
+      expect(decisionRes.controllingTeam).toBe('TEAM_2'); // Passed to Team 2!
+      expect(decisionRes.controllingTeamName).toBe('Team 2');
+
+      expect(session.controllingTeam).toBe('TEAM_2');
+      expect(session.passOrPlayDecision).toBe('pass');
+      expect(session.phase).toBe('ROUND_CONTROL_ASSIGNED');
+    });
+
+    /* Edge Cases & Guard Validations */
+    it('rejects play/pass choice from non-winning player', () => {
+      const session = initFaceOffSession('FEUD-US13-EDGE-1', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.phase = 'PASS_OR_PLAY';
+      session.winnerPlayerId = 'p1';
+
+      const res = session.choosePlayOrPass('p2', 'play');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('Only the winning contender may choose to play or pass');
+    });
+
+    it('rejects play/pass when phase is not PASS_OR_PLAY', () => {
+      const session = initFaceOffSession('FEUD-US13-EDGE-2', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.phase = 'ANSWERING';
+      session.winnerPlayerId = 'p1';
+
+      const res = session.choosePlayOrPass('p1', 'play');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('not in pass or play phase');
+    });
+
+    it('rejects guessing an already revealed card as duplicate with 0 points', async () => {
+      const session = initFaceOffSession('FEUD-US13-EDGE-3', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1');
+
+      // Alice reveals "Flashlight"
+      await session.evaluateContenderAnswer('p1', 'Flashlight');
+      expect(session.revealedAnswers).toHaveLength(1);
+
+      // Bob tries to guess "Flashlight" too
+      const bRes = await session.evaluateContenderAnswer('p2', 'Flashlight');
+      expect(bRes.guessResult.isDuplicate).toBe(true);
+      expect(bRes.guessResult.isMatched).toBe(false);
+      expect(bRes.guessResult.points).toBe(0);
+      // Alice wins because Bob failed to beat her
+      expect(bRes.outcome).toBe('INITIAL_WINNER_WON');
+      expect(session.winnerPlayerId).toBe('p1');
+    });
+
+    it('awards win to Contender 1 when Contender 2 times out during OPPONENT_GUESS', () => {
+      const timeoutSpy = vi.fn();
+      const session = initFaceOffSession('FEUD-US13-EDGE-4', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+        onTimeout: timeoutSpy,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1');
+
+      // Alice got 12 pts (rank 4)
+      session.firstGuessResult = {
+        playerId: 'p1',
+        playerNickname: 'Alice',
+        playerTeam: 'TEAM_1',
+        rawAnswer: 'Tire Pressure Gauge',
+        isMatched: true,
+        points: 12,
+        rankOrder: 4,
+        isNumberOneAnswer: false,
+      };
+      session.phase = 'OPPONENT_GUESS';
+      session.activeRespondentId = 'p2';
+
+      // Bob times out
+      const timeoutRes = session.handleTimeout();
+
+      expect(timeoutRes.type).toBe('TIMEOUT_WINNER');
+      expect(timeoutRes.winnerPlayerId).toBe('p1');
+      expect(timeoutRes.winnerNickname).toBe('Alice');
+      expect(session.phase).toBe('PASS_OR_PLAY');
+      expect(session.winnerPlayerId).toBe('p1');
+      expect(timeoutSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'TIMEOUT_WINNER',
+          winnerPlayerId: 'p1',
+        })
+      );
+    });
+
+    it('throws error when submitting answer from non-active respondent', async () => {
+      const session = initFaceOffSession('FEUD-US13-EDGE-5', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      session.markContenderReady('p1');
+      session.markContenderReady('p2');
+      session.pressBuzzer('p1');
+
+      await expect(session.evaluateContenderAnswer('p2', 'Flashlight')).rejects.toThrow(
+        'Only the active respondent may submit an answer.'
+      );
+    });
+
+    it('throws error when submitting answer outside of answering phase', async () => {
+      const session = initFaceOffSession('FEUD-US13-EDGE-6', {
+        gameId: 'game-13',
+        roundNumber: 1,
+        team1Players: team1FourPlayers,
+        team2Players: team2FourPlayers,
+        question: mockQuestion,
+      });
+
+      await expect(session.evaluateContenderAnswer('p1', 'Flashlight')).rejects.toThrow(
+        'Face-off is not in an answering phase'
+      );
+    });
+  });
 });

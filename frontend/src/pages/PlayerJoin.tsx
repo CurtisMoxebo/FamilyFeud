@@ -74,9 +74,14 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     buzzerLocked,
     buzzerRejected,
     faceOffTimeout,
+    promptPassPlay,
+    roundControlAssigned,
+    opponentTurnPrompt,
     sendFaceOffReady,
     pressBuzzer,
     submitFaceOffAnswer,
+    submitFaceOffGuess,
+    choosePlayPass,
   } = useSocket();
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
@@ -293,7 +298,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       );
     }
 
-    // Main Game Face-Off Controller (US-12)
+    // Main Game Face-Off Controller (US-12 & US-13)
     if (!isFastMoney && faceOffState) {
       return (
         <MainGameFaceOffController
@@ -302,6 +307,9 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           buzzerLocked={buzzerLocked}
           buzzerRejected={buzzerRejected}
           timeoutResult={faceOffTimeout}
+          promptPassPlay={promptPassPlay}
+          roundControlAssigned={roundControlAssigned}
+          opponentTurnPrompt={opponentTurnPrompt}
           currentNickname={nickname.trim()}
           currentPlayerId={currentPlayer?.id}
           roomCode={room.roomCode}
@@ -309,13 +317,24 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           onReady={() => sendFaceOffReady && sendFaceOffReady(roomCode, currentPlayer?.id || 'contender')}
           onBuzz={() => pressBuzzer && pressBuzzer(roomCode, currentPlayer?.id || 'contender')}
           onSubmitAnswer={(rawAnswer) =>
-            submitFaceOffAnswer &&
-            submitFaceOffAnswer(
-              roomCode,
-              currentPlayer?.id || 'respondent',
-              faceOffState.question?.id || 'q',
-              rawAnswer
-            )
+            submitFaceOffGuess
+              ? submitFaceOffGuess(
+                  roomCode,
+                  currentPlayer?.id || 'respondent',
+                  faceOffState.question?.id || 'q',
+                  rawAnswer
+                )
+              : submitFaceOffAnswer &&
+                submitFaceOffAnswer(
+                  roomCode,
+                  currentPlayer?.id || 'respondent',
+                  faceOffState.question?.id || 'q',
+                  rawAnswer
+                )
+          }
+          onChoosePlayPass={(decision) =>
+            choosePlayPass &&
+            choosePlayPass(roomCode, currentPlayer?.id || 'winner', decision)
           }
           onLeave={() => navigate('/')}
         />

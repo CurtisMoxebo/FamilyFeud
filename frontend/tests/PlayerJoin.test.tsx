@@ -65,6 +65,12 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     pressBuzzer: vi.fn(),
     submitFaceOffAnswer: vi.fn(),
     clearFaceOffState: vi.fn(),
+    promptPassPlay: null,
+    roundControlAssigned: null,
+    opponentTurnPrompt: null,
+    faceOffBoardReveal: null,
+    submitFaceOffGuess: vi.fn(),
+    choosePlayPass: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {
@@ -920,5 +926,91 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
 
       // Buzzer button rendered
       expect(screen.getByTestId('face-off-buzzer-btn')).toHaveTextContent('BUZZ!');
+    });
+
+    it('satisfies US-13: allows winning contender to click PLAY in Pass or Play modal to emit choosePlayPass', async () => {
+      const user = userEvent.setup();
+      const mockChoosePlayPass = vi.fn();
+
+      const mainGameRoomEN: Room = {
+        id: 'room-main-passplay',
+        roomCode: 'FEUD-8888',
+        roomName: 'Pass or Play Choice Duel',
+        language: 'EN',
+        gameMode: 'MAIN_GAME',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+      };
+
+      const mockPassPlayState: FaceOffSessionState = {
+        roomCode: 'FEUD-8888',
+        gameId: 'game-fo88',
+        roundNumber: 1,
+        language: 'EN',
+        phase: 'PASS_OR_PLAY',
+        question: {
+          id: 'q-88',
+          questionText: 'Name something you pack in a suitcase',
+          answers: [{ id: 'a1', answerText: 'CLOTHES', points: 60, rankOrder: 1 }],
+        },
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 }],
+        team1Contender: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isReady: true },
+        team2Contender: { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isReady: true },
+        buzzerLocked: false,
+        buzzedPlayerId: 'p1',
+        buzzedPlayerNickname: 'Alice',
+        buzzedPlayerTeam: 'TEAM_1',
+        buzzedAtTimestamp: null,
+        activeRespondentId: 'p1',
+        attemptedPlayerIds: ['p1'],
+        initialBuzzerWinnerId: 'p1',
+        timerDurationSeconds: 15,
+        remainingSeconds: 15,
+        endsAt: null,
+        isTimerRunning: false,
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+      };
+
+      vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+        ...defaultSocketMock,
+        socketId: 'mock-socket-alice',
+        roomState: {
+          roomCode: 'FEUD-8888',
+          roomName: 'Pass or Play Choice Duel',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'ACTIVE',
+          playerCount: 2,
+          maxPlayers: 10,
+          canStart: true,
+          players: [
+            { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isReady: true, isConnected: true },
+            { id: 'p2', nickname: 'Bob', team: 'TEAM_2', isReady: true, isConnected: true },
+          ],
+        },
+        faceOffState: mockPassPlayState,
+        choosePlayPass: mockChoosePlayPass,
+      } as any);
+
+      renderWithProviders(<PlayerJoin roomCode="FEUD-8888" initialRoom={mainGameRoomEN} />);
+
+      // Join as Alice (winning contender)
+      const input = screen.getByTestId('player-nickname-input');
+      await user.type(input, 'Alice');
+      await user.click(screen.getByTestId('player-join-submit-btn'));
+
+      // Pass or Play modal rendered
+      await waitFor(() => {
+        expect(screen.getByTestId('face-off-pass-play-modal')).toBeInTheDocument();
+      });
+
+      const playBtn = screen.getByTestId('face-off-play-btn');
+      expect(playBtn).toBeInTheDocument();
+      await user.click(playBtn);
+
+      expect(mockChoosePlayPass).toHaveBeenCalledWith('FEUD-8888', 'p1', 'play');
     });
   });

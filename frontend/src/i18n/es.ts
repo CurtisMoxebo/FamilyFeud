@@ -158,6 +158,18 @@ export const es: TranslationDictionary = {
     timeUpHandOff: '¡Tiempo agotado! Turno para {next}',
     timeUpTeammate: 'Turno para el compañero {next}',
     deadlockReset: '¡Sin respuestas! Cargando nueva pregunta...',
+    passOrPlayTitle: '¿Jugar o Pasar?',
+    passOrPlaySubtitle: '¡Ganaste el Cara a Cara! Elige si tu equipo jugará este tablero o pasará el control al equipo contrario.',
+    playBtn: 'JUGAR',
+    passBtn: 'PASAR',
+    canYouBeat: '¿Puedes superar a {answer} ({points} pts)?',
+    opponentChance: '¡El adversario falló! ¡Cualquier respuesta válida en el tablero gana el Cara a Cara!',
+    numberOneAnswerFound: '¡RESPUESTA N.° 1!',
+    teamChosePlay: '¡El equipo {team} ha elegido JUGAR!',
+    teamChosePass: '¡El equipo {team} ha PASADO el control al equipo {target}!',
+    controlPassesTo: '¡El control pasa al equipo {team}!',
+    waitingForWinnerChoice: 'Esperando que {winner} elija Jugar o Pasar...',
+    cardRevealed: 'Carta #{rank} revelada: {answer} ({points} pts)',
   },
 };
 

@@ -19,6 +19,10 @@ import {
   FaceOffTimeoutPayload,
   FaceOffResetPayload,
   FaceOffAnswerSubmittedPayload,
+  PromptPassPlayPayload,
+  RoundControlAssignedPayload,
+  OpponentTurnPromptPayload,
+  FaceOffBoardRevealPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -77,6 +81,10 @@ export function useSocket(options?: UseSocketOptions) {
   const [faceOffReset, setFaceOffReset] = useState<FaceOffResetPayload | null>(null);
   const [faceOffAnswer, setFaceOffAnswer] = useState<FaceOffAnswerSubmittedPayload | null>(null);
   const [faceOffError, setFaceOffError] = useState<{ code: string; message: string } | null>(null);
+  const [promptPassPlay, setPromptPassPlay] = useState<PromptPassPlayPayload | null>(null);
+  const [roundControlAssigned, setRoundControlAssigned] = useState<RoundControlAssignedPayload | null>(null);
+  const [opponentTurnPrompt, setOpponentTurnPrompt] = useState<OpponentTurnPromptPayload | null>(null);
+  const [faceOffBoardReveal, setFaceOffBoardReveal] = useState<FaceOffBoardRevealPayload | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -219,6 +227,35 @@ export function useSocket(options?: UseSocketOptions) {
     []
   );
 
+  const choosePlayPass = useCallback(
+    (roomCode: string, playerId: string, decision: 'play' | 'pass') => {
+      setFaceOffError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('choose_play_pass', {
+          roomCode,
+          playerId,
+          decision,
+        });
+      }
+    },
+    []
+  );
+
+  const submitFaceOffGuess = useCallback(
+    (roomCode: string, playerId: string, questionId: string, rawAnswer: string) => {
+      setFaceOffError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('submit_face_off_guess', {
+          roomCode,
+          playerId,
+          questionId,
+          rawAnswer,
+        });
+      }
+    },
+    []
+  );
+
   const clearFaceOffState = useCallback(() => {
     setFaceOffState(null);
     setBuzzerLocked(null);
@@ -227,6 +264,14 @@ export function useSocket(options?: UseSocketOptions) {
     setFaceOffReset(null);
     setFaceOffAnswer(null);
     setFaceOffError(null);
+    setPromptPassPlay(null);
+    setRoundControlAssigned(null);
+    setOpponentTurnPrompt(null);
+    setFaceOffBoardReveal(null);
+    setPromptPassPlay(null);
+    setRoundControlAssigned(null);
+    setOpponentTurnPrompt(null);
+    setFaceOffBoardReveal(null);
   }, []);
 
   const leaveRoom = useCallback(() => {
@@ -410,6 +455,22 @@ export function useSocket(options?: UseSocketOptions) {
       setFaceOffError(err);
     });
 
+    socket.on('prompt_pass_play', (payload: PromptPassPlayPayload) => {
+      setPromptPassPlay(payload);
+    });
+
+    socket.on('round_control_assigned', (payload: RoundControlAssignedPayload) => {
+      setRoundControlAssigned(payload);
+    });
+
+    socket.on('opponent_turn_prompt', (payload: OpponentTurnPromptPayload) => {
+      setOpponentTurnPrompt(payload);
+    });
+
+    socket.on('face_off_board_reveal', (payload: FaceOffBoardRevealPayload) => {
+      setFaceOffBoardReveal(payload);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -434,6 +495,12 @@ export function useSocket(options?: UseSocketOptions) {
     pressBuzzer,
     submitFaceOffAnswer,
     clearFaceOffState,
+    promptPassPlay,
+    roundControlAssigned,
+    opponentTurnPrompt,
+    faceOffBoardReveal,
+    choosePlayPass,
+    submitFaceOffGuess,
     fastMoneyP1State,
     fastMoneyP2State,
     fastMoneyHostState,

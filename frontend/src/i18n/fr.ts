@@ -158,6 +158,18 @@ export const fr: TranslationDictionary = {
     timeUpHandOff: 'Temps écoulé ! La main passe à {next}',
     timeUpTeammate: 'La main passe au coéquipier {next}',
     deadlockReset: "Aucune réponse donnée ! Chargement d'une nouvelle question...",
+    passOrPlayTitle: 'Jouer ou Passer ?',
+    passOrPlaySubtitle: "Vous avez remporté le Face-à-face ! Choisissez si votre équipe joue ce tableau ou passe la main à l'équipe adverse.",
+    playBtn: 'JOUER',
+    passBtn: 'PASSER',
+    canYouBeat: 'Pouvez-vous battre {answer} ({points} pts) ?',
+    opponentChance: "L'adversaire a manqué ! Toute réponse valide sur le tableau remporte le Face-à-face !",
+    numberOneAnswerFound: 'RÉPONSE N°1 !',
+    teamChosePlay: "L'équipe {team} a choisi de JOUER !",
+    teamChosePass: "L'équipe {team} a PASSÉ la main à l'équipe {target} !",
+    controlPassesTo: "La main passe à l'équipe {team} !",
+    waitingForWinnerChoice: 'En attente du choix de {winner} (Jouer ou Passer)...',
+    cardRevealed: 'Carte n°{rank} révélée : {answer} ({points} pts)',
   },
 };
 

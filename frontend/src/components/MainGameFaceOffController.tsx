@@ -5,6 +5,9 @@ import {
   BuzzerLockedPayload,
   BuzzerRejectedPayload,
   FaceOffTimeoutPayload,
+  PromptPassPlayPayload,
+  RoundControlAssignedPayload,
+  OpponentTurnPromptPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import {
@@ -15,6 +18,11 @@ import {
   Users,
   Send,
   ArrowLeft,
+  Play,
+  ArrowRight,
+  Sparkles,
+  Flame,
+  Clock,
 } from 'lucide-react';
 
 export interface MainGameFaceOffControllerProps {
@@ -23,6 +31,9 @@ export interface MainGameFaceOffControllerProps {
   buzzerLocked?: BuzzerLockedPayload | null;
   buzzerRejected?: BuzzerRejectedPayload | null;
   timeoutResult?: FaceOffTimeoutPayload | null;
+  promptPassPlay?: PromptPassPlayPayload | null;
+  roundControlAssigned?: RoundControlAssignedPayload | null;
+  opponentTurnPrompt?: OpponentTurnPromptPayload | null;
   currentNickname: string;
   currentPlayerId?: string;
   roomCode: string;
@@ -30,6 +41,7 @@ export interface MainGameFaceOffControllerProps {
   onReady?: () => void;
   onBuzz?: () => void;
   onSubmitAnswer?: (rawAnswer: string) => void;
+  onChoosePlayPass?: (decision: 'play' | 'pass') => void;
   onLeave?: () => void;
 }
 
@@ -39,6 +51,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   buzzerLocked,
   buzzerRejected,
   timeoutResult,
+  promptPassPlay,
+  roundControlAssigned,
+  opponentTurnPrompt: _opponentTurnPrompt,
   currentNickname,
   currentPlayerId,
   roomCode,
@@ -46,6 +61,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   onReady,
   onBuzz,
   onSubmitAnswer,
+  onChoosePlayPass,
   onLeave,
 }) => {
   const { t } = useTranslation();
@@ -85,9 +101,21 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   const activeWinnerName =
     buzzerLocked?.winnerNickname || snapshot.buzzedPlayerNickname || 'Contender';
 
+  // Face-Off Duel Winner (US-13 Scenarios 1, 3, 4, 6, 7)
+  const faceOffWinnerId =
+    snapshot.winnerPlayerId || promptPassPlay?.winnerPlayerId;
+  const faceOffWinnerName =
+    snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName;
+
+  const isFaceOffWinner =
+    (currentPlayerId && faceOffWinnerId === currentPlayerId) ||
+    (faceOffWinnerName && faceOffWinnerName.toLowerCase() === trimmedNick);
+
   // Active respondent check (may be initial buzzer winner or cascaded opponent/teammate)
   const isActiveRespondent =
     (currentPlayerId && snapshot.activeRespondentId === currentPlayerId) ||
+    (snapshot.activeRespondentId &&
+      (isC1 ? c1?.id === snapshot.activeRespondentId : isC2 ? c2?.id === snapshot.activeRespondentId : false)) ||
     (activeWinnerId && currentPlayerId && currentPlayerId === activeWinnerId) ||
     (activeWinnerName && activeWinnerName.toLowerCase() === trimmedNick);
 
@@ -95,7 +123,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
 
   // Auto-focus input when floor becomes active for current player
   useEffect(() => {
-    if (isActiveRespondent && snapshot.phase === 'ANSWERING') {
+    if (
+      isActiveRespondent &&
+      (snapshot.phase === 'ANSWERING' || snapshot.phase === 'OPPONENT_GUESS')
+    ) {
       inputRef.current?.focus();
     }
   }, [isActiveRespondent, snapshot.phase]);
@@ -103,6 +134,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   // Reset local submission state when phase changes or deadlock resets
   useEffect(() => {
     if (snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE') {
+      setHasSubmitted(false);
+      setAnswerInput('');
+    } else if (snapshot.phase === 'OPPONENT_GUESS') {
       setHasSubmitted(false);
       setAnswerInput('');
     }
@@ -117,6 +151,22 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       onSubmitAnswer(answerInput.trim());
     }
   };
+
+  const handleChoosePlay = () => {
+    if (onChoosePlayPass) {
+      onChoosePlayPass('play');
+    }
+  };
+
+  const handleChoosePass = () => {
+    if (onChoosePlayPass) {
+      onChoosePlayPass('pass');
+    }
+  };
+
+  const controllingTeam =
+    snapshot.controllingTeam || roundControlAssigned?.controllingTeam;
+  const controllingTeamNum = controllingTeam === 'TEAM_2' ? '2' : '1';
 
   return (
     <div
@@ -448,7 +498,226 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       )}
 
       {/* ===================================================================== */}
-      {/* PHASE 4: RESOLVED */}
+      {/* PHASE 3.5: OPPONENT_GUESS (US-13 Scenarios 2 & 4) */}
+      {/* ===================================================================== */}
+      {snapshot.phase === 'OPPONENT_GUESS' && (
+        <div className="w-full flex flex-col items-center gap-4 animate-fadeIn">
+          {/* Opponent Challenge Alert */}
+          <div
+            data-testid="controller-opponent-challenge-banner"
+            className="w-full p-4 rounded-2xl bg-gradient-to-r from-blue-950/90 via-slate-900 to-blue-950/90 border-2 border-blue-400/70 text-center shadow-lg"
+          >
+            <div className="flex items-center justify-center gap-2 text-amber-300 font-extrabold text-sm sm:text-base">
+              <Flame className="w-5 h-5 text-amber-400 animate-bounce" />
+              <span>
+                {snapshot.firstGuessResult?.isMatched && snapshot.firstGuessResult.points > 0
+                  ? t.mainGame.canYouBeat
+                      .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
+                      .replace('{points}', String(snapshot.firstGuessResult.points))
+                  : t.mainGame.opponentChance.replace(
+                      '{contender}',
+                      snapshot.firstGuessResult?.playerNickname || c1?.nickname || 'Contender'
+                    )}
+              </span>
+            </div>
+          </div>
+
+          {/* 15-Second Countdown Ring */}
+          <div
+            data-testid="controller-timer-ring"
+            className={`w-24 h-24 rounded-full flex flex-col items-center justify-center border-4 shadow-xl ${
+              currentSeconds <= 5
+                ? 'border-red-500 bg-red-950/40 text-red-400 animate-pulse'
+                : 'border-blue-400 bg-slate-900/90 text-blue-300'
+            }`}
+          >
+            <span
+              data-testid="controller-seconds-remaining"
+              className="text-3xl font-black"
+            >
+              {currentSeconds}
+            </span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Seconds
+            </span>
+          </div>
+
+          {/* ACTIVE RESPONDENT (Opponent Contender) */}
+          {isActiveRespondent ? (
+            hasSubmitted ? (
+              <div
+                data-testid="controller-submitted-card"
+                className="w-full p-4 rounded-2xl bg-green-950/80 border border-green-500 text-center animate-fadeIn"
+              >
+                <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-1" />
+                <span className="text-xs font-bold uppercase tracking-wider text-green-300">
+                  Answer Submitted
+                </span>
+                <p className="text-xl font-extrabold text-white mt-1 uppercase">
+                  &ldquo;{answerInput}&rdquo;
+                </p>
+              </div>
+            ) : (
+              <form
+                onSubmit={handleSubmit}
+                data-testid="face-off-answer-form"
+                className="w-full flex flex-col gap-3"
+              >
+                <label
+                  htmlFor="face-off-answer-input"
+                  className="text-xs font-bold text-blue-300 uppercase tracking-wider text-left block"
+                >
+                  Your Turn to Answer & Beat the Score!
+                </label>
+                <input
+                  id="face-off-answer-input"
+                  ref={inputRef}
+                  type="text"
+                  data-testid="face-off-answer-input"
+                  value={answerInput}
+                  onChange={(e) => setAnswerInput(e.target.value)}
+                  placeholder={t.mainGame.faceOffInputPlaceholder}
+                  maxLength={60}
+                  autoComplete="off"
+                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-blue-400/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button
+                  type="submit"
+                  data-testid="face-off-submit-btn"
+                  disabled={!answerInput.trim()}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{t.mainGame.submitAnswer}</span>
+                </button>
+              </form>
+            )
+          ) : (
+            /* NON-ACTIVE RESPONDENT WAITING */
+            <div
+              data-testid="opponent-turn-waiting-card"
+              className="w-full p-4 rounded-2xl bg-slate-900/80 border border-slate-700 text-center text-xs text-slate-300"
+            >
+              <Clock className="w-6 h-6 text-blue-400 mx-auto mb-1 animate-spin" />
+              <p>Opponent is answering to steal control ({currentSeconds}s remaining)...</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* PHASE 4: PASS OR PLAY (US-13 Scenarios 1, 3, 4) */}
+      {/* ===================================================================== */}
+      {snapshot.phase === 'PASS_OR_PLAY' && (
+        <div className="w-full flex flex-col items-center gap-5 animate-fadeIn">
+          {isFaceOffWinner ? (
+            /* WINNER: Pass or Play Decision Modal / Buttons */
+            <div
+              data-testid="face-off-pass-play-modal"
+              className="w-full p-6 rounded-3xl bg-gradient-to-b from-yellow-500/20 via-slate-900 to-slate-950 border-2 border-feud-gold shadow-[0_0_35px_rgba(234,179,8,0.35)] flex flex-col items-center gap-4"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-feud-gold animate-bounce" />
+                <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-wider">
+                  {t.mainGame.passOrPlayTitle}
+                </h2>
+                <Sparkles className="w-6 h-6 text-feud-gold animate-bounce" />
+              </div>
+
+              {(snapshot.firstGuessResult?.isNumberOneAnswer ||
+                snapshot.secondGuessResult?.isNumberOneAnswer) && (
+                <span
+                  data-testid="number-one-badge"
+                  className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-yellow-300 bg-yellow-500/20 px-3 py-1 rounded-full border border-yellow-400/50"
+                >
+                  <Award className="w-4 h-4" />
+                  {t.mainGame.numberOneAnswerFound || '#1 ANSWER!'}
+                </span>
+              )}
+
+              <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-sm">
+                {t.mainGame.passOrPlaySubtitle}
+              </p>
+
+              {/* Action Buttons: PLAY or PASS */}
+              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                <button
+                  type="button"
+                  data-testid="face-off-play-btn"
+                  onClick={handleChoosePlay}
+                  className="py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Play className="w-5 h-5 fill-white" />
+                    <span>{t.mainGame.playBtn}</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-emerald-100 uppercase tracking-widest">
+                    Your team plays
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="face-off-pass-btn"
+                  onClick={handleChoosePass}
+                  className="py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <ArrowRight className="w-5 h-5 text-slate-950" />
+                    <span>{t.mainGame.passBtn}</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">
+                    Pass to opponent
+                  </span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* OPPONENT / SPECTATOR: Waiting for Winner Choice */
+            <div
+              data-testid="face-off-pass-play-spectator"
+              className="w-full p-6 rounded-3xl bg-slate-900/90 border border-slate-700 flex flex-col items-center gap-3"
+            >
+              <Award className="w-10 h-10 text-feud-gold animate-bounce mb-1" />
+              <h3 className="text-lg font-bold text-white">
+                {t.mainGame.passOrPlayTitle}
+              </h3>
+              <p className="text-xs sm:text-sm text-yellow-200">
+                {t.mainGame.waitingForWinnerChoice.replace('{winner}', faceOffWinnerName)}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* PHASE 5: ROUND_CONTROL_ASSIGNED (US-13 Scenarios 6 & 7) */}
+      {/* ===================================================================== */}
+      {(snapshot.phase === 'ROUND_CONTROL_ASSIGNED' || roundControlAssigned) && (
+        <div
+          data-testid="controller-round-control-banner"
+          className={`w-full p-5 rounded-3xl border-2 text-center shadow-2xl animate-fadeIn ${
+            (snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
+              ? 'bg-gradient-to-r from-green-950/90 via-slate-900 to-green-950/90 border-green-400 shadow-[0_0_25px_rgba(34,197,94,0.35)]'
+              : 'bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.35)]'
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Award className="w-6 h-6 text-feud-gold animate-bounce" />
+            <h3 className="text-xl sm:text-2xl font-black text-white">
+              {(snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
+                ? t.mainGame.teamChosePlay.replace('{team}', controllingTeamNum)
+                : t.mainGame.controlPassesTo.replace('{team}', controllingTeamNum)}
+            </h3>
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-300 mt-1">
+            Starting Team Guessing Round...
+          </p>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* PHASE 6: RESOLVED */}
       {/* ===================================================================== */}
       {snapshot.phase === 'RESOLVED' && (
         <div

@@ -65,6 +65,12 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     pressBuzzer: vi.fn(),
     submitFaceOffAnswer: vi.fn(),
     clearFaceOffState: vi.fn(),
+    promptPassPlay: null,
+    roundControlAssigned: null,
+    opponentTurnPrompt: null,
+    faceOffBoardReveal: null,
+    choosePlayPass: vi.fn(),
+    submitFaceOffGuess: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {
@@ -585,5 +591,82 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     expect(screen.getByTestId('face-off-question-text')).toHaveTextContent('Name something you find in a garage');
     expect(screen.getByTestId('c1-nickname')).toHaveTextContent('Alice');
     expect(screen.getByTestId('c2-nickname')).toHaveTextContent('Bob');
+  });
+
+  it('satisfies US-13: renders Pass or Play prompt and control assignment banner on HostBoard', () => {
+    const mainGameRoomEN: Room = {
+      id: 'room-passplay',
+      roomCode: 'FEUD-6666',
+      roomName: 'Face-Off Pass Play Show',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    };
+
+    const mockPassPlayState: FaceOffSessionState = {
+      roomCode: 'FEUD-6666',
+      gameId: 'game-fo66',
+      roundNumber: 1,
+      language: 'EN',
+      phase: 'PASS_OR_PLAY',
+      question: {
+        id: 'q-66',
+        questionText: 'Name something you pack in a suitcase',
+        answers: [{ id: 'a1', answerText: 'CLOTHES', points: 60, rankOrder: 1 }],
+      },
+      team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 }],
+      team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 }],
+      team1Contender: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isReady: true },
+      team2Contender: { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isReady: true },
+      buzzerLocked: false,
+      buzzedPlayerId: 'p1',
+      buzzedPlayerNickname: 'Alice',
+      buzzedPlayerTeam: 'TEAM_1',
+      buzzedAtTimestamp: null,
+      activeRespondentId: 'p1',
+      attemptedPlayerIds: ['p1'],
+      initialBuzzerWinnerId: 'p1',
+      timerDurationSeconds: 15,
+      remainingSeconds: 15,
+      endsAt: null,
+      isTimerRunning: false,
+      winnerPlayerId: 'p1',
+      winnerNickname: 'Alice',
+      winnerTeam: 'TEAM_1',
+      revealedAnswers: [
+        {
+          id: 'a1',
+          answerText: 'CLOTHES',
+          points: 60,
+          rankOrder: 1,
+          revealedByPlayerId: 'p1',
+          revealedByNickname: 'Alice',
+          revealedByTeam: 'TEAM_1',
+        },
+      ],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      faceOffState: mockPassPlayState,
+      promptPassPlay: {
+        roomCode: 'FEUD-6666',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+        roundNumber: 1,
+      },
+    });
+
+    renderWithProviders(<HostBoard roomCode="FEUD-6666" initialRoom={mainGameRoomEN} />, '/host/FEUD-6666');
+
+    // Shows survey card revealed
+    expect(screen.getByTestId('face-off-card-1')).toHaveTextContent('CLOTHES');
+    expect(screen.getByTestId('number-one-badge')).toBeInTheDocument();
+
+    // Shows Pass or Play banner
+    expect(screen.getByTestId('face-off-pass-play-banner')).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for Alice to choose Play or Pass/i)).toBeInTheDocument();
   });
 });
