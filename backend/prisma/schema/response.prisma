@@ -13,6 +13,9 @@ model PlayerResponse {
   player              Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
   matchedAnswer       Answer?  @relation(fields: [matchedAnswerId], references: [id], onDelete: SetNull)
 
+  @@index([questionId])
+  @@index([playerId])
+  @@index([matchedAnswerId])
   @@map("player_responses")
 }
 

@@ -471,6 +471,8 @@ export function registerLobbyHandlers(
             },
             language: room.language,
             timerDurationSeconds: 15,
+            persistAudit: true,
+            prismaClient: db,
             onTick: (secondsRemaining, endsAt) => {
               io.to(`room:${normalizedCode}`).emit('timer_tick', {
                 roomCode: normalizedCode,
