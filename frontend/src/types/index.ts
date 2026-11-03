@@ -679,3 +679,52 @@ export interface NextRoundStartedPayload {
   isSuddenDeath: boolean;
   scoreboard: ScoreboardState;
 }
+
+// US-20: Reconnection and State Recovery Payloads
+export interface ReconnectHostPayload {
+  roomCode: string;
+  hostSecret: string;
+}
+
+export interface ReconnectSessionPayload {
+  roomCode: string;
+  playerId: string;
+  sessionToken: string;
+}
+
+export interface FullGameState {
+  roomCode: string;
+  roomName: string;
+  language: Language;
+  gameMode: GameMode;
+  status: RoomStatus;
+  room: RoomStateUpdate;
+  teamsAssigned?: TeamsAssignedPayload | null;
+  faceOffState?: FaceOffSessionState | null;
+  teamGuessingState?: TeamGuessingSessionState | null;
+  scoreboardState?: ScoreboardUpdatePayload | null;
+  fastMoneyHostState?: HostStateSnapshot | null;
+  timerTick?: TimerTickPayload | null;
+}
+
+export interface ReconnectAcknowledgedPayload {
+  success: boolean;
+  role: 'HOST' | 'PLAYER';
+  roomCode: string;
+  gameState: FullGameState;
+  player?: {
+    id: string;
+    nickname: string;
+    team: string;
+  };
+  message?: string;
+}
+
+export interface PlayerLeftAlertPayload {
+  roomCode: string;
+  playerId: string;
+  nickname: string;
+  message: string;
+}
+
+export type { PlayerSessionCredentials } from '../utils/sessionStorage';

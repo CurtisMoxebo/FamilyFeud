@@ -47,6 +47,28 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
   };
 
   beforeAll(async () => {
+    // Clean up any stale records from previous runs
+    const testCodes = ['FEUD-LB01', 'FEUD-LB02', 'FEUD-LB03', 'FEUD-LB04', 'FEUD-LB05'];
+    await prisma.player.deleteMany({
+      where: {
+        room: {
+          roomCode: { in: testCodes },
+        },
+      },
+    });
+    await prisma.game.deleteMany({
+      where: {
+        room: {
+          roomCode: { in: testCodes },
+        },
+      },
+    });
+    await prisma.room.deleteMany({
+      where: {
+        roomCode: { in: testCodes },
+      },
+    });
+
     // 1. Create clean test rooms in DB
     await prisma.room.createMany({
       data: [

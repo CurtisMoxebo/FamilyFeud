@@ -25,6 +25,10 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
   };
 
   const defaultSocketMock = {
+    playerSession: null,
+    hostSecret: null,
+    reconnectHost: vi.fn(),
+    reconnectSession: vi.fn(),
     socket: null,
     isConnected: true,
     socketId: 'host-socket',
@@ -96,6 +100,8 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     advanceNextRound: vi.fn(),
     getScoreboardState: vi.fn(),
     clearMatchOver: vi.fn(),
+    playerLeftAlert: null,
+    clearPlayerLeftAlert: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {

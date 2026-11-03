@@ -20,6 +20,10 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
   };
 
   const defaultSocketMock = {
+    playerSession: null,
+    hostSecret: null,
+    reconnectHost: vi.fn(),
+    reconnectSession: vi.fn(),
     socket: null,
     isConnected: true,
     socketId: 'mock-player-socket',
@@ -91,6 +95,8 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     advanceNextRound: vi.fn(),
     getScoreboardState: vi.fn(),
     clearMatchOver: vi.fn(),
+    playerLeftAlert: null,
+    clearPlayerLeftAlert: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {

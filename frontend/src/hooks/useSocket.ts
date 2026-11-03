@@ -1,6 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
+  saveHostSecret,
+  savePlayerSession,
+  getHostSecret,
+  getPlayerSession,
+  PlayerSessionCredentials,
+} from '../utils/sessionStorage';
+import {
   RoomStateUpdate,
   RoomErrorPayload,
   GameStartedPayload,
@@ -36,6 +43,8 @@ import {
   MatchOverPayload,
   SuddenDeathInitiatedPayload,
   NextRoundStartedPayload,
+  ReconnectAcknowledgedPayload,
+  PlayerLeftAlertPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -113,8 +122,43 @@ export function useSocket(options?: UseSocketOptions) {
   const [matchOver, setMatchOver] = useState<MatchOverPayload | null>(null);
   const [suddenDeathInitiated, setSuddenDeathInitiated] = useState<SuddenDeathInitiatedPayload | null>(null);
   const [nextRoundStarted, setNextRoundStarted] = useState<NextRoundStartedPayload | null>(null);
+  const [playerSession, setPlayerSession] = useState<PlayerSessionCredentials | null>(() => {
+    return getPlayerSession(options?.roomCode);
+  });
+  const [hostSecret, setHostSecret] = useState<string | null>(() => {
+    return getHostSecret(options?.roomCode);
+  });
+  const [playerLeftAlert, setPlayerLeftAlert] = useState<PlayerLeftAlertPayload | null>(null);
+
 
   const socketRef = useRef<Socket | null>(null);
+
+  const reconnectHost = useCallback(
+    (roomCode: string, secret?: string) => {
+      const key = secret || getHostSecret(roomCode);
+      if (socketRef.current && key) {
+        socketRef.current.emit('reconnect_host', {
+          roomCode,
+          hostSecret: key,
+        });
+      }
+    },
+    []
+  );
+
+  const reconnectSession = useCallback(
+    (roomCode: string, playerId: string, sessionToken: string) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('reconnect_session', {
+          roomCode,
+          playerId,
+          sessionToken,
+        });
+      }
+    },
+    []
+  );
 
   const joinRoom = useCallback(
     (payload: { roomCode: string; nickname?: string; isHost?: boolean }) => {
@@ -420,11 +464,39 @@ export function useSocket(options?: UseSocketOptions) {
       setSocketId(socket.id ?? null);
 
       if (options?.autoJoin && options.roomCode) {
-        socket.emit('join_room', {
-          roomCode: options.roomCode,
-          nickname: options.nickname,
-          isHost: options.isHost,
-        });
+        if (options.isHost) {
+          const storedHostSecret = getHostSecret(options.roomCode);
+          if (storedHostSecret) {
+            socket.emit('reconnect_host', {
+              roomCode: options.roomCode,
+              hostSecret: storedHostSecret,
+            });
+            return;
+          }
+          socket.emit('join_room', {
+            roomCode: options.roomCode,
+            nickname: options.nickname,
+            isHost: true,
+          });
+        } else {
+          // Player reconnection flow (US-20 Scenario 2 & 3)
+          const storedSession = getPlayerSession(options.roomCode);
+          if (storedSession && storedSession.sessionToken && storedSession.playerId) {
+            socket.emit('reconnect_session', {
+              roomCode: options.roomCode,
+              playerId: storedSession.playerId,
+              sessionToken: storedSession.sessionToken,
+            });
+            return;
+          }
+          if (options.nickname) {
+            socket.emit('join_room', {
+              roomCode: options.roomCode,
+              nickname: options.nickname,
+              isHost: false,
+            });
+          }
+        }
       }
     });
 
@@ -624,6 +696,45 @@ export function useSocket(options?: UseSocketOptions) {
     socket.on('next_round_started', (payload: NextRoundStartedPayload) => {
       setNextRoundStarted(payload);
     });
+    socket.on('session_granted', (payload: PlayerSessionCredentials) => {
+      savePlayerSession(payload);
+      setPlayerSession(payload);
+    });
+
+    socket.on('host_secret_granted', (payload: { roomCode: string; hostSecret: string }) => {
+      saveHostSecret(payload.hostSecret, payload.roomCode);
+      setHostSecret(payload.hostSecret);
+    });
+
+    socket.on('reconnect_acknowledged', (payload: ReconnectAcknowledgedPayload) => {
+      if (payload.success && payload.gameState) {
+        const gs = payload.gameState;
+        if (gs.room) setRoomState(gs.room);
+        if (gs.teamsAssigned) setTeamsAssigned(gs.teamsAssigned);
+        if (gs.faceOffState) setFaceOffState(gs.faceOffState);
+        if (gs.teamGuessingState) setTeamGuessingState(gs.teamGuessingState);
+        if (gs.scoreboardState) setScoreboardState(gs.scoreboardState);
+        if (gs.fastMoneyHostState) setFastMoneyHostState(gs.fastMoneyHostState);
+        if (gs.timerTick) setTimerTick(gs.timerTick);
+
+        if (payload.role === 'PLAYER' && payload.player) {
+          const currentSession = getPlayerSession(payload.roomCode);
+          const creds = {
+            roomCode: payload.roomCode,
+            playerId: payload.player.id,
+            sessionToken: currentSession?.sessionToken || '',
+            nickname: payload.player.nickname,
+          };
+          savePlayerSession(creds);
+          setPlayerSession(creds);
+        }
+      }
+    });
+
+    socket.on('player_left_alert', (payload: PlayerLeftAlertPayload) => {
+      setPlayerLeftAlert(payload);
+    });
+
 
     return () => {
       socket.disconnect();
@@ -633,6 +744,8 @@ export function useSocket(options?: UseSocketOptions) {
   return {
     socket: socketRef.current,
     isConnected,
+    playerSession,
+    hostSecret,
     socketId,
     roomState,
     roomError,
@@ -702,5 +815,9 @@ export function useSocket(options?: UseSocketOptions) {
     revealFastMoneyPoints,
     leaveRoom,
     clearError,
+    reconnectHost,
+    reconnectSession,
+    playerLeftAlert,
+    clearPlayerLeftAlert: () => setPlayerLeftAlert(null),
   };
 }

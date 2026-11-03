@@ -140,7 +140,17 @@ describe('US-11: Main Game Team Partitioning WebSocket Integration', () => {
     // Prepare listeners for teams_assigned, game_started, and refreshed room_state_update
     const teamsAssignedPromise = waitForEvent<TeamsAssignedPayload>(p1Socket, 'teams_assigned');
     const gameStartedPromise = waitForEvent<GameStartedPayload>(hostSocket, 'game_started');
-    const finalRoomStatePromise = waitForEvent<RoomStateUpdate>(p2Socket, 'room_state_update');
+    const finalRoomStatePromise = new Promise<RoomStateUpdate>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Timeout waiting for ACTIVE state')), 3000);
+      const handler = (state: RoomStateUpdate) => {
+        if (state.status === 'ACTIVE') {
+          clearTimeout(timer);
+          p2Socket.off('room_state_update', handler);
+          resolve(state);
+        }
+      };
+      p2Socket.on('room_state_update', handler);
+    });
 
     // Host starts game
     hostSocket.emit('start_game', { roomCode: 'FEUD-TM01' });

@@ -10,6 +10,7 @@ import {
   ScoreboardUpdatePayload,
   MatchOverPayload,
   SuddenDeathInitiatedPayload,
+  PlayerLeftAlertPayload,
 } from '../types';
 import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
@@ -29,6 +30,7 @@ import {
   ArrowLeft,
   Loader2,
   AlertCircle,
+  AlertTriangle,
   Copy,
   Check,
   Sparkles,
@@ -45,6 +47,7 @@ export interface HostBoardProps {
   initialScoreboardState?: ScoreboardUpdatePayload | null;
   initialMatchOver?: MatchOverPayload | null;
   initialSuddenDeathInitiated?: SuddenDeathInitiatedPayload | null;
+  initialPlayerLeftAlert?: PlayerLeftAlertPayload | null;
   onAdvanceNextRound?: () => void;
   onReplay?: () => void;
   apiBaseUrl?: string;
@@ -60,6 +63,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   initialScoreboardState = null,
   initialMatchOver = null,
   initialSuddenDeathInitiated = null,
+  initialPlayerLeftAlert = null,
   onAdvanceNextRound,
   onReplay,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
@@ -123,11 +127,27 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     matchOver: socketMatchOver,
     suddenDeathInitiated: socketSuddenDeath,
     advanceNextRound,
+    playerLeftAlert: socketPlayerLeftAlert,
   } = useSocket({
     roomCode,
     isHost: true,
     autoJoin: true,
   });
+
+  const [activePlayerLeftAlert, setActivePlayerLeftAlert] = useState<PlayerLeftAlertPayload | null>(
+    initialPlayerLeftAlert ?? null
+  );
+
+  useEffect(() => {
+    const alert = socketPlayerLeftAlert || initialPlayerLeftAlert;
+    if (alert) {
+      setActivePlayerLeftAlert(alert);
+      const timer = setTimeout(() => {
+        setActivePlayerLeftAlert(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [socketPlayerLeftAlert, initialPlayerLeftAlert]);
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
   const faceOffState = initialFaceOffState ?? socketFaceOffState;
@@ -196,6 +216,34 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     };
   }, [roomCode, initialRoom, apiBaseUrl, setLanguage]);
 
+  // Fast-hydrate room state from socket reconnection if REST fetch is still in flight (US-20)
+  useEffect(() => {
+    if (roomState && !room) {
+      setRoom({
+        id: roomState.roomCode,
+        roomCode: roomState.roomCode,
+        roomName: roomState.roomName,
+        language: roomState.language,
+        gameMode: roomState.gameMode,
+        status: roomState.status,
+        players: roomState.players.map((p) => ({
+          id: p.id,
+          roomId: roomState.roomCode,
+          nickname: p.nickname,
+          team: p.team as any,
+          socketId: null,
+          isReady: p.isReady,
+          isConnected: p.isConnected,
+          totalScore: 0,
+          createdAt: new Date().toISOString(),
+        })),
+        createdAt: new Date().toISOString(),
+      });
+      setLanguage(roomState.language);
+      setIsLoading(false);
+    }
+  }, [roomState, room, setLanguage]);
+
   const handleCopyLink = () => {
     if (typeof window !== 'undefined') {
       navigator.clipboard.writeText(joinUrl);
@@ -245,25 +293,42 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   const isFastMoney = room.gameMode === 'FAST_MONEY';
 
+  const renderAlert = () =>
+    activePlayerLeftAlert ? (
+      <div
+        data-testid="host-player-left-alert"
+        role="alert"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl bg-amber-950/95 border-2 border-amber-500 text-amber-200 flex items-center gap-3 shadow-2xl backdrop-blur-md animate-bounce"
+      >
+        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+        <span className="font-extrabold text-sm sm:text-base tracking-wide">
+          {activePlayerLeftAlert.message}
+        </span>
+      </div>
+    ) : null;
+
   // Fast Money Host Board Screen (US-07, US-08, US-09 & US-10)
   if (isFastMoney && fastMoneyHostState) {
     return (
-      <FastMoneyHostBoard
-        snapshot={fastMoneyHostState}
-        timerTick={timerTick}
-        duplicateWarning={duplicateWarning}
-        gameOver={gameOver}
-        language={room.language}
-        roomName={room.roomName}
-        roomCode={room.roomCode}
-        onRevealAnswer={(slotNum) => revealFastMoneyAnswer(room.roomCode, slotNum)}
-        onRevealPoints={(slotNum) => revealFastMoneyPoints(room.roomCode, slotNum)}
-        onStartReveal={() => startFastMoneyRevealPhase(room.roomCode)}
-        onStartP2Reveal={() => startP2FastMoneyRevealPhase(room.roomCode)}
-        onRevealP2Answer={(slotNum) => revealP2FastMoneyAnswer(room.roomCode, slotNum)}
-        onRevealP2Points={(slotNum) => revealP2FastMoneyPoints(room.roomCode, slotNum)}
-        onReplay={() => requestReplay(room.roomCode)}
-      />
+      <>
+        {renderAlert()}
+        <FastMoneyHostBoard
+          snapshot={fastMoneyHostState}
+          timerTick={timerTick}
+          duplicateWarning={duplicateWarning}
+          gameOver={gameOver}
+          language={room.language}
+          roomName={room.roomName}
+          roomCode={room.roomCode}
+          onRevealAnswer={(slotNum) => revealFastMoneyAnswer(room.roomCode, slotNum)}
+          onRevealPoints={(slotNum) => revealFastMoneyPoints(room.roomCode, slotNum)}
+          onStartReveal={() => startFastMoneyRevealPhase(room.roomCode)}
+          onStartP2Reveal={() => startP2FastMoneyRevealPhase(room.roomCode)}
+          onRevealP2Answer={(slotNum) => revealP2FastMoneyAnswer(room.roomCode, slotNum)}
+          onRevealP2Points={(slotNum) => revealP2FastMoneyPoints(room.roomCode, slotNum)}
+          onReplay={() => requestReplay(room.roomCode)}
+        />
+      </>
     );
   }
 
@@ -303,25 +368,28 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Main Game Team Guessing Stage (US-14)
   if (!isFastMoney && teamGuessingState) {
     return (
-      <MainGameTeamGuessingBoard
-        snapshot={teamGuessingState}
-        timerTick={timerTick}
-        strikeIssued={strikeIssued}
-        roundCleared={roundCleared}
-        transitionStealPhase={transitionStealPhase}
-        boardReveal={mainGameBoardReveal}
-        stealResolved={stealResolved}
-        roundWinner={roundWinner}
-        scoreboardState={scoreboardState}
-        matchOver={matchOver}
-        suddenDeathInitiated={suddenDeathInitiated}
-        onNextRound={handleAdvanceNextRound}
-        onReplay={handleReplay}
-        language={room.language}
-        roomName={room.roomName}
-        roomCode={room.roomCode}
-        onLeave={() => navigate('/')}
-      />
+      <>
+        {renderAlert()}
+        <MainGameTeamGuessingBoard
+          snapshot={teamGuessingState}
+          timerTick={timerTick}
+          strikeIssued={strikeIssued}
+          roundCleared={roundCleared}
+          transitionStealPhase={transitionStealPhase}
+          boardReveal={mainGameBoardReveal}
+          stealResolved={stealResolved}
+          roundWinner={roundWinner}
+          scoreboardState={scoreboardState}
+          matchOver={matchOver}
+          suddenDeathInitiated={suddenDeathInitiated}
+          onNextRound={handleAdvanceNextRound}
+          onReplay={handleReplay}
+          language={room.language}
+          roomName={room.roomName}
+          roomCode={room.roomCode}
+          onLeave={() => navigate('/')}
+        />
+      </>
     );
   }
 
@@ -329,6 +397,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   if (!isFastMoney && faceOffState) {
     return (
       <div className="relative w-full flex flex-col items-center">
+        {renderAlert()}
         <MainGameFaceOffBoard
           snapshot={faceOffState}
           timerTick={timerTick}
@@ -354,13 +423,16 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   if (!isFastMoney && activeTeams) {
     return (
-      <MainGameTeamsStage
-        roomCode={room.roomCode}
-        roomName={room.roomName}
-        team1={activeTeams.team1}
-        team2={activeTeams.team2}
-        onLeave={() => navigate('/')}
-      />
+      <>
+        {renderAlert()}
+        <MainGameTeamsStage
+          roomCode={room.roomCode}
+          roomName={room.roomName}
+          team1={activeTeams.team1}
+          team2={activeTeams.team2}
+          onLeave={() => navigate('/')}
+        />
+      </>
     );
   }
 
@@ -384,6 +456,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   return (
     <div className="w-full max-w-4xl flex flex-col items-center gap-8">
+      {renderAlert()}
       {/* Host TV Header Banner */}
       <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-feud-slate-border/80 pb-6">

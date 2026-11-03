@@ -4,6 +4,7 @@ import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
+import { getPlayerSession, clearPlayerSession } from '../utils/sessionStorage';
 import { FastMoneyController } from '../components/FastMoneyController';
 import { FastMoneyIsolation } from '../components/FastMoneyIsolation';
 import { MainGamePlayerView } from '../components/MainGamePlayerView';
@@ -54,6 +55,8 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(!initialRoom);
   const [error, setError] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string>(() => {
+    const session = getPlayerSession(roomCode);
+    if (session?.nickname) return session.nickname;
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem(`feud_nickname_${roomCode.toUpperCase()}`) || '';
     }
@@ -61,7 +64,10 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   });
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState<boolean>(false);
-  const [isJoined, setIsJoined] = useState<boolean>(false);
+  const [isJoined, setIsJoined] = useState<boolean>(() => {
+    const session = getPlayerSession(roomCode);
+    return !!(session && session.sessionToken && session.playerId);
+  });
 
   // Live real-time socket connection for mobile player (US-04 & US-11)
   const {
@@ -100,7 +106,11 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     submitStealGuess,
     scoreboardState: socketScoreboardState,
     matchOver: socketMatchOver,
-  } = useSocket();
+  } = useSocket({
+    roomCode,
+    isHost: false,
+    autoJoin: true,
+  });
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
   const faceOffState = initialFaceOffState ?? socketFaceOffState;
@@ -146,6 +156,42 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       isMounted = false;
     };
   }, [roomCode, initialRoom, apiBaseUrl]);
+
+  // Fast-hydrate room state from socket reconnection when REST fetch is in flight (US-20)
+  useEffect(() => {
+    if (roomState && !room) {
+      setRoom({
+        id: roomState.roomCode,
+        roomCode: roomState.roomCode,
+        roomName: roomState.roomName,
+        language: roomState.language,
+        gameMode: roomState.gameMode,
+        status: roomState.status,
+        players: roomState.players.map((p) => ({
+          id: p.id,
+          roomId: roomState.roomCode,
+          nickname: p.nickname,
+          team: p.team as any,
+          socketId: null,
+          isReady: p.isReady,
+          isConnected: p.isConnected,
+          totalScore: 0,
+          createdAt: new Date().toISOString(),
+        })),
+        createdAt: new Date().toISOString(),
+      });
+      setLanguage(roomState.language);
+      setIsLoading(false);
+    }
+  }, [roomState, room, setLanguage]);
+
+  // If reconnection fails or session is invalid, reset join state so user can enter nickname again
+  useEffect(() => {
+    if (roomError && isJoined) {
+      clearPlayerSession(roomCode);
+      setIsJoined(false);
+    }
+  }, [roomError, isJoined, roomCode]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
