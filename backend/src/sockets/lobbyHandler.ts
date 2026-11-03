@@ -33,6 +33,7 @@ import {
   handleStealResolvedBroadcast,
 } from './mainGameHandler';
 import { registerAdminHandlers } from './adminHandler';
+import { hostAdminService } from '../services/hostAdminService';
 import { FastMoneyQuestionItem } from '../services/fastMoneySession';
 import {
   partitionTeams,
@@ -661,6 +662,15 @@ export function registerLobbyHandlers(
           socket.emit('timer_tick', gameState.timerTick);
         }
 
+        const hostPauseState = hostAdminService.getPauseState(normalizedCode);
+        if (hostPauseState && hostPauseState.isPaused) {
+          socket.emit('game_paused', {
+            roomCode: normalizedCode,
+            remainingTime: hostPauseState.remainingSeconds,
+            pausedByHost: true,
+          });
+        }
+
         if (callback) {
           callback({
             success: true,
@@ -782,6 +792,15 @@ export function registerLobbyHandlers(
         }
         if (gameState.timerTick) {
           socket.emit('timer_tick', gameState.timerTick);
+        }
+
+        const playerPauseState = hostAdminService.getPauseState(normalizedCode);
+        if (playerPauseState && playerPauseState.isPaused) {
+          socket.emit('game_paused', {
+            roomCode: normalizedCode,
+            remainingTime: playerPauseState.remainingSeconds,
+            pausedByHost: true,
+          });
         }
 
         // 7. Emit reconnect acknowledgment

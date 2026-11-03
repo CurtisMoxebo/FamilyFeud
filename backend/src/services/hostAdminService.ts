@@ -19,6 +19,7 @@ import {
   pauseFastMoneyTimer,
   resumeFastMoneyTimer,
   isFastMoneyTimerPaused,
+  broadcastFastMoneyState,
 } from '../sockets/fastMoneyHandler';
 import { buildRoomStateUpdate } from '../sockets/lobbyHandler';
 import { logger } from '../utils/logger';
@@ -100,18 +101,24 @@ export class HostAdminService {
     if (teamSession && (teamSession.phase === 'TEAM_GUESSING' || teamSession.phase === 'STEAL_PHASE')) {
       remainingSeconds = teamSession.pauseTimer();
       mode = 'TEAM_GUESSING';
+      io.to(`room:${normalizedCode}`).emit('team_guessing_state', teamSession.getState());
     } else {
       // 2. Check Face-Off session
       const faceOffSession = getFaceOffSession(normalizedCode);
       if (faceOffSession && (faceOffSession.phase === 'ANSWERING' || faceOffSession.phase === 'OPPONENT_GUESS')) {
         remainingSeconds = faceOffSession.pauseTimer();
         mode = 'FACE_OFF';
+        io.to(`room:${normalizedCode}`).emit('face_off_state', faceOffSession.getState());
+      } else if (faceOffSession) {
+        faceOffSession.isPaused = true;
+        mode = 'GENERIC';
       } else {
         // 3. Check Fast Money session
         const fmSession = getFastMoneySession(normalizedCode);
         if (fmSession && (fmSession.getPhase() === 'P1_PLAYING' || fmSession.getPhase() === 'P2_PLAYING')) {
           remainingSeconds = pauseFastMoneyTimer(normalizedCode);
           mode = 'FAST_MONEY';
+          broadcastFastMoneyState(io, fmSession);
         }
       }
     }
@@ -160,15 +167,34 @@ export class HostAdminService {
     if (mode === 'TEAM_GUESSING') {
       const teamSession = getTeamGuessingSession(normalizedCode);
       if (teamSession) {
-        teamSession.resumeTimer();
+        const resumed = teamSession.resumeTimer();
+        const state = teamSession.getState();
+        io.to(`room:${normalizedCode}`).emit('team_guessing_state', state);
+        io.to(`room:${normalizedCode}`).emit('timer_tick', {
+          roomCode: normalizedCode,
+          secondsRemaining: resumed,
+          endsAt: state.endsAt ?? Date.now() + resumed * 1000,
+        });
       }
     } else if (mode === 'FACE_OFF') {
       const faceOffSession = getFaceOffSession(normalizedCode);
       if (faceOffSession) {
-        faceOffSession.resumeTimer();
+        const resumed = faceOffSession.resumeTimer();
+        const state = faceOffSession.getState();
+        io.to(`room:${normalizedCode}`).emit('face_off_state', state);
+        io.to(`room:${normalizedCode}`).emit('timer_tick', {
+          roomCode: normalizedCode,
+          secondsRemaining: resumed,
+          endsAt: state.endsAt ?? Date.now() + resumed * 1000,
+        });
       }
     } else if (mode === 'FAST_MONEY') {
       resumeFastMoneyTimer(io, normalizedCode);
+    } else {
+      const faceOffSession = getFaceOffSession(normalizedCode);
+      if (faceOffSession) {
+        faceOffSession.isPaused = false;
+      }
     }
 
     logger.info(

@@ -6,6 +6,8 @@ import { Headphones, ShieldAlert, Timer, EyeOff, Zap, Sparkles, Eye } from 'luci
 export interface FastMoneyIsolationProps {
   snapshot?: Player2IsolationSnapshot | null;
   timerTick?: TimerTickPayload | null;
+  isPaused?: boolean;
+  pausedRemainingSeconds?: number;
   onReady?: () => void;
   onLeave?: () => void;
 }
@@ -13,12 +15,16 @@ export interface FastMoneyIsolationProps {
 export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
   snapshot = null,
   timerTick = null,
+  isPaused = false,
+  pausedRemainingSeconds,
   onReady,
 }) => {
   const { t } = useTranslation();
 
   const remainingSeconds =
-    timerTick && typeof timerTick.secondsRemaining === 'number'
+    isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
+      ? pausedRemainingSeconds
+      : timerTick && typeof timerTick.secondsRemaining === 'number'
       ? timerTick.secondsRemaining
       : snapshot?.remainingSeconds ?? 60;
 
@@ -63,9 +69,12 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
         {/* "I'm Ready!" Start Button */}
         <button
           type="button"
-          onClick={onReady}
+          onClick={() => {
+            if (!isPaused && onReady) onReady();
+          }}
+          disabled={isPaused}
           data-testid="p2-ready-btn"
-          className="w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
+          className="w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap className="w-6 h-6 fill-slate-950" />
           <span>{t.fastMoney.imReady}</span>

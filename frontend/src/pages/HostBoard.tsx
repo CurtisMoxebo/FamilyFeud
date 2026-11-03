@@ -1,6 +1,6 @@
 import { isTtsMuted, setTtsMuted, cancelSpeech } from '../utils/tts';
 import { resumeAudioContext, registerAutoplayResumeListener } from '../utils/soundEffects';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Room,
@@ -11,6 +11,7 @@ import {
   MatchOverPayload,
   SuddenDeathInitiatedPayload,
   PlayerLeftAlertPayload,
+  GamePausedPayload,
 } from '../types';
 import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
@@ -36,6 +37,7 @@ import {
   Sparkles,
   Smartphone,
   Play,
+  Pause,
   UserX,
 } from 'lucide-react';
 
@@ -49,6 +51,7 @@ export interface HostBoardProps {
   initialMatchOver?: MatchOverPayload | null;
   initialSuddenDeathInitiated?: SuddenDeathInitiatedPayload | null;
   initialPlayerLeftAlert?: PlayerLeftAlertPayload | null;
+  initialGamePaused?: GamePausedPayload | null;
   onAdvanceNextRound?: () => void;
   onReplay?: () => void;
   apiBaseUrl?: string;
@@ -65,6 +68,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   initialMatchOver = null,
   initialSuddenDeathInitiated = null,
   initialPlayerLeftAlert = null,
+  initialGamePaused = null,
   onAdvanceNextRound,
   onReplay,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
@@ -130,6 +134,9 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     advanceNextRound,
     playerLeftAlert: socketPlayerLeftAlert,
     kickPlayer,
+    gamePaused: socketGamePaused,
+    pauseGame,
+    resumeGame,
   } = useSocket({
     roomCode,
     isHost: true,
@@ -157,6 +164,59 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const scoreboardState = initialScoreboardState ?? socketScoreboardState;
   const matchOver = initialMatchOver ?? socketMatchOver;
   const suddenDeathInitiated = initialSuddenDeathInitiated ?? socketSuddenDeath;
+  const activeGamePaused = socketGamePaused ?? initialGamePaused;
+  const isPaused = Boolean(activeGamePaused);
+  const pausedRemainingSeconds = activeGamePaused?.remainingTime;
+
+  const isFastMoneyRoom = room?.gameMode === 'FAST_MONEY';
+  const isActiveGameStage = Boolean(
+    (isFastMoneyRoom &&
+      fastMoneyHostState &&
+      !gameOver &&
+      fastMoneyHostState.phase !== 'GAME_OVER') ||
+      (!isFastMoneyRoom && teamGuessingState && !matchOver) ||
+      (!isFastMoneyRoom && faceOffState && !matchOver) ||
+      isPaused
+  );
+
+  const handleTogglePause = useCallback(() => {
+    if (!room) return;
+    if (isPaused) {
+      resumeGame();
+    } else {
+      cancelSpeech();
+      pauseGame();
+    }
+  }, [room, isPaused, pauseGame, resumeGame]);
+
+  // US-21 Scenario 1 & DoD: Spacebar keyboard shortcut for Pause / Resume on Host display
+  useEffect(() => {
+    if (!isActiveGameStage || !room) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (e.code !== 'Space' && e.key !== ' ') return;
+
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      e.preventDefault();
+      handleTogglePause();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isActiveGameStage, room, handleTogglePause]);
 
   const handleAdvanceNextRound = () => {
     if (onAdvanceNextRound) {
@@ -309,16 +369,95 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       </div>
     ) : null;
 
+  const renderAdminControls = () =>
+    isActiveGameStage ? (
+      <div
+        data-testid="host-admin-controls"
+        className="w-full max-w-5xl flex items-center justify-end gap-2 mb-3 px-1"
+      >
+        <button
+          type="button"
+          onClick={handleTogglePause}
+          data-testid="host-pause-resume-btn"
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${
+            isPaused
+              ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-300 shadow-emerald-500/25'
+              : 'bg-slate-800/90 hover:bg-slate-700 text-amber-300 border-amber-500/40'
+          }`}
+        >
+          {isPaused ? (
+            <>
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>{t.admin.resumeTimer}</span>
+            </>
+          ) : (
+            <>
+              <Pause className="w-3.5 h-3.5 fill-current" />
+              <span>{t.admin.pauseTimer}</span>
+            </>
+          )}
+          <kbd className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-950/50 border border-white/15 opacity-80">
+            {t.admin.spacebarShortcutHint}
+          </kbd>
+        </button>
+      </div>
+    ) : null;
+
+  const renderPausedBanner = () =>
+    isPaused ? (
+      <div
+        data-testid="host-game-paused-banner"
+        role="status"
+        aria-live="assertive"
+        className="w-full max-w-5xl mb-4 p-5 rounded-3xl bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-2 border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.45)] flex flex-col sm:flex-row items-center justify-between gap-4 z-40"
+      >
+        <div className="flex items-center gap-3.5 text-center sm:text-left">
+          <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/50 text-amber-300">
+            <Pause className="w-7 h-7" />
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-amber-300">
+              {t.admin.gamePausedBanner}
+            </div>
+            <p className="text-xs sm:text-sm font-semibold text-slate-300 mt-0.5">
+              {t.admin.gamePausedSubtitle}
+              {typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0 && (
+                <span
+                  data-testid="host-paused-remaining-time"
+                  className="ml-2 inline-block px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/40 text-amber-200 font-mono font-bold"
+                >
+                  {pausedRemainingSeconds}s
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => resumeGame()}
+          data-testid="host-banner-resume-btn"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg cursor-pointer transition-all hover:scale-105"
+        >
+          <Play className="w-4 h-4 fill-current" />
+          <span>{t.admin.resumeTimer}</span>
+        </button>
+      </div>
+    ) : null;
+
   // Fast Money Host Board Screen (US-07, US-08, US-09 & US-10)
   if (isFastMoney && fastMoneyHostState) {
     return (
-      <>
+      <div className="w-full flex flex-col items-center">
         {renderAlert()}
+        {renderAdminControls()}
+        {renderPausedBanner()}
         <FastMoneyHostBoard
           snapshot={fastMoneyHostState}
           timerTick={timerTick}
           duplicateWarning={duplicateWarning}
           gameOver={gameOver}
+          isPaused={isPaused}
+          pausedRemainingSeconds={pausedRemainingSeconds}
           language={room.language}
           roomName={room.roomName}
           roomCode={room.roomCode}
@@ -330,7 +469,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onRevealP2Points={(slotNum) => revealP2FastMoneyPoints(room.roomCode, slotNum)}
           onReplay={() => requestReplay(room.roomCode)}
         />
-      </>
+      </div>
     );
   }
 
@@ -370,11 +509,15 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Main Game Team Guessing Stage (US-14)
   if (!isFastMoney && teamGuessingState) {
     return (
-      <>
+      <div className="w-full flex flex-col items-center">
         {renderAlert()}
+        {renderAdminControls()}
+        {renderPausedBanner()}
         <MainGameTeamGuessingBoard
           snapshot={teamGuessingState}
           timerTick={timerTick}
+          isPaused={isPaused}
+          pausedRemainingSeconds={pausedRemainingSeconds}
           strikeIssued={strikeIssued}
           roundCleared={roundCleared}
           transitionStealPhase={transitionStealPhase}
@@ -391,7 +534,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           roomCode={room.roomCode}
           onLeave={() => navigate('/')}
         />
-      </>
+      </div>
     );
   }
 
@@ -400,9 +543,13 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     return (
       <div className="relative w-full flex flex-col items-center">
         {renderAlert()}
+        {renderAdminControls()}
+        {renderPausedBanner()}
         <MainGameFaceOffBoard
           snapshot={faceOffState}
           timerTick={timerTick}
+          isPaused={isPaused}
+          pausedRemainingSeconds={pausedRemainingSeconds}
           buzzerLocked={buzzerLocked}
           timeoutResult={faceOffTimeout}
           scoreboardState={scoreboardState}

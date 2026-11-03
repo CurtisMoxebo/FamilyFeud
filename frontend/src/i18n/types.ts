@@ -211,4 +211,14 @@ export interface TranslationDictionary {
     playAgainBtn: string;
     exitRoomBtn: string;
   };
+  admin: {
+    pauseTimer: string;
+    resumeTimer: string;
+    gamePausedBanner: string;
+    gamePausedSubtitle: string;
+    playerInputsLocked: string;
+    spacebarShortcutHint: string;
+    manualOverride: string;
+    overrideAccept: string;
+  };
 }

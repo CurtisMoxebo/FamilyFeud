@@ -7,7 +7,8 @@ import { prisma } from '../src/services/db';
 import { setupSocketServer, RoomStateUpdate } from '../src/sockets/lobbyHandler';
 import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import { hostAdminService, ManualOverrideResult } from '../src/services/hostAdminService';
-import { initTeamGuessingSession } from '../src/services/teamGuessingService';
+import { initTeamGuessingSession, removeTeamGuessingSession } from '../src/services/teamGuessingService';
+import { removeFaceOffSession } from '../src/services/faceOffService';
 import { initFastMoneySession, clearFastMoneyTimer } from '../src/sockets/fastMoneyHandler';
 import { AdminErrorPayload } from '../src/sockets/adminHandler';
 
@@ -105,9 +106,14 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
   beforeEach(async () => {
     clientSockets.forEach((s) => s.disconnect());
     clientSockets = [];
+    await new Promise((r) => setTimeout(r, 40));
     sessionRecoveryService.clearAllSessions();
     hostAdminService.clearAllAdmin();
-    ADMIN_TEST_CODES.forEach((c) => clearFastMoneyTimer(c));
+    ADMIN_TEST_CODES.forEach((c) => {
+      clearFastMoneyTimer(c);
+      removeTeamGuessingSession(c);
+      removeFaceOffSession(c);
+    });
     await cleanAdminDb();
   });
 
@@ -421,6 +427,40 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
 
       expect(pauseRes.success).toBe(true);
       expect(pauseRes.remainingTime).toBeGreaterThanOrEqual(58);
+      expect(fmSession.isPaused()).toBe(true);
+      expect(fmSession.getPlayer1Snapshot().canSubmit).toBe(false);
+      expect(fmSession.getPlayer1Snapshot().canPass).toBe(false);
+
+      // Connect a player socket and verify submissions & passes are rejected while paused
+      const playerSocket = await connectClient(port);
+      clientSockets.push(playerSocket);
+      await new Promise<void>((resolve) => {
+        playerSocket.emit('join_room', { roomCode, nickname: 'FMPlayer1' }, () => resolve());
+      });
+
+      const blockedSubmitRes = await new Promise<any>((resolve) => {
+        playerSocket.emit(
+          'submit_answer',
+          { roomCode, playerId: 'fm-p1', questionId: 'q1', rawAnswer: 'Pepperoni' },
+          (res: any) => resolve(res)
+        );
+      });
+      expect(blockedSubmitRes.success).toBe(false);
+      expect(blockedSubmitRes.error).toContain('paused');
+
+      const blockedPassRes = await new Promise<any>((resolve) => {
+        playerSocket.emit(
+          'pass_question',
+          { roomCode, playerId: 'fm-p1', questionId: 'q1' },
+          (res: any) => resolve(res)
+        );
+      });
+      expect(blockedPassRes.success).toBe(false);
+      expect(blockedPassRes.error).toContain('paused');
+
+      // Wait 1100ms while paused and verify zero time was lost on resume
+      await new Promise((r) => setTimeout(r, 1100));
+      expect(fmSession.getRemainingSeconds()).toBe(pauseRes.remainingTime);
 
       // Host resumes Fast Money
       const resumeRes = await new Promise<any>((resolve) => {
@@ -429,8 +469,189 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
 
       expect(resumeRes.success).toBe(true);
       expect(resumeRes.remainingTime).toBe(pauseRes.remainingTime);
+      expect(fmSession.isPaused()).toBe(false);
+      expect(fmSession.getPlayer1Snapshot().canSubmit).toBe(true);
+
+      // After resume, player can submit answer normally
+      const validSubmitRes = await new Promise<any>((resolve) => {
+        playerSocket.emit(
+          'submit_answer',
+          { roomCode, playerId: 'fm-p1', questionId: 'q1', rawAnswer: 'Pepperoni' },
+          (res: any) => resolve(res)
+        );
+      });
+      expect(validSubmitRes.success).toBe(true);
 
       clearFastMoneyTimer(roomCode);
+    });
+
+    it('locks out Team Guessing & Steal Phase player actions while paused and preserves Steal timer on resume', async () => {
+      const roomCode = 'FEUD-ADM3';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Steal Pause Lockout Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const hostSocket = await connectClient(port);
+      const playerSocket = await connectClient(port);
+      clientSockets.push(hostSocket, playerSocket);
+
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+      await new Promise<void>((resolve) => {
+        playerSocket.emit('join_room', { roomCode, nickname: 'Alice' }, () => resolve());
+      });
+
+      const teamSession = initTeamGuessingSession(roomCode, {
+        gameId: 'game-steal-pause',
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q1',
+          questionText: 'Name something in a kitchen',
+          answers: [
+            { id: 'a1', rankOrder: 1, answerText: 'Refrigerator', points: 40 },
+            { id: 'a2', rankOrder: 2, answerText: 'Stove', points: 30 },
+          ],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+      });
+
+      // Pause during TEAM_GUESSING and verify submit_team_guess + pass_team_turn are locked out
+      await new Promise<any>((resolve) => {
+        hostSocket.emit('host_pause_game', { roomCode }, (res: any) => resolve(res));
+      });
+
+      const blockedGuess = await new Promise<any>((resolve) => {
+        playerSocket.emit(
+          'submit_team_guess',
+          { roomCode, playerId: 'p1', rawAnswer: 'Refrigerator' },
+          (res: any) => resolve(res)
+        );
+      });
+      expect(blockedGuess.success).toBe(false);
+      expect(blockedGuess.error).toContain('paused');
+
+      const blockedPass = await new Promise<any>((resolve) => {
+        playerSocket.emit('pass_team_turn', { roomCode, playerId: 'p1' }, (res: any) => resolve(res));
+      });
+      expect(blockedPass.success).toBe(false);
+      expect(blockedPass.error).toContain('paused');
+
+      // Resume, transition to STEAL_PHASE via 3 strikes, then pause STEAL_PHASE
+      await new Promise<any>((resolve) => {
+        hostSocket.emit('host_resume_game', { roomCode }, (res: any) => resolve(res));
+      });
+
+      teamSession.passTurn('p1');
+      teamSession.passTurn('p1');
+      teamSession.passTurn('p1');
+      expect(teamSession.phase).toBe('STEAL_PHASE');
+
+      const stealPauseRes = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_pause_game', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(stealPauseRes.success).toBe(true);
+      expect(stealPauseRes.remainingTime).toBeGreaterThanOrEqual(14);
+
+      const blockedSteal = await new Promise<any>((resolve) => {
+        playerSocket.emit(
+          'submit_steal_guess',
+          { roomCode, playerId: 'p2', rawAnswer: 'Stove' },
+          (res: any) => resolve(res)
+        );
+      });
+      expect(blockedSteal.success).toBe(false);
+      expect(blockedSteal.error).toContain('paused');
+
+      const stealResumeRes = await new Promise<any>((resolve) => {
+        hostSocket.emit('host_resume_game', { roomCode }, (res: any) => resolve(res));
+      });
+      expect(stealResumeRes.success).toBe(true);
+      expect(stealResumeRes.remainingTime).toBe(stealPauseRes.remainingTime);
+      expect(teamSession.isTimerRunning).toBe(true);
+
+      teamSession.stopTimer();
+    });
+
+    it('delivers game_paused state immediately to reconnecting players when room is paused', async () => {
+      const roomCode = 'FEUD-ADM3';
+      await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Reconnect Paused Room',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
+      });
+
+      const hostSocket = await connectClient(port);
+      const playerSocket = await connectClient(port);
+      clientSockets.push(hostSocket, playerSocket);
+
+      await new Promise<void>((resolve) => {
+        hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
+      });
+      const joinRes = await new Promise<any>((resolve) => {
+        playerSocket.emit('join_room', { roomCode, nickname: 'ReconnectBob' }, (res: any) => resolve(res));
+      });
+
+      const teamSession = initTeamGuessingSession(roomCode, {
+        gameId: 'game-reconn-pause',
+        roundNumber: 1,
+        language: 'EN',
+        question: {
+          id: 'q1',
+          questionText: 'Name a color',
+          answers: [{ id: 'a1', rankOrder: 1, answerText: 'Blue', points: 50 }],
+        },
+        controllingTeam: 'TEAM_1',
+        opposingTeam: 'TEAM_2',
+        team1Players: [{ id: joinRes.playerId, nickname: 'ReconnectBob', team: 'TEAM_1', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Other', team: 'TEAM_2', isConnected: true }],
+      });
+
+      await new Promise<any>((resolve) => {
+        hostSocket.emit('host_pause_game', { roomCode }, (res: any) => resolve(res));
+      });
+
+      // Disconnect and reconnect player with sessionToken
+      playerSocket.disconnect();
+      const reconnectedSocket = await connectClient(port);
+      clientSockets.push(reconnectedSocket);
+
+      const pausedEventPromise = waitForEvent<{ roomCode: string; remainingTime: number; pausedByHost: boolean }>(
+        reconnectedSocket,
+        'game_paused'
+      );
+
+      await new Promise<any>((resolve) => {
+        reconnectedSocket.emit(
+          'reconnect_session',
+          {
+            roomCode,
+            playerId: joinRes.playerId,
+            sessionToken: joinRes.sessionToken,
+          },
+          (res: any) => resolve(res)
+        );
+      });
+
+      const pausedPayload = await pausedEventPromise;
+      expect(pausedPayload.pausedByHost).toBe(true);
+      expect(pausedPayload.remainingTime).toBeGreaterThanOrEqual(14);
+
+      teamSession.stopTimer();
     });
   });
 

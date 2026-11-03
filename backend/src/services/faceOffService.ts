@@ -331,6 +331,10 @@ export class FaceOffSession {
     reason?: 'BUZZER_LOCKED' | 'NOT_ACTIVE' | 'NOT_A_CONTENDER';
     result?: BuzzerLockedResult;
   } {
+    if (this.isPaused) {
+      return { accepted: false, reason: 'NOT_ACTIVE' };
+    }
+
     if (this.buzzerLocked) {
       return { accepted: false, reason: 'BUZZER_LOCKED' };
     }
@@ -423,6 +427,8 @@ export class FaceOffSession {
     this.remainingSecondsOnPause = remaining;
     this.isPaused = true;
     this.stopTimer();
+    this.endsAt = null;
+    this.remainingSeconds = remaining;
     return remaining;
   }
 
@@ -615,6 +621,10 @@ export class FaceOffSession {
       rankOrder?: number;
     }>
   ): Promise<FaceOffAnswerEvaluationResult> {
+    if (this.isPaused) {
+      throw new Error('Game is currently paused by the host.');
+    }
+
     if (this.phase !== 'ANSWERING' && this.phase !== 'OPPONENT_GUESS') {
       throw new Error(`Face-off is not in an answering phase (current: ${this.phase}).`);
     }
@@ -1039,6 +1049,10 @@ export class FaceOffSession {
     error?: string;
     rawAnswer?: string;
   } {
+    if (this.isPaused) {
+      return { success: false, error: 'Game is currently paused by the host.' };
+    }
+
     if (this.phase !== 'ANSWERING') {
       return { success: false, error: 'Face-off is not in answering phase.' };
     }

@@ -214,6 +214,16 @@ export const en: TranslationDictionary = {
     playAgainBtn: 'Play Again',
     exitRoomBtn: 'Exit Room',
   },
+  admin: {
+    pauseTimer: 'Pause Timer',
+    resumeTimer: 'Resume',
+    gamePausedBanner: 'GAME PAUSED',
+    gamePausedSubtitle: 'The host has paused the countdown timer.',
+    playerInputsLocked: 'Inputs are disabled until the host resumes the game.',
+    spacebarShortcutHint: 'Spacebar',
+    manualOverride: 'Manual Override',
+    overrideAccept: 'Override & Accept',
+  },
 };
 
 export default en;

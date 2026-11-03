@@ -50,6 +50,8 @@ import {
 export interface MainGameTeamGuessingBoardProps {
   snapshot: TeamGuessingSessionState;
   timerTick?: TimerTickPayload | null;
+  isPaused?: boolean;
+  pausedRemainingSeconds?: number;
   strikeIssued?: StrikeIssuedPayload | null;
   roundCleared?: RoundClearedPayload | null;
   transitionStealPhase?: TransitionStealPhasePayload | null;
@@ -70,6 +72,8 @@ export interface MainGameTeamGuessingBoardProps {
 export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps> = ({
   snapshot,
   timerTick,
+  isPaused = false,
+  pausedRemainingSeconds,
   strikeIssued,
   roundCleared,
   transitionStealPhase,
@@ -144,7 +148,9 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
   // Derive remaining seconds for authoritative countdown
   const currentSeconds =
-    timerTick && timerTick.secondsRemaining !== undefined
+    isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
+      ? pausedRemainingSeconds
+      : timerTick && timerTick.secondsRemaining !== undefined
       ? timerTick.secondsRemaining
       : snapshot.remainingSeconds;
 

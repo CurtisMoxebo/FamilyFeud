@@ -349,6 +349,7 @@ export class TeamGuessingSession {
     this.remainingSecondsOnPause = remaining;
     this.isPaused = true;
     this.stopTimer();
+    this.remainingSeconds = remaining;
     return remaining;
   }
 
@@ -359,7 +360,11 @@ export class TeamGuessingSession {
     const remaining = this.remainingSecondsOnPause ?? this.timerDurationSeconds;
     this.isPaused = false;
     this.remainingSecondsOnPause = null;
-    this.startAuthoritativeTimer(remaining);
+    if (this.phase === 'STEAL_PHASE') {
+      this.startStealTimer(remaining);
+    } else {
+      this.startAuthoritativeTimer(remaining);
+    }
     return remaining;
   }
 
@@ -459,6 +464,10 @@ export class TeamGuessingSession {
       rankOrder?: number;
     }>
   ): Promise<TeamGuessEvaluationResult> {
+    if (this.isPaused) {
+      throw new Error('Game is currently paused by the host.');
+    }
+
     if (this.phase !== 'TEAM_GUESSING') {
       throw new Error(`Team guessing is not in progress (current phase: ${this.phase}).`);
     }
@@ -789,6 +798,10 @@ export class TeamGuessingSession {
    * Player voluntarily passes their turn, triggering a strike and advancing.
    */
   public passTurn(playerId: string): TeamGuessEvaluationResult {
+    if (this.isPaused) {
+      throw new Error('Game is currently paused by the host.');
+    }
+
     if (this.phase !== 'TEAM_GUESSING') {
       throw new Error(`Cannot pass turn when phase is ${this.phase}.`);
     }
@@ -816,11 +829,12 @@ export class TeamGuessingSession {
   /**
    * Starts the authoritative 15-second countdown timer for the Steal Phase (US-15).
    */
-  public startStealTimer(): void {
+  public startStealTimer(customDurationSeconds?: number): void {
     this.stopTimer();
 
-    this.remainingSeconds = this.timerDurationSeconds;
-    this.endsAt = Date.now() + this.timerDurationSeconds * 1000;
+    const duration = customDurationSeconds ?? this.timerDurationSeconds;
+    this.remainingSeconds = duration;
+    this.endsAt = Date.now() + duration * 1000;
 
     this.timerInterval = setInterval(() => {
       if (this.endsAt) {
@@ -839,7 +853,7 @@ export class TeamGuessingSession {
 
     this.timer = setTimeout(() => {
       this.handleStealTimeout();
-    }, this.timerDurationSeconds * 1000);
+    }, duration * 1000);
 
     logger.info(
       `[STEAL:TIMER_START] Room ${this.roomCode} 15s steal timer started for spokesperson ${this.stealSpokesperson?.nickname} (${this.opposingTeam})`
@@ -896,6 +910,10 @@ export class TeamGuessingSession {
       rankOrder?: number;
     }>
   ): Promise<StealEvaluationResult> {
+    if (this.isPaused) {
+      throw new Error('Game is currently paused by the host.');
+    }
+
     if (this.phase !== 'STEAL_PHASE') {
       throw new Error(`Steal phase is not active (current phase: ${this.phase}).`);
     }

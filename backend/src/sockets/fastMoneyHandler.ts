@@ -295,14 +295,19 @@ export function isFastMoneyTimerPaused(roomCode: string): boolean {
 export function pauseFastMoneyTimer(roomCode: string): number {
   const normalizedCode = normalizeRoomCode(roomCode);
   const session = getFastMoneySession(normalizedCode);
+  if (!session) return 0;
+
+  const phase = session.getPhase();
+  if (phase !== 'P1_PLAYING' && phase !== 'P2_PLAYING') return 0;
+
+  const playerNumber: 1 | 2 = phase === 'P2_PLAYING' ? 2 : 1;
+  const remaining = session.pauseTimer();
+
   const activeTimer = fastMoneyTimers.get(normalizedCode);
-  if (!session || !activeTimer) return 0;
-
-  const playerNumber: 1 | 2 = session.getPhase() === 'P2_PLAYING' ? 2 : 1;
-  const remaining = session.getRemainingSeconds();
-
-  clearInterval(activeTimer);
-  fastMoneyTimers.delete(normalizedCode);
+  if (activeTimer) {
+    clearInterval(activeTimer);
+    fastMoneyTimers.delete(normalizedCode);
+  }
 
   fastMoneyPausedTimers.set(normalizedCode, {
     remainingSeconds: remaining,
@@ -321,8 +326,10 @@ export function resumeFastMoneyTimer(io: SocketIOServer, roomCode: string): numb
   fastMoneyPausedTimers.delete(normalizedCode);
   const { session, playerNumber, remainingSeconds } = paused;
 
-  const duration = remainingSeconds;
+  const duration = session.resumeTimer(remainingSeconds);
   const endsAt = Date.now() + duration * 1000;
+
+  broadcastFastMoneyState(io, session);
 
   io.to(`room:${normalizedCode}`).emit('timer_tick', {
     secondsRemaining: duration,
@@ -514,6 +521,13 @@ export function registerFastMoneyHandlers(
           }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        if (session.isPaused() || isFastMoneyTimerPaused(normalizedCode)) {
+          const errMsg = 'Game is currently paused by the host';
+          socket.emit('room_error', { code: 'GAME_PAUSED', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
           return;
         }
@@ -793,6 +807,13 @@ export function registerFastMoneyHandlers(
           }
           const errMsg = 'No active Fast Money session found for this room';
           socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        if (session.isPaused() || isFastMoneyTimerPaused(normalizedCode)) {
+          const errMsg = 'Game is currently paused by the host';
+          socket.emit('room_error', { code: 'GAME_PAUSED', message: errMsg });
           if (callback) callback({ success: false, error: errMsg });
           return;
         }

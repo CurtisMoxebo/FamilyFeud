@@ -214,6 +214,16 @@ export const fr: TranslationDictionary = {
     playAgainBtn: 'Rejouer',
     exitRoomBtn: 'Quitter la salle',
   },
+  admin: {
+    pauseTimer: 'Mettre en pause',
+    resumeTimer: 'Reprendre',
+    gamePausedBanner: 'PARTIE EN PAUSE',
+    gamePausedSubtitle: "L'hôte a mis le chronomètre en pause.",
+    playerInputsLocked: "Les saisies sont désactivées jusqu'à la reprise.",
+    spacebarShortcutHint: 'Espace',
+    manualOverride: 'Validation manuelle',
+    overrideAccept: 'Forcer et accepter',
+  },
 };
 
 export default fr;

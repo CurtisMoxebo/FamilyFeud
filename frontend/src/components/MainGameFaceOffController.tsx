@@ -30,6 +30,8 @@ import {
 export interface MainGameFaceOffControllerProps {
   snapshot: FaceOffSessionState;
   timerTick?: TimerTickPayload | null;
+  isPaused?: boolean;
+  pausedRemainingSeconds?: number;
   buzzerLocked?: BuzzerLockedPayload | null;
   buzzerRejected?: BuzzerRejectedPayload | null;
   timeoutResult?: FaceOffTimeoutPayload | null;
@@ -51,6 +53,8 @@ export interface MainGameFaceOffControllerProps {
 export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps> = ({
   snapshot,
   timerTick,
+  isPaused = false,
+  pausedRemainingSeconds,
   buzzerLocked,
   buzzerRejected,
   timeoutResult,
@@ -75,7 +79,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
 
   // Authoritative countdown seconds
   const currentSeconds =
-    timerTick && timerTick.secondsRemaining !== undefined
+    isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
+      ? pausedRemainingSeconds
+      : timerTick && timerTick.secondsRemaining !== undefined
       ? timerTick.secondsRemaining
       : snapshot.remainingSeconds;
 
@@ -164,7 +170,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!answerInput.trim() || hasSubmitted) return;
+    if (isPaused || !answerInput.trim() || hasSubmitted) return;
 
     setHasSubmitted(true);
     if (onSubmitAnswer) {
@@ -173,12 +179,14 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   };
 
   const handleChoosePlay = () => {
+    if (isPaused) return;
     if (onChoosePlayPass) {
       onChoosePlayPass('play');
     }
   };
 
   const handleChoosePass = () => {
+    if (isPaused) return;
     if (onChoosePlayPass) {
       onChoosePlayPass('pass');
     }
@@ -355,8 +363,11 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                 <button
                   type="button"
                   data-testid="face-off-ready-btn"
-                  onClick={onReady}
-                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-feud-gold via-yellow-400 to-feud-gold-light text-slate-950 font-black text-lg uppercase tracking-wider shadow-[0_0_25px_rgba(234,179,8,0.4)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  disabled={isPaused}
+                  onClick={() => {
+                    if (!isPaused && onReady) onReady();
+                  }}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-feud-gold via-yellow-400 to-feud-gold-light text-slate-950 font-black text-lg uppercase tracking-wider shadow-[0_0_25px_rgba(234,179,8,0.4)] hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {t.mainGame.imReady}
                 </button>
@@ -392,8 +403,11 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
               <button
                 type="button"
                 data-testid="face-off-buzzer-btn"
-                onClick={onBuzz}
-                className="w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-gradient-to-b from-red-500 via-feud-red to-red-800 border-8 border-yellow-400 shadow-[0_0_50px_rgba(239,68,68,0.6)] text-white font-black text-3xl sm:text-4xl uppercase tracking-widest flex flex-col items-center justify-center gap-2 transform active:scale-90 hover:brightness-110 transition-all cursor-pointer select-none animate-pulse"
+                disabled={isPaused}
+                onClick={() => {
+                  if (!isPaused && onBuzz) onBuzz();
+                }}
+                className="w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-gradient-to-b from-red-500 via-feud-red to-red-800 border-8 border-yellow-400 shadow-[0_0_50px_rgba(239,68,68,0.6)] text-white font-black text-3xl sm:text-4xl uppercase tracking-widest flex flex-col items-center justify-center gap-2 transform active:scale-90 hover:brightness-110 transition-all cursor-pointer select-none animate-pulse disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Zap className="w-12 h-12 text-yellow-300" />
                 <span>{t.mainGame.buzzerBtn}</span>
@@ -493,12 +507,13 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   placeholder={t.mainGame.faceOffInputPlaceholder}
                   maxLength={60}
                   autoComplete="off"
-                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-feud-gold/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-feud-gold"
+                  disabled={isPaused}
+                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-feud-gold/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-feud-gold disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   data-testid="face-off-submit-btn"
-                  disabled={!answerInput.trim()}
+                  disabled={isPaused || !answerInput.trim()}
                   className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-feud-gold to-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
                 >
                   <Send className="w-4 h-4" />
@@ -613,12 +628,13 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   placeholder={t.mainGame.faceOffInputPlaceholder}
                   maxLength={60}
                   autoComplete="off"
-                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-blue-400/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  disabled={isPaused}
+                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-blue-400/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   data-testid="face-off-submit-btn"
-                  disabled={!answerInput.trim()}
+                  disabled={isPaused || !answerInput.trim()}
                   className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
                 >
                   <Send className="w-4 h-4" />
@@ -678,8 +694,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                 <button
                   type="button"
                   data-testid="face-off-play-btn"
+                  disabled={isPaused}
                   onClick={handleChoosePlay}
-                  className="py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  className="py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center gap-2">
                     <Play className="w-5 h-5 fill-white" />
@@ -693,8 +710,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                 <button
                   type="button"
                   data-testid="face-off-pass-btn"
+                  disabled={isPaused}
                   onClick={handleChoosePass}
-                  className="py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  className="py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center gap-2">
                     <ArrowRight className="w-5 h-5 text-slate-950" />

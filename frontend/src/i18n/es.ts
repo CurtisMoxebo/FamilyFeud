@@ -214,6 +214,16 @@ export const es: TranslationDictionary = {
     playAgainBtn: 'Jugar de nuevo',
     exitRoomBtn: 'Salir de la sala',
   },
+  admin: {
+    pauseTimer: 'Pausar temporizador',
+    resumeTimer: 'Reanudar',
+    gamePausedBanner: 'JUEGO EN PAUSA',
+    gamePausedSubtitle: 'El anfitrión ha pausado el temporizador.',
+    playerInputsLocked: 'Las entradas están desactivadas hasta que se reanude el juego.',
+    spacebarShortcutHint: 'Espacio',
+    manualOverride: 'Anulación manual',
+    overrideAccept: 'Anular y aceptar',
+  },
 };
 
 export default es;

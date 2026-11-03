@@ -48,6 +48,7 @@ import {
   PlayerLeftAlertPayload,
   PlayerKickedPayload,
   GamePausedPayload,
+  GameResumedPayload,
   StrikeCancelledPayload,
   AdminErrorPayload,
 } from '../types';
@@ -750,10 +751,22 @@ export function useSocket(options?: UseSocketOptions) {
 
     socket.on('game_paused', (payload: GamePausedPayload) => {
       setGamePaused(payload);
+      if (typeof payload.remainingTime === 'number' && payload.remainingTime > 0) {
+        setTimerTick({
+          secondsRemaining: payload.remainingTime,
+          endsAt: 0,
+        });
+      }
     });
 
-    socket.on('game_resumed', () => {
+    socket.on('game_resumed', (payload: GameResumedPayload) => {
       setGamePaused(null);
+      if (payload && typeof payload.remainingTime === 'number' && payload.remainingTime > 0) {
+        setTimerTick({
+          secondsRemaining: payload.remainingTime,
+          endsAt: Date.now() + payload.remainingTime * 1000,
+        });
+      }
     });
 
     socket.on('admin_error', (payload: AdminErrorPayload) => {

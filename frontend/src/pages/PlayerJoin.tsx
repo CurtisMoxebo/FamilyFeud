@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Room, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState, ScoreboardUpdatePayload, MatchOverPayload } from '../types';
+import { Room, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState, ScoreboardUpdatePayload, MatchOverPayload, GamePausedPayload } from '../types';
 import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   ArrowLeft,
   Sparkles,
+  Pause,
 } from 'lucide-react';
 
 export interface PlayerJoinProps {
@@ -31,6 +32,7 @@ export interface PlayerJoinProps {
   initialTeamGuessingState?: TeamGuessingSessionState | null;
   initialScoreboardState?: ScoreboardUpdatePayload | null;
   initialMatchOver?: MatchOverPayload | null;
+  initialGamePaused?: GamePausedPayload | null;
   apiBaseUrl?: string;
   onJoined?: (playerData: { room: Room; nickname: string }) => void;
 }
@@ -43,6 +45,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   initialTeamGuessingState = null,
   initialScoreboardState = null,
   initialMatchOver = null,
+  initialGamePaused = null,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -109,6 +112,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     matchOver: socketMatchOver,
     kickedInfo,
     clearKickedInfo,
+    gamePaused: socketGamePaused,
   } = useSocket({
     roomCode,
     isHost: false,
@@ -120,6 +124,9 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   const teamGuessingState = initialTeamGuessingState ?? socketTeamGuessingState;
   const scoreboardState = initialScoreboardState ?? socketScoreboardState;
   const matchOver = initialMatchOver ?? socketMatchOver;
+  const activeGamePaused = socketGamePaused ?? initialGamePaused;
+  const isPaused = Boolean(activeGamePaused);
+  const pausedRemainingSeconds = activeGamePaused?.remainingTime;
 
   useEffect(() => {
     if (initialRoom) {
@@ -339,23 +346,54 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       playersList[0]?.nickname.toLowerCase() === nickname.trim().toLowerCase() ||
       playersList.length <= 1;
 
+    const renderPausedBanner = () =>
+      isPaused ? (
+        <div
+          data-testid="player-game-paused-banner"
+          role="status"
+          aria-live="assertive"
+          className="w-full max-w-md mb-4 p-4 rounded-2xl bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-2 border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.4)] text-center z-40"
+        >
+          <div className="flex items-center justify-center gap-2 text-amber-300 font-black text-xl uppercase tracking-widest">
+            <Pause className="w-5 h-5" />
+            <span>{t.admin.gamePausedBanner}</span>
+          </div>
+          <p className="text-xs font-semibold text-slate-300 mt-1">
+            {t.admin.playerInputsLocked}
+            {typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0 && (
+              <span
+                data-testid="player-paused-remaining-time"
+                className="ml-2 inline-block px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-amber-200 font-mono font-bold"
+              >
+                {pausedRemainingSeconds}s
+              </span>
+            )}
+          </p>
+        </div>
+      ) : null;
+
     // Fast Money Player 1 Speed Round Screen (US-07)
     if (isFastMoney && fastMoneyP1State && isPlayer1) {
       const activePlayerId = currentPlayer?.id || 'player-1';
       return (
-        <FastMoneyController
-          snapshot={fastMoneyP1State}
-          timerTick={timerTick}
-          gameOver={gameOver}
-          onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
-          onSubmitAnswer={(qId, ans) =>
-            submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
-          }
-          onPass={(qId) =>
-            passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
-          }
-          onLeave={() => navigate('/')}
-        />
+        <div className="w-full flex flex-col items-center">
+          {renderPausedBanner()}
+          <FastMoneyController
+            snapshot={fastMoneyP1State}
+            timerTick={timerTick}
+            gameOver={gameOver}
+            isPaused={isPaused}
+            pausedRemainingSeconds={pausedRemainingSeconds}
+            onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
+            onSubmitAnswer={(qId, ans) =>
+              submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
+            }
+            onPass={(qId) =>
+              passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
+            }
+            onLeave={() => navigate('/')}
+          />
+        </div>
       );
     }
 
@@ -376,34 +414,44 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     ) {
       const activePlayerId = currentPlayer?.id || 'player-2';
       return (
-        <FastMoneyController
-          snapshot={fastMoneyP2State as any}
-          timerTick={timerTick}
-          duplicateWarning={duplicateWarning}
-          gameOver={gameOver}
-          onClearDuplicateWarning={clearDuplicateWarning}
-          playerNumber={2}
-          onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
-          onSubmitAnswer={(qId, ans) =>
-            submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
-          }
-          onPass={(qId) =>
-            passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
-          }
-          onLeave={() => navigate('/')}
-        />
+        <div className="w-full flex flex-col items-center">
+          {renderPausedBanner()}
+          <FastMoneyController
+            snapshot={fastMoneyP2State as any}
+            timerTick={timerTick}
+            duplicateWarning={duplicateWarning}
+            gameOver={gameOver}
+            isPaused={isPaused}
+            pausedRemainingSeconds={pausedRemainingSeconds}
+            onClearDuplicateWarning={clearDuplicateWarning}
+            playerNumber={2}
+            onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
+            onSubmitAnswer={(qId, ans) =>
+              submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
+            }
+            onPass={(qId) =>
+              passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
+            }
+            onLeave={() => navigate('/')}
+          />
+        </div>
       );
     }
 
     // Fast Money Player 2 Offstage Isolation Screen (US-07 Scenario 5)
     if (isFastMoney && (fastMoneyP2State || (fastMoneyP1State && isPlayer2))) {
       return (
-        <FastMoneyIsolation
-          snapshot={fastMoneyP2State}
-          timerTick={timerTick}
-          onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
-          onLeave={() => navigate('/')}
-        />
+        <div className="w-full flex flex-col items-center">
+          {renderPausedBanner()}
+          <FastMoneyIsolation
+            snapshot={fastMoneyP2State}
+            timerTick={timerTick}
+            isPaused={isPaused}
+            pausedRemainingSeconds={pausedRemainingSeconds}
+            onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
+            onLeave={() => navigate('/')}
+          />
+        </div>
       );
     }
 
@@ -423,76 +471,86 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     // Main Game Team Guessing Controller (US-14)
     if (!isFastMoney && teamGuessingState) {
       return (
-        <MainGameTeamController
-          snapshot={teamGuessingState}
-          scoreboardState={scoreboardState}
-          timerTick={timerTick}
-          strikeIssued={strikeIssued}
-          roundCleared={roundCleared}
-          transitionStealPhase={transitionStealPhase}
-          stealResolved={stealResolved}
-          currentNickname={nickname.trim()}
-          currentPlayerId={currentPlayer?.id}
-          roomCode={room.roomCode}
-          roomName={room.roomName}
-          onSubmitGuess={(rawAnswer) =>
-            submitTeamGuess &&
-            submitTeamGuess(roomCode, currentPlayer?.id || 'player', rawAnswer)
-          }
-          onSubmitStealGuess={(rawAnswer) =>
-            submitStealGuess &&
-            submitStealGuess(roomCode, currentPlayer?.id || 'player', rawAnswer)
-          }
-          onPassTurn={() =>
-            passTeamTurn &&
-            passTeamTurn(roomCode, currentPlayer?.id || 'player')
-          }
-          onLeave={() => navigate('/')}
-        />
+        <div className="w-full flex flex-col items-center">
+          {renderPausedBanner()}
+          <MainGameTeamController
+            snapshot={teamGuessingState}
+            scoreboardState={scoreboardState}
+            timerTick={timerTick}
+            isPaused={isPaused}
+            pausedRemainingSeconds={pausedRemainingSeconds}
+            strikeIssued={strikeIssued}
+            roundCleared={roundCleared}
+            transitionStealPhase={transitionStealPhase}
+            stealResolved={stealResolved}
+            currentNickname={nickname.trim()}
+            currentPlayerId={currentPlayer?.id}
+            roomCode={room.roomCode}
+            roomName={room.roomName}
+            onSubmitGuess={(rawAnswer) =>
+              submitTeamGuess &&
+              submitTeamGuess(roomCode, currentPlayer?.id || 'player', rawAnswer)
+            }
+            onSubmitStealGuess={(rawAnswer) =>
+              submitStealGuess &&
+              submitStealGuess(roomCode, currentPlayer?.id || 'player', rawAnswer)
+            }
+            onPassTurn={() =>
+              passTeamTurn &&
+              passTeamTurn(roomCode, currentPlayer?.id || 'player')
+            }
+            onLeave={() => navigate('/')}
+          />
+        </div>
       );
     }
 
     // Main Game Face-Off Controller (US-12 & US-13)
     if (!isFastMoney && faceOffState) {
       return (
-        <MainGameFaceOffController
-          snapshot={faceOffState}
-          scoreboardState={scoreboardState}
-          timerTick={timerTick}
-          buzzerLocked={buzzerLocked}
-          buzzerRejected={buzzerRejected}
-          timeoutResult={faceOffTimeout}
-          promptPassPlay={promptPassPlay}
-          roundControlAssigned={roundControlAssigned}
-          opponentTurnPrompt={opponentTurnPrompt}
-          currentNickname={nickname.trim()}
-          currentPlayerId={currentPlayer?.id}
-          roomCode={room.roomCode}
-          roomName={room.roomName}
-          onReady={() => sendFaceOffReady && sendFaceOffReady(roomCode, currentPlayer?.id || 'contender')}
-          onBuzz={() => pressBuzzer && pressBuzzer(roomCode, currentPlayer?.id || 'contender')}
-          onSubmitAnswer={(rawAnswer) =>
-            submitFaceOffGuess
-              ? submitFaceOffGuess(
-                  roomCode,
-                  currentPlayer?.id || 'respondent',
-                  faceOffState.question?.id || 'q',
-                  rawAnswer
-                )
-              : submitFaceOffAnswer &&
-                submitFaceOffAnswer(
-                  roomCode,
-                  currentPlayer?.id || 'respondent',
-                  faceOffState.question?.id || 'q',
-                  rawAnswer
-                )
-          }
-          onChoosePlayPass={(decision) =>
-            choosePlayPass &&
-            choosePlayPass(roomCode, currentPlayer?.id || 'winner', decision)
-          }
-          onLeave={() => navigate('/')}
-        />
+        <div className="w-full flex flex-col items-center">
+          {renderPausedBanner()}
+          <MainGameFaceOffController
+            snapshot={faceOffState}
+            scoreboardState={scoreboardState}
+            timerTick={timerTick}
+            isPaused={isPaused}
+            pausedRemainingSeconds={pausedRemainingSeconds}
+            buzzerLocked={buzzerLocked}
+            buzzerRejected={buzzerRejected}
+            timeoutResult={faceOffTimeout}
+            promptPassPlay={promptPassPlay}
+            roundControlAssigned={roundControlAssigned}
+            opponentTurnPrompt={opponentTurnPrompt}
+            currentNickname={nickname.trim()}
+            currentPlayerId={currentPlayer?.id}
+            roomCode={room.roomCode}
+            roomName={room.roomName}
+            onReady={() => sendFaceOffReady && sendFaceOffReady(roomCode, currentPlayer?.id || 'contender')}
+            onBuzz={() => pressBuzzer && pressBuzzer(roomCode, currentPlayer?.id || 'contender')}
+            onSubmitAnswer={(rawAnswer) =>
+              submitFaceOffGuess
+                ? submitFaceOffGuess(
+                    roomCode,
+                    currentPlayer?.id || 'respondent',
+                    faceOffState.question?.id || 'q',
+                    rawAnswer
+                  )
+                : submitFaceOffAnswer &&
+                  submitFaceOffAnswer(
+                    roomCode,
+                    currentPlayer?.id || 'respondent',
+                    faceOffState.question?.id || 'q',
+                    rawAnswer
+                  )
+            }
+            onChoosePlayPass={(decision) =>
+              choosePlayPass &&
+              choosePlayPass(roomCode, currentPlayer?.id || 'winner', decision)
+            }
+            onLeave={() => navigate('/')}
+          />
+        </div>
       );
     }
 

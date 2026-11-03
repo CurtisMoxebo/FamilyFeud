@@ -24,6 +24,8 @@ export interface FastMoneyControllerProps {
   timerTick?: TimerTickPayload | null;
   duplicateWarning?: DuplicateAnswerWarningPayload | null;
   gameOver?: GameOverPayload | null;
+  isPaused?: boolean;
+  pausedRemainingSeconds?: number;
   onClearDuplicateWarning?: () => void;
   playerNumber?: 1 | 2;
   onReady: () => void;
@@ -37,6 +39,8 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   timerTick = null,
   duplicateWarning = null,
   gameOver = null,
+  isPaused = false,
+  pausedRemainingSeconds,
   onClearDuplicateWarning,
   playerNumber,
   onReady,
@@ -55,7 +59,9 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
   // Synchronized countdown timer value (authoritative timer tick takes priority)
   const remainingSeconds =
-    timerTick && typeof timerTick.secondsRemaining === 'number'
+    isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
+      ? pausedRemainingSeconds
+      : timerTick && typeof timerTick.secondsRemaining === 'number'
       ? timerTick.secondsRemaining
       : snapshot.remainingSeconds;
 
@@ -114,7 +120,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = answerText.trim();
-    if (!trimmed || !snapshot.currentQuestion || snapshot.canSubmit === false) {
+    if (isPaused || !trimmed || !snapshot.currentQuestion || snapshot.canSubmit === false) {
       return;
     }
     if (onClearDuplicateWarning) {
@@ -125,7 +131,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   };
 
   const handlePass = () => {
-    if (!snapshot.currentQuestion || snapshot.canPass === false) {
+    if (isPaused || !snapshot.currentQuestion || snapshot.canPass === false) {
       return;
     }
     if (onClearDuplicateWarning) {
@@ -287,9 +293,12 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
         {/* "I'm Ready!" Start Button */}
         <button
           type="button"
-          onClick={onReady}
+          onClick={() => {
+            if (!isPaused) onReady();
+          }}
+          disabled={isPaused}
           data-testid={isPlayer2 ? 'p2-ready-btn' : 'p1-ready-btn'}
-          className="w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
+          className="w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap className="w-6 h-6 fill-slate-950" />
           <span>{t.fastMoney.imReady}</span>
@@ -634,7 +643,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               spellCheck="false"
               enterKeyHint="send"
               maxLength={50}
-              disabled={snapshot.canSubmit === false}
+              disabled={isPaused || snapshot.canSubmit === false}
               className={`w-full px-4 py-3.5 rounded-2xl bg-slate-900/90 text-white placeholder-slate-500 font-bold text-lg text-center focus:outline-none transition-all disabled:opacity-50 border ${
                 isShaking
                   ? 'border-red-500 ring-2 ring-red-500/50 bg-red-950/30'
@@ -649,7 +658,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
             <button
               type="button"
               onClick={handlePass}
-              disabled={snapshot.canPass === false}
+              disabled={isPaused || snapshot.canPass === false}
               data-testid="fast-money-pass-btn"
               className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -660,7 +669,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={!answerText.trim() || snapshot.canSubmit === false}
+              disabled={isPaused || !answerText.trim() || snapshot.canSubmit === false}
               data-testid="fast-money-submit-btn"
               className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
