@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Room, TeamsAssignedPayload, FaceOffSessionState } from '../types';
+import { Room, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
 import { FastMoneyHostBoard } from '../components/FastMoneyHostBoard';
 import { MainGameTeamsStage } from '../components/MainGameTeamsStage';
 import { MainGameFaceOffBoard } from '../components/MainGameFaceOffBoard';
+import { MainGameTeamGuessingBoard } from '../components/MainGameTeamGuessingBoard';
 import {
   Tv,
   Users,
@@ -27,6 +28,7 @@ export interface HostBoardProps {
   initialRoom?: Room | null;
   initialTeamsAssigned?: TeamsAssignedPayload | null;
   initialFaceOffState?: FaceOffSessionState | null;
+  initialTeamGuessingState?: TeamGuessingSessionState | null;
   apiBaseUrl?: string;
   onStartGame?: () => void;
 }
@@ -36,6 +38,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   initialRoom = null,
   initialTeamsAssigned = null,
   initialFaceOffState = null,
+  initialTeamGuessingState = null,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -55,6 +58,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     startGame,
     teamsAssigned: socketTeamsAssigned,
     faceOffState: socketFaceOffState,
+    teamGuessingState: socketTeamGuessingState,
+    strikeIssued,
+    roundCleared,
+    transitionStealPhase,
+    mainGameBoardReveal,
     buzzerLocked,
     faceOffTimeout,
     fastMoneyHostState,
@@ -76,6 +84,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
   const faceOffState = initialFaceOffState ?? socketFaceOffState;
+  const teamGuessingState = initialTeamGuessingState ?? socketTeamGuessingState;
 
   const joinUrl =
     typeof window !== 'undefined'
@@ -223,6 +232,24 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             })),
         }
       : null);
+
+  // Main Game Team Guessing Stage (US-14)
+  if (!isFastMoney && teamGuessingState) {
+    return (
+      <MainGameTeamGuessingBoard
+        snapshot={teamGuessingState}
+        timerTick={timerTick}
+        strikeIssued={strikeIssued}
+        roundCleared={roundCleared}
+        transitionStealPhase={transitionStealPhase}
+        boardReveal={mainGameBoardReveal}
+        language={room.language}
+        roomName={room.roomName}
+        roomCode={room.roomCode}
+        onLeave={() => navigate('/')}
+      />
+    );
+  }
 
   // Main Game Face-Off Stage (US-12)
   if (!isFastMoney && faceOffState) {

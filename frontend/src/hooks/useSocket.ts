@@ -23,6 +23,13 @@ import {
   RoundControlAssignedPayload,
   OpponentTurnPromptPayload,
   FaceOffBoardRevealPayload,
+  TeamGuessingSessionState,
+  StrikeIssuedPayload,
+  RoundClearedPayload,
+  TransitionStealPhasePayload,
+  TeamTurnStartedPayload,
+  TeamGuessResultPayload,
+  MainGameBoardRevealPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -85,6 +92,15 @@ export function useSocket(options?: UseSocketOptions) {
   const [roundControlAssigned, setRoundControlAssigned] = useState<RoundControlAssignedPayload | null>(null);
   const [opponentTurnPrompt, setOpponentTurnPrompt] = useState<OpponentTurnPromptPayload | null>(null);
   const [faceOffBoardReveal, setFaceOffBoardReveal] = useState<FaceOffBoardRevealPayload | null>(null);
+
+  // Main Game Team Guessing & Strike Listeners (US-14)
+  const [teamGuessingState, setTeamGuessingState] = useState<TeamGuessingSessionState | null>(null);
+  const [strikeIssued, setStrikeIssued] = useState<StrikeIssuedPayload | null>(null);
+  const [roundCleared, setRoundCleared] = useState<RoundClearedPayload | null>(null);
+  const [transitionStealPhase, setTransitionStealPhase] = useState<TransitionStealPhasePayload | null>(null);
+  const [teamTurnStarted, setTeamTurnStarted] = useState<TeamTurnStartedPayload | null>(null);
+  const [teamGuessResult, setTeamGuessResult] = useState<TeamGuessResultPayload | null>(null);
+  const [mainGameBoardReveal, setMainGameBoardReveal] = useState<MainGameBoardRevealPayload | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -256,6 +272,42 @@ export function useSocket(options?: UseSocketOptions) {
     []
   );
 
+  const submitTeamGuess = useCallback(
+    (roomCode: string, playerId: string, rawAnswer: string) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('submit_team_guess', {
+          roomCode,
+          playerId,
+          rawAnswer,
+        });
+      }
+    },
+    []
+  );
+
+  const passTeamTurn = useCallback(
+    (roomCode: string, playerId: string) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('pass_team_turn', {
+          roomCode,
+          playerId,
+        });
+      }
+    },
+    []
+  );
+
+  const getTeamGuessingState = useCallback(
+    (roomCode: string) => {
+      if (socketRef.current) {
+        socketRef.current.emit('get_team_guessing_state', { roomCode });
+      }
+    },
+    []
+  );
+
   const clearFaceOffState = useCallback(() => {
     setFaceOffState(null);
     setBuzzerLocked(null);
@@ -409,9 +461,13 @@ export function useSocket(options?: UseSocketOptions) {
       setDuplicateWarning(warning);
     });
 
-    // Fast Money Reveal Sequence Listeners (US-08)
-    socket.on('board_reveal', (payload: BoardRevealPayload) => {
-      setBoardReveal(payload);
+    // Board Reveal Listeners (Fast Money US-08 & Main Game US-14)
+    socket.on('board_reveal', (payload: BoardRevealPayload | MainGameBoardRevealPayload) => {
+      if (payload && 'slot' in payload) {
+        setBoardReveal(payload as BoardRevealPayload);
+      } else if (payload && 'answerText' in payload) {
+        setMainGameBoardReveal(payload as MainGameBoardRevealPayload);
+      }
     });
 
     socket.on(
@@ -471,6 +527,31 @@ export function useSocket(options?: UseSocketOptions) {
       setFaceOffBoardReveal(payload);
     });
 
+    // Main Game Team Guessing Listeners (US-14)
+    socket.on('team_guessing_state', (state: TeamGuessingSessionState) => {
+      setTeamGuessingState(state);
+    });
+
+    socket.on('strike_issued', (payload: StrikeIssuedPayload) => {
+      setStrikeIssued(payload);
+    });
+
+    socket.on('round_cleared', (payload: RoundClearedPayload) => {
+      setRoundCleared(payload);
+    });
+
+    socket.on('transition_steal_phase', (payload: TransitionStealPhasePayload) => {
+      setTransitionStealPhase(payload);
+    });
+
+    socket.on('team_turn_started', (payload: TeamTurnStartedPayload) => {
+      setTeamTurnStarted(payload);
+    });
+
+    socket.on('team_guess_result', (payload: TeamGuessResultPayload) => {
+      setTeamGuessResult(payload);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -501,6 +582,16 @@ export function useSocket(options?: UseSocketOptions) {
     faceOffBoardReveal,
     choosePlayPass,
     submitFaceOffGuess,
+    teamGuessingState,
+    strikeIssued,
+    roundCleared,
+    transitionStealPhase,
+    teamTurnStarted,
+    teamGuessResult,
+    mainGameBoardReveal,
+    submitTeamGuess,
+    passTeamTurn,
+    getTeamGuessingState,
     fastMoneyP1State,
     fastMoneyP2State,
     fastMoneyHostState,

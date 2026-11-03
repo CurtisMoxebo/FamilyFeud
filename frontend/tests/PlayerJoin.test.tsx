@@ -71,6 +71,16 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     faceOffBoardReveal: null,
     submitFaceOffGuess: vi.fn(),
     choosePlayPass: vi.fn(),
+    teamGuessingState: null,
+    strikeIssued: null,
+    roundCleared: null,
+    transitionStealPhase: null,
+    teamTurnStarted: null,
+    teamGuessResult: null,
+    mainGameBoardReveal: null,
+    submitTeamGuess: vi.fn(),
+    passTeamTurn: vi.fn(),
+    getTeamGuessingState: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/play/FEUD-8291') => {

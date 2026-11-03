@@ -142,3 +142,27 @@ export function speakPlayOrPassDecision(
   const text = customText || getPlayOrPassPhrase(teamName, decision, language);
   speakQuestion(text, language);
 }
+
+export const ROUND_CLEARED_PHRASES: Record<string, (team: string) => string> = {
+  EN: (team: string) => `${team} cleared the board!`,
+  FR: (team: string) => `L'${team} a vidé le tableau !`,
+  ES: (team: string) => `¡El ${team} despejó el tablero!`,
+};
+
+export function speakBoardCleared(teamName: string, language: string = 'EN'): void {
+  const norm = language.toUpperCase();
+  const fn = ROUND_CLEARED_PHRASES[norm] || ROUND_CLEARED_PHRASES.EN;
+  speakQuestion(fn(teamName), language);
+}
+
+export const STEAL_PHASE_PHRASES: Record<string, (opposingTeam: string) => string> = {
+  EN: (team: string) => `Three strikes! ${team} has a chance to steal!`,
+  FR: (team: string) => `Trois fautes ! L'${team} a une chance de voler les points !`,
+  ES: (team: string) => `¡Tres fallos! ¡El ${team} tiene la oportunidad de robar!`,
+};
+
+export function speakStealPhase(opposingTeamName: string, language: string = 'EN'): void {
+  const norm = language.toUpperCase();
+  const fn = STEAL_PHASE_PHRASES[norm] || STEAL_PHASE_PHRASES.EN;
+  speakQuestion(fn(opposingTeamName), language);
+}
