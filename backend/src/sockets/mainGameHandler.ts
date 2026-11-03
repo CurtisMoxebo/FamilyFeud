@@ -7,6 +7,13 @@ import {
   FaceOffQuestion,
   getFaceOffSession,
 } from '../services/faceOffService';
+import {
+  TeamGuessingSession,
+  TeamGuessingTimeoutResult,
+  TeamGuessingPlayer,
+  getTeamGuessingSession,
+  createTeamGuessingSessionFromFaceOff,
+} from '../services/teamGuessingService';
 import { generateAndSaveGameQuestions } from '../services/questionService';
 import { SupportedLanguage } from '../services/geminiService';
 import { normalizeRoomCode } from '../utils/roomCode';
@@ -75,6 +82,108 @@ export interface FaceOffBoardRevealPayload {
   playerNickname: string;
   playerTeam: 'TEAM_1' | 'TEAM_2';
   isNumberOneAnswer: boolean;
+}
+
+export interface SubmitTeamGuessPayload {
+  roomCode: string;
+  playerId: string;
+  rawAnswer: string;
+}
+
+export interface PassTeamTurnPayload {
+  roomCode: string;
+  playerId: string;
+}
+
+export interface StrikeIssuedPayload {
+  roomCode: string;
+  team: 'TEAM_1' | 'TEAM_2';
+  strikeCount: number;
+  maxStrikes: number;
+  player?: {
+    id: string;
+    nickname: string;
+  };
+  rawAnswer?: string;
+  isDuplicate?: boolean;
+  isTimeout?: boolean;
+  isPass?: boolean;
+}
+
+export interface RoundClearedPayload {
+  roomCode: string;
+  winningTeam: 'TEAM_1' | 'TEAM_2';
+  totalRoundPoints: number;
+}
+
+export interface TransitionStealPhasePayload {
+  roomCode: string;
+  controllingTeam: 'TEAM_1' | 'TEAM_2';
+  opposingTeam: 'TEAM_1' | 'TEAM_2';
+  roundBank: number;
+  reason?: string;
+}
+
+export interface TeamTurnStartedPayload {
+  roomCode: string;
+  activePlayer: TeamGuessingPlayer | null;
+  endsAt?: number;
+  duration?: number;
+}
+
+/**
+ * Broadcasts the current Team Guessing session state to all clients in the room (US-14).
+ */
+export function broadcastTeamGuessingState(
+  io: SocketIOServer,
+  session: TeamGuessingSession
+): void {
+  io.to(`room:${session.roomCode}`).emit('team_guessing_state', session.getState());
+}
+
+/**
+ * Broadcasts team turn timeout, strike, and potential steal phase transition (US-14 Scenario 4).
+ */
+export function handleTeamGuessingTimeoutBroadcast(
+  io: SocketIOServer,
+  roomCode: string,
+  timeoutResult: TeamGuessingTimeoutResult
+): void {
+  const normalizedCode = normalizeRoomCode(roomCode);
+  const session = getTeamGuessingSession(normalizedCode);
+  if (!session) return;
+
+  const strikePayload: StrikeIssuedPayload = {
+    roomCode: normalizedCode,
+    team: session.controllingTeam,
+    strikeCount: timeoutResult.strikeCount,
+    maxStrikes: 3,
+    player: {
+      id: timeoutResult.timedOutPlayer.id,
+      nickname: timeoutResult.timedOutPlayer.nickname,
+    },
+    isTimeout: true,
+  };
+  io.to(`room:${normalizedCode}`).emit('strike_issued', strikePayload);
+
+  if (timeoutResult.type === 'STRIKE_TIMEOUT') {
+    io.to(`room:${normalizedCode}`).emit('team_turn_started', {
+      roomCode: normalizedCode,
+      activePlayer: timeoutResult.nextPlayer,
+      endsAt: timeoutResult.endsAt,
+      duration: timeoutResult.duration,
+    });
+  } else if (timeoutResult.type === 'STEAL_PHASE_TRIGGERED') {
+    io.to(`room:${normalizedCode}`).emit('transition_steal_phase', {
+      roomCode: normalizedCode,
+      controllingTeam: session.controllingTeam,
+      opposingTeam: session.opposingTeam,
+      roundBank: session.roundBank,
+      reason: 'THREE_STRIKES',
+    });
+  }
+
+  broadcastTeamGuessingState(io, session);
 }
 
 /**
@@ -554,6 +663,32 @@ export function registerMainGameHandlers(
         io.to(`room:${normalizedCode}`).emit('round_control_assigned', controlAssignedPayload);
         broadcastFaceOffState(io, session);
 
+        // Initialize and start Team Guessing Session (US-14)
+        try {
+          const teamSession = createTeamGuessingSessionFromFaceOff(session, {
+            onTick: (secondsRemaining, endsAt) => {
+              io.to(`room:${normalizedCode}`).emit('timer_tick', {
+                secondsRemaining,
+                endsAt,
+              });
+            },
+            onTimeout: (timeoutRes) => {
+              handleTeamGuessingTimeoutBroadcast(io, normalizedCode, timeoutRes);
+            },
+          });
+
+          io.to(`room:${normalizedCode}`).emit('team_turn_started', {
+            roomCode: normalizedCode,
+            activePlayer: teamSession.activePlayer,
+            endsAt: teamSession.getState().endsAt,
+            duration: 15,
+          });
+
+          broadcastTeamGuessingState(io, teamSession);
+        } catch (teamErr) {
+          logger.error(`Error initializing TeamGuessingSession for room ${normalizedCode}`, teamErr);
+        }
+
         if (callback) {
           callback({
             success: true,
@@ -587,6 +722,224 @@ export function registerMainGameHandlers(
       const session = getFaceOffSession(normalizeRoomCode(roomCode));
       if (!session) {
         if (callback) callback({ success: false, error: 'No active session' });
+        return;
+      }
+
+      const state = session.getState();
+      if (callback) callback({ success: true, state });
+    }
+  );
+
+  /**
+   * Active team member submits guess during Team Guessing phase (US-14 Scenarios 1-4).
+   * Event: 'submit_team_guess'
+   */
+  socket.on(
+    'submit_team_guess',
+    async (
+      payload: SubmitTeamGuessPayload,
+      callback?: (res: { success: boolean; outcome?: string; error?: string }) => void
+    ) => {
+      try {
+        const { roomCode, playerId, rawAnswer } = payload || {};
+        if (!roomCode || !playerId || rawAnswer === undefined) {
+          if (callback) callback({ success: false, error: 'Missing required fields' });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(roomCode);
+        const session = getTeamGuessingSession(normalizedCode);
+        if (!session) {
+          if (callback) callback({ success: false, error: 'No active team guessing session found' });
+          return;
+        }
+
+        const evalResult = await session.evaluateGuess(playerId, rawAnswer);
+
+        // If matched and card revealed (Scenario 1 & 3)
+        if (evalResult.revealedAnswer) {
+          const revealData = {
+            roomCode: normalizedCode,
+            slotRank: evalResult.revealedAnswer.rankOrder,
+            rankOrder: evalResult.revealedAnswer.rankOrder,
+            answerText: evalResult.revealedAnswer.answerText,
+            points: evalResult.revealedAnswer.points,
+            roundBank: evalResult.roundBank,
+            playerId: evalResult.guessResult.playerId,
+            playerNickname: evalResult.guessResult.playerNickname,
+            playerTeam: evalResult.guessResult.playerTeam,
+            isAllRevealed: evalResult.outcome === 'ROUND_CLEARED',
+          };
+          io.to(`room:${normalizedCode}`).emit('board_reveal', revealData);
+          io.to(`room:${normalizedCode}`).emit('scoreboard_update', {
+            roomCode: normalizedCode,
+            activeRoundBank: evalResult.roundBank,
+          });
+        }
+
+        // Emit strike notification (Scenario 2 & 4)
+        if (evalResult.outcome === 'STRIKE' || evalResult.outcome === 'STEAL_PHASE_TRIGGERED') {
+          const strikePayload: StrikeIssuedPayload = {
+            roomCode: normalizedCode,
+            team: session.controllingTeam,
+            strikeCount: evalResult.strikeCount,
+            maxStrikes: 3,
+            player: {
+              id: evalResult.guessResult.playerId,
+              nickname: evalResult.guessResult.playerNickname,
+            },
+            rawAnswer: evalResult.guessResult.rawAnswer,
+            isDuplicate: evalResult.guessResult.isDuplicate,
+          };
+          io.to(`room:${normalizedCode}`).emit('strike_issued', strikePayload);
+        }
+
+        io.to(`room:${normalizedCode}`).emit('team_guess_result', {
+          roomCode: normalizedCode,
+          outcome: evalResult.outcome,
+          guessResult: evalResult.guessResult,
+          revealedAnswer: evalResult.revealedAnswer,
+          strikeCount: evalResult.strikeCount,
+          isStrike: evalResult.isStrike,
+          roundBank: evalResult.roundBank,
+          message: evalResult.message,
+        });
+
+        if (evalResult.outcome === 'CORRECT_GUESS' || evalResult.outcome === 'STRIKE') {
+          io.to(`room:${normalizedCode}`).emit('team_turn_started', {
+            roomCode: normalizedCode,
+            activePlayer: evalResult.nextPlayer,
+            endsAt: evalResult.endsAt,
+            duration: evalResult.duration,
+          });
+        } else if (evalResult.outcome === 'ROUND_CLEARED') {
+          io.to(`room:${normalizedCode}`).emit('round_cleared', {
+            roomCode: normalizedCode,
+            winningTeam: session.controllingTeam,
+            totalRoundPoints: evalResult.roundBank,
+          });
+        } else if (evalResult.outcome === 'STEAL_PHASE_TRIGGERED') {
+          io.to(`room:${normalizedCode}`).emit('transition_steal_phase', {
+            roomCode: normalizedCode,
+            controllingTeam: session.controllingTeam,
+            opposingTeam: session.opposingTeam,
+            roundBank: evalResult.roundBank,
+            reason: 'THREE_STRIKES',
+          });
+        }
+
+        broadcastTeamGuessingState(io, session);
+        if (callback) callback({ success: true, outcome: evalResult.outcome });
+      } catch (err: any) {
+        logger.error('Error handling submit_team_guess event', err);
+        socket.emit('team_guess_error', {
+          code: 'GUESS_ERROR',
+          message: err.message || 'Internal server error',
+        });
+        if (callback) callback({ success: false, error: err.message || 'Internal server error' });
+      }
+    }
+  );
+
+  /**
+   * Active player voluntarily passes their turn during Team Guessing phase.
+   * Event: 'pass_team_turn'
+   */
+  socket.on(
+    'pass_team_turn',
+    (
+      payload: PassTeamTurnPayload,
+      callback?: (res: { success: boolean; outcome?: string; error?: string }) => void
+    ) => {
+      try {
+        const { roomCode, playerId } = payload || {};
+        if (!roomCode || !playerId) {
+          if (callback) callback({ success: false, error: 'Missing required fields' });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(roomCode);
+        const session = getTeamGuessingSession(normalizedCode);
+        if (!session) {
+          if (callback) callback({ success: false, error: 'No active team guessing session found' });
+          return;
+        }
+
+        const passResult = session.passTurn(playerId);
+
+        const strikePayload: StrikeIssuedPayload = {
+          roomCode: normalizedCode,
+          team: session.controllingTeam,
+          strikeCount: passResult.strikeCount,
+          maxStrikes: 3,
+          player: {
+            id: passResult.guessResult.playerId,
+            nickname: passResult.guessResult.playerNickname,
+          },
+          rawAnswer: passResult.guessResult.rawAnswer,
+          isPass: true,
+        };
+        io.to(`room:${normalizedCode}`).emit('strike_issued', strikePayload);
+
+        io.to(`room:${normalizedCode}`).emit('team_guess_result', {
+          roomCode: normalizedCode,
+          outcome: passResult.outcome,
+          guessResult: passResult.guessResult,
+          strikeCount: passResult.strikeCount,
+          isStrike: true,
+          roundBank: passResult.roundBank,
+          message: passResult.message,
+        });
+
+        if (passResult.outcome === 'STRIKE') {
+          io.to(`room:${normalizedCode}`).emit('team_turn_started', {
+            roomCode: normalizedCode,
+            activePlayer: passResult.nextPlayer,
+            endsAt: passResult.endsAt,
+            duration: passResult.duration,
+          });
+        } else if (passResult.outcome === 'STEAL_PHASE_TRIGGERED') {
+          io.to(`room:${normalizedCode}`).emit('transition_steal_phase', {
+            roomCode: normalizedCode,
+            controllingTeam: session.controllingTeam,
+            opposingTeam: session.opposingTeam,
+            roundBank: passResult.roundBank,
+            reason: 'THREE_STRIKES',
+          });
+        }
+
+        broadcastTeamGuessingState(io, session);
+        if (callback) callback({ success: true, outcome: passResult.outcome });
+      } catch (err: any) {
+        logger.error('Error handling pass_team_turn event', err);
+        socket.emit('team_guess_error', {
+          code: 'PASS_ERROR',
+          message: err.message || 'Internal server error',
+        });
+        if (callback) callback({ success: false, error: err.message || 'Internal server error' });
+      }
+    }
+  );
+
+  /**
+   * Allows clients to fetch the active Team Guessing state snapshot.
+   * Event: 'get_team_guessing_state'
+   */
+  socket.on(
+    'get_team_guessing_state',
+    (
+      payload: { roomCode: string },
+      callback?: (res: { success: boolean; state?: any; error?: string }) => void
+    ) => {
+      const { roomCode } = payload || {};
+      if (!roomCode) {
+        if (callback) callback({ success: false, error: 'Missing roomCode' });
+        return;
+      }
+
+      const session = getTeamGuessingSession(normalizeRoomCode(roomCode));
+      if (!session) {
+        if (callback) callback({ success: false, error: 'No active team guessing session' });
         return;
       }
 
