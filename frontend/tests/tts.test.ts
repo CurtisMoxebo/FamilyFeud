@@ -293,5 +293,12 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(getPlayOrPassPhrase('Team A', 'play', 'JA')).toBe('Team A will play!');
       expect(getPlayOrPassPhrase('Team B', 'pass', 'JA')).toBe('Control passes to Team B!');
     });
+
+    it('provides PLAY_OR_PASS_PHRASES mapping directly', () => {
+      expect(PLAY_OR_PASS_PHRASES.EN.play('Team 1')).toBe('Team 1 will play!');
+      expect(PLAY_OR_PASS_PHRASES.EN.pass('Team 2')).toBe('Control passes to Team 2!');
+      expect(PLAY_OR_PASS_PHRASES.FR.play('Équipe 1')).toBe("L'Équipe 1 va jouer !");
+      expect(PLAY_OR_PASS_PHRASES.ES.play('Equipo 1')).toBe('¡Equipo 1 jugará!');
+    });
   });
 });
