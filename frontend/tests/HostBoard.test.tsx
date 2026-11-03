@@ -8,6 +8,10 @@ import { RouterProvider } from '../src/router/router';
 import { Room, RoomStateUpdate, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState } from '../src/types';
 import * as socketHook from '../src/hooks/useSocket';
 
+vi.mock('canvas-confetti', () => ({
+  default: vi.fn(),
+}));
+
 describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US-04)', () => {
   const mockRoom: Room = {
     id: 'room-abc',
@@ -84,6 +88,13 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     passTeamTurn: vi.fn(),
     submitStealGuess: vi.fn(),
     getTeamGuessingState: vi.fn(),
+    scoreboardState: null,
+    matchOver: null,
+    suddenDeathInitiated: null,
+    nextRoundStarted: null,
+    advanceNextRound: vi.fn(),
+    getScoreboardState: vi.fn(),
+    clearMatchOver: vi.fn(),
   };
 
   const renderWithProviders = (ui: React.ReactElement, initialPath = '/host/FEUD-7890') => {
@@ -745,12 +756,160 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
       teamGuessingState: mockTeamGuessingState,
     });
 
-    renderWithProviders(<HostBoard roomCode="FEUD-7777" initialRoom={mainGameRoomEN} />, '/host/FEUD-7777');
+        renderWithProviders(<HostBoard roomCode="FEUD-7777" initialRoom={mainGameRoomEN} />, '/host/FEUD-7777');
 
     expect(screen.getByTestId('main-game-team-guessing-board')).toBeInTheDocument();
     expect(screen.getByText(/"Name something in your refrigerator"/i)).toBeInTheDocument();
     expect(screen.getByTestId('round-bank-display')).toHaveTextContent('45');
     expect(screen.getByTestId('strike-box-1')).toHaveTextContent('X');
     expect(screen.getByTestId('team-board-card-1')).toHaveTextContent('MILK');
+  });
+
+  it('satisfies US-16 Scenario 1, 4 & 5: renders grand total scoreboard, victory modal on matchOver, and wires Play Again', async () => {
+    const user = userEvent.setup();
+    const requestReplayMock = vi.fn();
+    const mockScoreboardState = {
+      roomCode: 'FEUD-7777',
+      team1GrandTotal: 310,
+      team2GrandTotal: 190,
+      activeRoundBank: 0,
+      currentRoundNumber: 3,
+      totalRounds: 3,
+      phase: 'MATCH_OVER',
+    };
+    const mockMatchOver = {
+      roomCode: 'FEUD-7777',
+      winningTeam: 'TEAM_1' as const,
+      team1GrandTotal: 310,
+      team2GrandTotal: 190,
+      totalRounds: 3,
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      scoreboardState: mockScoreboardState,
+      matchOver: mockMatchOver,
+      requestReplay: requestReplayMock,
+      teamGuessingState: {
+        roomCode: 'FEUD-7777',
+        roundNumber: 3,
+        gameId: 'game-1',
+        language: 'EN',
+        question: {
+          id: 'q-3',
+          questionText: 'Final Question',
+          answerCount: 1,
+        },
+        phase: 'RESOLVED' as const,
+        controllingTeam: 'TEAM_1' as const,
+        controllingTeamName: 'Team 1',
+        opposingTeam: 'TEAM_2' as const,
+        opposingTeamName: 'Team 2',
+        controllingTeamPlayers: [],
+        opposingTeamPlayers: [],
+        activePlayerIndex: 0,
+        activePlayer: null,
+        strikes: 0,
+        roundBank: 0,
+        remainingSeconds: 0,
+        endsAt: 0,
+        isTimerRunning: false,
+        revealedAnswers: [],
+        totalAnswersCount: 1,
+        revealedAnswersCount: 0,
+        remainingAnswersCount: 1,
+        winningTeam: 'TEAM_1' as const,
+      },
+    });
+
+        const testRoom: Room = {
+      id: 'room-7777',
+      roomCode: 'FEUD-7777',
+      roomName: 'Test Room',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'IN_PROGRESS',
+      createdAt: new Date().toISOString(),
+    };
+    renderWithProviders(<HostBoard roomCode="FEUD-7777" initialRoom={testRoom} />, '/host/FEUD-7777');
+
+    // Scoreboard header rendered with cumulative totals
+    expect(screen.getByTestId('grand-total-header')).toBeInTheDocument();
+    expect(screen.getByTestId('team1-grand-total')).toHaveTextContent('310');
+    expect(screen.getByTestId('team2-grand-total')).toHaveTextContent('190');
+
+    // Victory modal rendered
+    expect(screen.getByTestId('match-over-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('match-winner-headline')).toHaveTextContent(/Team 1/i);
+
+    // Host clicks Play Again
+    const replayBtn = screen.getByTestId('play-again-btn');
+    await user.click(replayBtn);
+    expect(requestReplayMock).toHaveBeenCalledWith('FEUD-7777');
+  });
+
+  it('satisfies US-16 Scenario 3: allows Host to click Next Round to advance match to next face-off', async () => {
+    const user = userEvent.setup();
+    const advanceNextRoundMock = vi.fn();
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      scoreboardState: {
+        roomCode: 'FEUD-7777',
+        team1GrandTotal: 100,
+        team2GrandTotal: 0,
+        activeRoundBank: 0,
+        currentRoundNumber: 1,
+        totalRounds: 3,
+        phase: 'ROUND_RESOLVED',
+      },
+      advanceNextRound: advanceNextRoundMock,
+      teamGuessingState: {
+        roomCode: 'FEUD-7777',
+        roundNumber: 1,
+        gameId: 'game-1',
+        language: 'EN',
+        question: {
+          id: 'q-1',
+          questionText: 'Round 1 Question',
+          answerCount: 1,
+        },
+        phase: 'RESOLVED' as const,
+        controllingTeam: 'TEAM_1' as const,
+        controllingTeamName: 'Team 1',
+        opposingTeam: 'TEAM_2' as const,
+        opposingTeamName: 'Team 2',
+        controllingTeamPlayers: [],
+        opposingTeamPlayers: [],
+        activePlayerIndex: 0,
+        activePlayer: null,
+        strikes: 0,
+        roundBank: 100,
+        remainingSeconds: 0,
+        endsAt: 0,
+        isTimerRunning: false,
+        revealedAnswers: [],
+        totalAnswersCount: 1,
+        revealedAnswersCount: 0,
+        remainingAnswersCount: 1,
+        winningTeam: 'TEAM_1' as const,
+      },
+    });
+
+    const testRoom: Room = {
+      id: 'room-7777',
+      roomCode: 'FEUD-7777',
+      roomName: 'Test Room',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'IN_PROGRESS',
+      createdAt: new Date().toISOString(),
+    };
+    renderWithProviders(<HostBoard roomCode="FEUD-7777" initialRoom={testRoom} />, '/host/FEUD-7777');
+
+    const nextRoundBtn = screen.getByTestId('next-round-btn');
+    expect(nextRoundBtn).toBeInTheDocument();
+    await user.click(nextRoundBtn);
+    expect(advanceNextRoundMock).toHaveBeenCalledWith('FEUD-7777');
   });
 });

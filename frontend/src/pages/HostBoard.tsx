@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Room, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState } from '../types';
+import {
+  Room,
+  TeamsAssignedPayload,
+  FaceOffSessionState,
+  TeamGuessingSessionState,
+  ScoreboardUpdatePayload,
+  MatchOverPayload,
+  SuddenDeathInitiatedPayload,
+} from '../types';
+import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
@@ -29,6 +38,11 @@ export interface HostBoardProps {
   initialTeamsAssigned?: TeamsAssignedPayload | null;
   initialFaceOffState?: FaceOffSessionState | null;
   initialTeamGuessingState?: TeamGuessingSessionState | null;
+  initialScoreboardState?: ScoreboardUpdatePayload | null;
+  initialMatchOver?: MatchOverPayload | null;
+  initialSuddenDeathInitiated?: SuddenDeathInitiatedPayload | null;
+  onAdvanceNextRound?: () => void;
+  onReplay?: () => void;
   apiBaseUrl?: string;
   onStartGame?: () => void;
 }
@@ -39,6 +53,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   initialTeamsAssigned = null,
   initialFaceOffState = null,
   initialTeamGuessingState = null,
+  initialScoreboardState = null,
+  initialMatchOver = null,
+  initialSuddenDeathInitiated = null,
+  onAdvanceNextRound,
+  onReplay,
   apiBaseUrl = import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api`
     : '/api',
@@ -78,6 +97,10 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     revealP2FastMoneyAnswer,
     revealP2FastMoneyPoints,
     requestReplay,
+    scoreboardState: socketScoreboardState,
+    matchOver: socketMatchOver,
+    suddenDeathInitiated: socketSuddenDeath,
+    advanceNextRound,
   } = useSocket({
     roomCode,
     isHost: true,
@@ -87,6 +110,25 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const teamsAssigned = initialTeamsAssigned ?? socketTeamsAssigned;
   const faceOffState = initialFaceOffState ?? socketFaceOffState;
   const teamGuessingState = initialTeamGuessingState ?? socketTeamGuessingState;
+  const scoreboardState = initialScoreboardState ?? socketScoreboardState;
+  const matchOver = initialMatchOver ?? socketMatchOver;
+  const suddenDeathInitiated = initialSuddenDeathInitiated ?? socketSuddenDeath;
+
+  const handleAdvanceNextRound = () => {
+    if (onAdvanceNextRound) {
+      onAdvanceNextRound();
+    } else if (advanceNextRound && room) {
+      advanceNextRound(room.roomCode);
+    }
+  };
+
+  const handleReplay = () => {
+    if (onReplay) {
+      onReplay();
+    } else if (requestReplay && room) {
+      requestReplay(room.roomCode);
+    }
+  };
 
   const joinUrl =
     typeof window !== 'undefined'
@@ -247,6 +289,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         boardReveal={mainGameBoardReveal}
         stealResolved={stealResolved}
         roundWinner={roundWinner}
+        scoreboardState={scoreboardState}
+        matchOver={matchOver}
+        suddenDeathInitiated={suddenDeathInitiated}
+        onNextRound={handleAdvanceNextRound}
+        onReplay={handleReplay}
         language={room.language}
         roomName={room.roomName}
         roomCode={room.roomCode}
@@ -258,16 +305,27 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Main Game Face-Off Stage (US-12)
   if (!isFastMoney && faceOffState) {
     return (
-      <MainGameFaceOffBoard
-        snapshot={faceOffState}
-        timerTick={timerTick}
-        buzzerLocked={buzzerLocked}
-        timeoutResult={faceOffTimeout}
-        language={room.language}
-        roomName={room.roomName}
-        roomCode={room.roomCode}
-        onLeave={() => navigate('/')}
-      />
+      <div className="relative w-full flex flex-col items-center">
+        <MainGameFaceOffBoard
+          snapshot={faceOffState}
+          timerTick={timerTick}
+          buzzerLocked={buzzerLocked}
+          timeoutResult={faceOffTimeout}
+          scoreboardState={scoreboardState}
+          language={room.language}
+          roomName={room.roomName}
+          roomCode={room.roomCode}
+          onLeave={() => navigate('/')}
+        />
+        {matchOver && (
+          <MainGameVictoryModal
+            matchOver={matchOver}
+            onReplay={handleReplay}
+            onLeave={() => navigate('/')}
+            isHost={true}
+          />
+        )}
+      </div>
     );
   }
 
