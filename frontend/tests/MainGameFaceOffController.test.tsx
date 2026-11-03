@@ -486,5 +486,27 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
         'Control passes to Team 2!'
       );
     });
+    it('satisfies US-16 Scenario 1: renders persistent grand total header and highlights player personal team', () => {
+      renderController({
+        scoreboardState: {
+          roomCode: 'FEUD-CTRL',
+          team1GrandTotal: 150,
+          team2GrandTotal: 85,
+          activeRoundBank: 0,
+          currentRoundNumber: 2,
+          totalRounds: 3,
+          phase: 'ROUND_IN_PROGRESS',
+        },
+        currentNickname: 'Alice',
+        currentPlayerId: 'p1',
+      });
+
+      expect(screen.getByTestId('grand-total-header')).toBeInTheDocument();
+      expect(screen.getByTestId('team1-grand-total')).toHaveTextContent('150');
+      expect(screen.getByTestId('team2-grand-total')).toHaveTextContent('85');
+      // Alice is on Team 1, so Team 1 is highlighted with "YOUR TEAM" badge
+      expect(screen.getByTestId('your-team-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('team1-grand-total-card')).toHaveClass('ring-blue-400/40');
+    });
   });
 });

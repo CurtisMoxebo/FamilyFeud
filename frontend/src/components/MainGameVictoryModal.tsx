@@ -26,12 +26,15 @@ export const MainGameVictoryModal: React.FC<MainGameVictoryModalProps> = ({
       hasCelebrated.current = true;
       playVictoryFanfare();
       try {
-        confetti({
-          particleCount: 180,
-          spread: 100,
-          origin: { y: 0.5 },
-          colors: ['#f59e0b', '#fbbf24', '#3b82f6', '#10b981', '#ef4444', '#a855f7'],
-        });
+        const testCanvas = document.createElement('canvas');
+        if (testCanvas.getContext && testCanvas.getContext('2d')) {
+          confetti({
+            particleCount: 180,
+            spread: 100,
+            origin: { y: 0.5 },
+            colors: ['#f59e0b', '#fbbf24', '#3b82f6', '#10b981', '#ef4444', '#a855f7'],
+          });
+        }
       } catch {
         // Ignore environments where canvas-confetti canvas is unavailable (e.g. happy-dom/jsdom)
       }

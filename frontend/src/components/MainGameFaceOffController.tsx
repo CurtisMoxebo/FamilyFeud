@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { MainGameScoreboardHeader } from './MainGameScoreboardHeader';
 import {
+  ScoreboardUpdatePayload,
   FaceOffSessionState,
   TimerTickPayload,
   BuzzerLockedPayload,
@@ -42,6 +44,7 @@ export interface MainGameFaceOffControllerProps {
   onBuzz?: () => void;
   onSubmitAnswer?: (rawAnswer: string) => void;
   onChoosePlayPass?: (decision: 'play' | 'pass') => void;
+  scoreboardState?: ScoreboardUpdatePayload | null;
   onLeave?: () => void;
 }
 
@@ -62,6 +65,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   onBuzz,
   onSubmitAnswer,
   onChoosePlayPass,
+  scoreboardState,
   onLeave,
 }) => {
   const { t } = useTranslation();
@@ -93,6 +97,22 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   const isSpectator = !isContender;
   const myContender = isC1 ? c1 : isC2 ? c2 : null;
   const opponentContender = isC1 ? c2 : isC2 ? c1 : null;
+
+  const isTeam1 =
+    isC1 ||
+    snapshot.team1Players?.some(
+      (p) =>
+        (currentPlayerId && p.id === currentPlayerId) ||
+        p.nickname.toLowerCase() === trimmedNick
+    );
+  const isTeam2 =
+    isC2 ||
+    snapshot.team2Players?.some(
+      (p) =>
+        (currentPlayerId && p.id === currentPlayerId) ||
+        p.nickname.toLowerCase() === trimmedNick
+    );
+  const playerTeam: 'TEAM_1' | 'TEAM_2' | null = isTeam1 ? 'TEAM_1' : isTeam2 ? 'TEAM_2' : null;
 
   // Buzzer lockout arbiter
   const isBuzzerLocked = snapshot.buzzerLocked || Boolean(buzzerLocked);
@@ -173,6 +193,20 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       data-testid="main-game-face-off-controller"
       className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl animate-fadeIn flex flex-col items-center gap-6 text-center"
     >
+      {/* Persistent Grand Total Header (US-16 Scenario 1 Mobile) */}
+      <div className="w-full">
+        <MainGameScoreboardHeader
+          team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
+          team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
+          activeRoundBank={scoreboardState?.activeRoundBank ?? 0}
+          currentRoundNumber={scoreboardState?.currentRoundNumber ?? snapshot.roundNumber ?? 1}
+          totalRounds={scoreboardState?.totalRounds ?? 3}
+          isSuddenDeath={scoreboardState?.isSuddenDeath ?? false}
+          highlightTeam={playerTeam}
+          compact={true}
+        />
+      </div>
+
       {/* Header Info */}
       <div className="w-full flex items-center justify-between border-b border-feud-slate-border/80 pb-4">
         <div className="flex items-center gap-2">
