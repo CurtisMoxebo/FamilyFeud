@@ -43,6 +43,7 @@ import {
   MatchOverPayload,
   SuddenDeathInitiatedPayload,
   NextRoundStartedPayload,
+  ReconnectAcknowledgedPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -129,6 +130,19 @@ export function useSocket(options?: UseSocketOptions) {
 
 
   const socketRef = useRef<Socket | null>(null);
+
+  const reconnectHost = useCallback(
+    (roomCode: string, secret?: string) => {
+      const key = secret || getHostSecret(roomCode);
+      if (socketRef.current && key) {
+        socketRef.current.emit('reconnect_host', {
+          roomCode,
+          hostSecret: key,
+        });
+      }
+    },
+    []
+  );
 
   const joinRoom = useCallback(
     (payload: { roomCode: string; nickname?: string; isHost?: boolean }) => {
@@ -434,6 +448,16 @@ export function useSocket(options?: UseSocketOptions) {
       setSocketId(socket.id ?? null);
 
       if (options?.autoJoin && options.roomCode) {
+        if (options.isHost) {
+          const storedHostSecret = getHostSecret(options.roomCode);
+          if (storedHostSecret) {
+            socket.emit('reconnect_host', {
+              roomCode: options.roomCode,
+              hostSecret: storedHostSecret,
+            });
+            return;
+          }
+        }
         socket.emit('join_room', {
           roomCode: options.roomCode,
           nickname: options.nickname,
@@ -648,6 +672,19 @@ export function useSocket(options?: UseSocketOptions) {
       setHostSecret(payload.hostSecret);
     });
 
+    socket.on('reconnect_acknowledged', (payload: ReconnectAcknowledgedPayload) => {
+      if (payload.success && payload.gameState) {
+        const gs = payload.gameState;
+        if (gs.room) setRoomState(gs.room);
+        if (gs.teamsAssigned) setTeamsAssigned(gs.teamsAssigned);
+        if (gs.faceOffState) setFaceOffState(gs.faceOffState);
+        if (gs.teamGuessingState) setTeamGuessingState(gs.teamGuessingState);
+        if (gs.scoreboardState) setScoreboardState(gs.scoreboardState);
+        if (gs.fastMoneyHostState) setFastMoneyHostState(gs.fastMoneyHostState);
+        if (gs.timerTick) setTimerTick(gs.timerTick);
+      }
+    });
+
 
     return () => {
       socket.disconnect();
@@ -728,5 +765,6 @@ export function useSocket(options?: UseSocketOptions) {
     revealFastMoneyPoints,
     leaveRoom,
     clearError,
+    reconnectHost,
   };
 }

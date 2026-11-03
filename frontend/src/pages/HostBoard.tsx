@@ -196,6 +196,34 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     };
   }, [roomCode, initialRoom, apiBaseUrl, setLanguage]);
 
+  // Fast-hydrate room state from socket reconnection if REST fetch is still in flight (US-20)
+  useEffect(() => {
+    if (roomState && !room) {
+      setRoom({
+        id: roomState.roomCode,
+        roomCode: roomState.roomCode,
+        roomName: roomState.roomName,
+        language: roomState.language,
+        gameMode: roomState.gameMode,
+        status: roomState.status,
+        players: roomState.players.map((p) => ({
+          id: p.id,
+          roomId: roomState.roomCode,
+          nickname: p.nickname,
+          team: p.team as any,
+          socketId: null,
+          isReady: p.isReady,
+          isConnected: p.isConnected,
+          totalScore: 0,
+          createdAt: new Date().toISOString(),
+        })),
+        createdAt: new Date().toISOString(),
+      });
+      setLanguage(roomState.language);
+      setIsLoading(false);
+    }
+  }, [roomState, room, setLanguage]);
+
   const handleCopyLink = () => {
     if (typeof window !== 'undefined') {
       navigator.clipboard.writeText(joinUrl);

@@ -9,13 +9,19 @@ import {
   initFastMoneySession,
   broadcastFastMoneyState,
   registerFastMoneyHandlers,
+  getFastMoneySession,
 } from './fastMoneyHandler';
 import {
   initFaceOffSession,
+  getFaceOffSession,
 } from '../services/faceOffService';
 import {
   initMatchScoreboard,
+  getMatchScoreboard,
 } from '../services/mainGameScoreboardService';
+import {
+  getTeamGuessingSession,
+} from '../services/teamGuessingService';
 import {
   broadcastFaceOffState,
   registerMainGameHandlers,
@@ -90,6 +96,34 @@ export interface TeamsAssignedPayload {
   team2: AssignedPlayer[];
 }
 
+export interface ReconnectHostPayload {
+  roomCode: string;
+  hostSecret: string;
+}
+
+export interface FullGameState {
+  roomCode: string;
+  roomName: string;
+  language: 'EN' | 'FR' | 'ES';
+  gameMode: 'FAST_MONEY' | 'MAIN_GAME';
+  status: 'LOBBY' | 'ACTIVE' | 'FINISHED';
+  room: RoomStateUpdate;
+  teamsAssigned?: TeamsAssignedPayload | null;
+  faceOffState?: any;
+  teamGuessingState?: any;
+  scoreboardState?: any;
+  fastMoneyHostState?: any;
+  timerTick?: { roomCode?: string; secondsRemaining: number; endsAt?: number } | null;
+}
+
+export interface ReconnectAcknowledgedPayload {
+  success: boolean;
+  role: 'HOST' | 'PLAYER';
+  roomCode: string;
+  gameState: FullGameState;
+  message?: string;
+}
+
 /**
  * Calculates whether a room can start based on gameMode capacity and player count.
  */
@@ -145,6 +179,93 @@ export function buildRoomStateUpdate(room: Room & { players: Player[] }): RoomSt
       isReady: p.isReady,
       isConnected: p.isConnected,
     })),
+  };
+}
+
+/**
+ * Assembles the authoritative full game state for host and player session recovery (US-20).
+ */
+export async function buildFullGameState(
+  roomCode: string,
+  db: PrismaClient = defaultPrisma
+): Promise<FullGameState | null> {
+  const normalizedCode = normalizeRoomCode(roomCode);
+  const room = await db.room.findUnique({
+    where: { roomCode: normalizedCode },
+    include: { players: true },
+  });
+
+  if (!room) return null;
+
+  const roomState = buildRoomStateUpdate(room);
+
+  let teamsAssigned: TeamsAssignedPayload | null = null;
+  const team1: AssignedPlayer[] = room.players
+    .filter((p) => p.team === 'TEAM_1')
+    .map((p, idx) => ({
+      id: p.id,
+      nickname: p.nickname,
+      team: 'TEAM_1' as const,
+      battingOrder: (p as any).battingOrder ?? idx + 1,
+      originalPlayer: { id: p.id, nickname: p.nickname },
+    }));
+  const team2: AssignedPlayer[] = room.players
+    .filter((p) => p.team === 'TEAM_2')
+    .map((p, idx) => ({
+      id: p.id,
+      nickname: p.nickname,
+      team: 'TEAM_2' as const,
+      battingOrder: (p as any).battingOrder ?? idx + 1,
+      originalPlayer: { id: p.id, nickname: p.nickname },
+    }));
+
+  if (team1.length > 0 || team2.length > 0) {
+    teamsAssigned = {
+      roomCode: normalizedCode,
+      team1,
+      team2,
+    };
+  }
+
+  const faceOffSession = getFaceOffSession(normalizedCode);
+  const teamGuessingSession = getTeamGuessingSession(normalizedCode);
+  const scoreboard = getMatchScoreboard(normalizedCode);
+  const fastMoneySession = getFastMoneySession(normalizedCode);
+
+  const faceOffState = faceOffSession ? faceOffSession.getState() : null;
+  const teamGuessingState = teamGuessingSession ? teamGuessingSession.getState() : null;
+
+  let timerTick: { roomCode: string; secondsRemaining: number; endsAt?: number } | null = null;
+  if (teamGuessingState && teamGuessingState.endsAt) {
+    const secondsRemaining = Math.max(0, Math.ceil((teamGuessingState.endsAt - Date.now()) / 1000));
+    timerTick = {
+      roomCode: normalizedCode,
+      secondsRemaining,
+      endsAt: teamGuessingState.endsAt,
+    };
+  } else if (faceOffState && (faceOffState as any).endsAt) {
+    const endsAt = (faceOffState as any).endsAt;
+    const secondsRemaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+    timerTick = {
+      roomCode: normalizedCode,
+      secondsRemaining,
+      endsAt,
+    };
+  }
+
+  return {
+    roomCode: normalizedCode,
+    roomName: room.roomName,
+    language: room.language as 'EN' | 'FR' | 'ES',
+    gameMode: room.gameMode as 'FAST_MONEY' | 'MAIN_GAME',
+    status: room.status as 'LOBBY' | 'ACTIVE' | 'FINISHED',
+    room: roomState,
+    teamsAssigned,
+    faceOffState,
+    teamGuessingState,
+    scoreboardState: scoreboard ? scoreboard.getState() : null,
+    fastMoneyHostState: fastMoneySession ? fastMoneySession.getHostSnapshot() : null,
+    timerTick,
   };
 }
 
@@ -323,6 +444,101 @@ export function registerLobbyHandlers(
         };
         socket.emit('room_error', err);
         if (callback) callback({ success: false, error: err.message });
+      }
+    }
+  );
+
+  // Handle reconnect_host event (US-20 Scenario 1)
+  socket.on(
+    'reconnect_host',
+    async (
+      data: ReconnectHostPayload,
+      callback?: (res: {
+        success: boolean;
+        error?: string;
+        role?: 'HOST';
+        gameState?: FullGameState;
+      }) => void
+    ) => {
+      try {
+        if (!data || !data.roomCode || !data.hostSecret) {
+          const errMsg = 'Missing roomCode or hostSecret in reconnect_host.';
+          socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(data.roomCode);
+        const isValid = sessionRecoveryService.validateHostSecret(normalizedCode, data.hostSecret);
+
+        if (!isValid) {
+          const errMsg = 'Invalid host secret for session reconnection.';
+          logger.warn(`[RECONNECT:HOST] Rejected host reconnection for room ${normalizedCode}: invalid host secret`);
+          socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        // Re-attach host socket
+        socket.join(`room:${normalizedCode}`);
+        socket.data = { roomCode: normalizedCode, isHost: true };
+        sessionRecoveryService.registerHostSocket(normalizedCode, socket.id);
+
+        const gameState = await buildFullGameState(normalizedCode, db);
+        if (!gameState) {
+          const errMsg = 'Room session not found for host recovery.';
+          socket.emit('room_error', { code: 'ROOM_NOT_FOUND', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        logger.info(`[RECONNECT:HOST] Host successfully reconnected to room ${normalizedCode} (status: ${gameState.status}, gameMode: ${gameState.gameMode})`);
+
+        // Emit authoritative reconnect acknowledgment
+        const ackPayload: ReconnectAcknowledgedPayload = {
+          success: true,
+          role: 'HOST',
+          roomCode: normalizedCode,
+          gameState,
+        };
+
+        socket.emit('reconnect_acknowledged', ackPayload);
+
+        // Re-hydrate standard socket channels directly to trigger all view bindings
+        socket.emit('room_state_update', gameState.room);
+        if (gameState.teamsAssigned) {
+          socket.emit('teams_assigned', gameState.teamsAssigned);
+        }
+        if (gameState.faceOffState) {
+          socket.emit('face_off_state', gameState.faceOffState);
+        }
+        if (gameState.teamGuessingState) {
+          socket.emit('team_guessing_state', gameState.teamGuessingState);
+        }
+        if (gameState.scoreboardState) {
+          socket.emit('scoreboard_update', gameState.scoreboardState);
+        }
+        if (gameState.fastMoneyHostState) {
+          socket.emit('fast_money_host_state', gameState.fastMoneyHostState);
+        }
+        if (gameState.timerTick) {
+          socket.emit('timer_tick', gameState.timerTick);
+        }
+
+        if (callback) {
+          callback({
+            success: true,
+            role: 'HOST',
+            gameState,
+          });
+        }
+      } catch (err: any) {
+        logger.error(`[RECONNECT:HOST] Unexpected error during host reconnection: ${err?.message || err}`);
+        socket.emit('room_error', {
+          code: 'SERVER_ERROR',
+          message: 'Internal server error while recovering host session.',
+        });
+        if (callback) callback({ success: false, error: 'Internal server error.' });
       }
     }
   );
