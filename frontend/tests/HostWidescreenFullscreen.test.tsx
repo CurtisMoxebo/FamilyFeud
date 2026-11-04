@@ -232,14 +232,38 @@ describe('US-22 Step 2: Host TV 16:9 Widescreen Optimization & Fullscreen Toggle
     expect(webkitExit).toHaveBeenCalledTimes(1);
     expect(result.current.isFullscreen).toBe(false);
 
-    // Graceful failure if API rejects
+    // Graceful failure if enterFullscreen or exitFullscreen API rejects
     const rejectingReq = vi.fn().mockRejectedValue(new Error('Permissions check failed'));
+    const rejectingExit = vi.fn().mockRejectedValue(new Error('Document not active'));
     document.documentElement.requestFullscreen = rejectingReq;
+    document.exitFullscreen = rejectingExit;
     await act(async () => {
       const ok = await result.current.enterFullscreen();
       expect(ok).toBe(false);
     });
     expect(result.current.isFullscreen).toBe(false);
+
+    await act(async () => {
+      const ok = await result.current.exitFullscreen();
+      expect(ok).toBe(false);
+    });
+
+    // Unsupported environment fallback (neither standard nor WebKit APIs present)
+    Object.defineProperty(document, 'fullscreenEnabled', {
+      configurable: true,
+      value: false,
+    });
+    delete (document.documentElement as Partial<HTMLElement>).requestFullscreen;
+    delete (document as Partial<Document>).exitFullscreen;
+    delete (document.documentElement as unknown as Record<string, unknown>).webkitRequestFullscreen;
+    delete (document as unknown as Record<string, unknown>).webkitExitFullscreen;
+
+    const { result: unsupportedResult } = renderHook(() => useFullscreen());
+    expect(unsupportedResult.current.isFullscreenSupported).toBe(false);
+    await act(async () => {
+      expect(await unsupportedResult.current.enterFullscreen()).toBe(false);
+      expect(await unsupportedResult.current.exitFullscreen()).toBe(false);
+    });
   });
 
   it('2. Host Display header renders localized Fullscreen button and toggles Fullscreen on click & F11 keydown', async () => {
