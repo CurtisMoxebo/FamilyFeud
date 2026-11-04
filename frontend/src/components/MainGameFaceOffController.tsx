@@ -13,6 +13,7 @@ import {
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { triggerHaptic } from '../utils/haptics';
+import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 import {
   Zap,
   Lock,
@@ -77,8 +78,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   const [answerInput, setAnswerInput] = useState<string>('');
   const [hasSubmitted, setHasSubmitted] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const formAnchorRef = useRef<HTMLFormElement>(null);
   const lastBuzzHapticAtRef = useRef<number>(0);
   const hasVibratedWinRef = useRef<string | null>(null);
+  const { isKeyboardOpen, keepElementVisible } = useVirtualKeyboard();
 
   // Authoritative countdown seconds
   const currentSeconds =
@@ -220,7 +223,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   return (
     <div
       data-testid="main-game-face-off-controller"
-      className="max-w-md w-full max-w-[100%] overflow-x-hidden bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-4 sm:p-8 pb-safe shadow-2xl animate-fadeIn flex flex-col items-center gap-4 sm:gap-6 text-center"
+      data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
+      className={`max-w-md w-full max-w-[100%] overflow-x-hidden bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl ${
+        isKeyboardOpen ? 'p-3 gap-2.5' : 'p-4 sm:p-8 gap-4 sm:gap-6'
+      } pb-safe shadow-2xl animate-fadeIn flex flex-col items-center text-center`}
     >
       {/* Persistent Grand Total Header (US-16 Scenario 1 Mobile) */}
       <div className="w-full">
@@ -486,7 +492,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           {/* Active 15-Second Authoritative Countdown Ring */}
           <div
             data-testid="controller-timer-ring"
-            className={`w-24 h-24 rounded-full flex flex-col items-center justify-center border-4 shadow-xl ${
+            className={`${
+              isKeyboardOpen ? 'w-14 h-14' : 'w-24 h-24'
+            } rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all ${
               currentSeconds <= 5
                 ? 'border-red-500 bg-red-950/40 text-red-400 animate-pulse'
                 : 'border-feud-gold bg-slate-900/90 text-feud-gold'
@@ -494,7 +502,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           >
             <span
               data-testid="controller-seconds-remaining"
-              className="text-3xl font-black"
+              className={`${isKeyboardOpen ? 'text-xl' : 'text-3xl'} font-black`}
             >
               {currentSeconds}
             </span>
@@ -522,9 +530,12 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
             ) : (
               /* Input Form with 15s Timer */
               <form
+                ref={formAnchorRef}
                 onSubmit={handleSubmit}
                 data-testid="face-off-answer-form"
-                className="w-full flex flex-col gap-3"
+                className={`w-full flex flex-col ${
+                  isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'
+                }`}
               >
                 <label
                   htmlFor="face-off-answer-input"
@@ -536,9 +547,12 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   id="face-off-answer-input"
                   ref={inputRef}
                   type="text"
+                  inputMode="text"
+                  enterKeyHint="send"
                   data-testid="face-off-answer-input"
                   value={answerInput}
                   onChange={(e) => setAnswerInput(e.target.value)}
+                  onFocus={() => keepElementVisible(formAnchorRef.current)}
                   placeholder={t.mainGame.faceOffInputPlaceholder}
                   maxLength={60}
                   autoComplete="off"
@@ -609,7 +623,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           {/* 15-Second Countdown Ring */}
           <div
             data-testid="controller-timer-ring"
-            className={`w-24 h-24 rounded-full flex flex-col items-center justify-center border-4 shadow-xl ${
+            className={`${
+              isKeyboardOpen ? 'w-14 h-14' : 'w-24 h-24'
+            } rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all ${
               currentSeconds <= 5
                 ? 'border-red-500 bg-red-950/40 text-red-400 animate-pulse'
                 : 'border-blue-400 bg-slate-900/90 text-blue-300'
@@ -617,7 +633,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           >
             <span
               data-testid="controller-seconds-remaining"
-              className="text-3xl font-black"
+              className={`${isKeyboardOpen ? 'text-xl' : 'text-3xl'} font-black`}
             >
               {currentSeconds}
             </span>
@@ -643,9 +659,12 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
               </div>
             ) : (
               <form
+                ref={formAnchorRef}
                 onSubmit={handleSubmit}
                 data-testid="face-off-answer-form"
-                className="w-full flex flex-col gap-3"
+                className={`w-full flex flex-col ${
+                  isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'
+                }`}
               >
                 <label
                   htmlFor="face-off-answer-input"
@@ -657,9 +676,12 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   id="face-off-answer-input"
                   ref={inputRef}
                   type="text"
+                  inputMode="text"
+                  enterKeyHint="send"
                   data-testid="face-off-answer-input"
                   value={answerInput}
                   onChange={(e) => setAnswerInput(e.target.value)}
+                  onFocus={() => keepElementVisible(formAnchorRef.current)}
                   placeholder={t.mainGame.faceOffInputPlaceholder}
                   maxLength={60}
                   autoComplete="off"

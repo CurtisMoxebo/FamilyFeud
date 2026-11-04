@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Room, TeamsAssignedPayload, FaceOffSessionState, TeamGuessingSessionState, ScoreboardUpdatePayload, MatchOverPayload, GamePausedPayload } from '../types';
 import { MainGameVictoryModal } from '../components/MainGameVictoryModal';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useRouter } from '../router/router';
 import { useSocket } from '../hooks/useSocket';
+import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 import { getPlayerSession, clearPlayerSession } from '../utils/sessionStorage';
 import { FastMoneyController } from '../components/FastMoneyController';
 import { FastMoneyIsolation } from '../components/FastMoneyIsolation';
@@ -53,6 +54,8 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
 }) => {
   const { setLanguage, t } = useTranslation();
   const { navigate } = useRouter();
+  const joinFormRef = useRef<HTMLFormElement>(null);
+  const { isKeyboardOpen, keepElementVisible } = useVirtualKeyboard();
 
   const [room, setRoom] = useState<Room | null>(initialRoom);
   const [isLoading, setIsLoading] = useState<boolean>(!initialRoom);
@@ -684,11 +687,16 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
   return (
     <div
       data-testid="player-controller-shell"
+      data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
       className="w-full max-w-md max-w-[100%] overflow-x-hidden pb-safe flex flex-col items-center"
     >
       {/* Room Header Card */}
-      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl mb-6">
-        <div className="text-center mb-6">
+      <div
+        className={`w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl ${
+          isKeyboardOpen ? 'p-4 mb-2' : 'p-6 sm:p-8 mb-6'
+        } shadow-2xl transition-all`}
+      >
+        <div className={`text-center ${isKeyboardOpen ? 'mb-3' : 'mb-6'}`}>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-feud-gold/20 border border-feud-gold/40 text-feud-gold text-xs font-bold tracking-widest uppercase mb-3">
             <Sparkles className="w-3.5 h-3.5" />
             <span>{room.roomCode}</span>
@@ -741,7 +749,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
         </div>
 
         {/* Join Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form ref={joinFormRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label
               htmlFor="nickname-input"
@@ -762,9 +770,11 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
                   setNickname(e.target.value);
                   if (validationError) setValidationError(null);
                 }}
+                onFocus={() => keepElementVisible(joinFormRef.current)}
                 maxLength={20}
                 autoFocus
                 autoComplete="off"
+                enterKeyHint="go"
                 placeholder={t.joinRoom.nicknamePlaceholder}
                 className="w-full min-h-touch pl-11 pr-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 text-white placeholder-slate-500 font-medium text-base focus:outline-none focus:ring-2 focus:ring-feud-gold/50 focus:border-feud-gold transition-all"
               />

@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { triggerHaptic } from '../utils/haptics';
+import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 import {
   Clock,
   Send,
@@ -73,10 +74,12 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const formAnchorRef = useRef<HTMLFormElement>(null);
   const lastStrikeTimestamp = useRef<number>(0);
   const prevStrikesRef = useRef<number>(snapshot.strikes);
   const prevRevealedCountRef = useRef<number>(snapshot.revealedAnswers.length);
   const handledResolutionRef = useRef<string | null>(null);
+  const { isKeyboardOpen, keepElementVisible } = useVirtualKeyboard();
 
   // Dismiss mobile strike alert immediately if strike is retracted by Host Override (US-21 Scenario 2)
   useEffect(() => {
@@ -270,8 +273,11 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
 
   return (
     <div
-      className="w-full max-w-lg max-w-[100%] overflow-x-hidden mx-auto flex flex-col min-h-[85dvh] text-white select-none relative pb-6 pb-safe"
+      className={`w-full max-w-lg max-w-[100%] overflow-x-hidden mx-auto flex flex-col ${
+        isKeyboardOpen ? 'min-h-0 pb-2' : 'min-h-[85dvh] pb-6'
+      } text-white select-none relative pb-safe`}
       data-testid="main-game-team-controller"
+      data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
     >
       {/* Top Mobile Bar */}
       <header className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
@@ -330,7 +336,12 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       </div>
 
       {/* Survey Question Card */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/40 shadow-xl text-center mb-4">
+      <div
+        data-testid="team-controller-question-card"
+        className={`${
+          isKeyboardOpen ? 'p-2.5 mb-2' : 'p-4 mb-4'
+        } rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/40 shadow-xl text-center transition-all`}
+      >
         <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-300/80 block mb-1">
           Survey Question
         </span>
@@ -581,7 +592,12 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       )}
 
       {/* Answer Board Slots (Compact Mobile Card Grid) */}
-      <div className="mb-4 p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80">
+      <div
+        data-testid="mobile-survey-board-summary"
+        className={`${
+          isKeyboardOpen ? 'mb-2 p-2 max-h-24 overflow-y-auto' : 'mb-4 p-3'
+        } rounded-2xl bg-slate-900/60 border border-slate-800/80 transition-all`}
+      >
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2 px-1">
           Survey Board ({snapshot.revealedAnswers.length} / {totalSlots} Revealed)
         </span>
@@ -627,16 +643,22 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       {/* Interactive Answer Submission / Pass Form for Active Guesser during TEAM_GUESSING */}
       {isActiveGuesser && snapshot.phase === 'TEAM_GUESSING' ? (
         <form
+          ref={formAnchorRef}
           onSubmit={handleSubmit}
-          className="mt-auto flex flex-col gap-2.5 p-4 rounded-2xl bg-slate-900/90 border border-indigo-500/50 shadow-2xl"
+          className={`mt-auto flex flex-col gap-2 ${
+            isKeyboardOpen ? 'p-3 sticky bottom-0 z-20' : 'p-4'
+          } rounded-2xl bg-slate-900/95 border border-indigo-500/50 shadow-2xl`}
           data-testid="player-guess-form"
         >
           <div className="relative">
             <input
               ref={inputRef}
               type="text"
+              inputMode="text"
+              enterKeyHint="send"
               value={guessInput}
               onChange={(e) => setGuessInput(e.target.value)}
+              onFocus={() => keepElementVisible(formAnchorRef.current)}
               placeholder={t.mainGame.teamGuessInputPlaceholder}
               disabled={isPaused || isSubmitting}
               maxLength={40}
@@ -673,16 +695,22 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       {/* Scenario 4: Interactive Steal Submission Form (ONLY for designated spokesperson during STEAL_PHASE) */}
       {isSpokesperson && snapshot.phase === 'STEAL_PHASE' ? (
         <form
+          ref={formAnchorRef}
           onSubmit={handleStealSubmit}
-          className="mt-auto flex flex-col gap-2.5 p-4 rounded-2xl bg-gradient-to-r from-amber-950/90 via-yellow-950/90 to-amber-950/90 border-2 border-yellow-400 shadow-2xl animate-fade-in"
+          className={`mt-auto flex flex-col gap-2 ${
+            isKeyboardOpen ? 'p-3 sticky bottom-0 z-20' : 'p-4'
+          } rounded-2xl bg-gradient-to-r from-amber-950/95 via-yellow-950/95 to-amber-950/95 border-2 border-yellow-400 shadow-2xl animate-fade-in`}
           data-testid="spokesperson-steal-form"
         >
           <div className="relative">
             <input
               ref={inputRef}
               type="text"
+              inputMode="text"
+              enterKeyHint="send"
               value={guessInput}
               onChange={(e) => setGuessInput(e.target.value)}
+              onFocus={() => keepElementVisible(formAnchorRef.current)}
               placeholder={t.mainGame.stealInputPlaceholder}
               disabled={isPaused || isSubmitting}
               maxLength={40}
