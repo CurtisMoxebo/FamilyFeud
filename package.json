@@ -2,6 +2,10 @@
   "name": "family-feud-root",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
   "scripts": {
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
@@ -19,4 +23,3 @@
     "prisma:studio": "npm --prefix backend run prisma:studio"
   }
 }
-
