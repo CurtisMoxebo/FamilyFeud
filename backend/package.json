@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "Backend API and WebSocket server for Family Feud Online",
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -28,7 +32,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
-    "@types/node": "^20.17.10",
+    "@types/node": "^24.19.2",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.12",
     "prisma": "^5.22.0",

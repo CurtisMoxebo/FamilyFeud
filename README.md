@@ -28,7 +28,7 @@ An interactive, real-time multiplayer web application bringing the classic telev
 | Layer | Technologies |
 | :--- | :--- |
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Socket.io-client, Canvas Confetti |
-| **Backend** | Node.js, Express, TypeScript, Socket.io, `@google/genai` (Google Gemini SDK), Zod |
+| **Backend** | Node.js (v24 LTS), Express, TypeScript, Socket.io, `@google/genai` (Google Gemini SDK), Zod |
 | **Database & ORM** | MySQL 8.0, Prisma ORM (Code-First with modular multi-file schema) |
 | **Testing** | Vitest, Supertest, @testing-library/react, jsdom |
 | **DevOps & Containers** | Docker, Docker Compose, Nginx, GitHub Actions (CI) |
@@ -88,6 +88,7 @@ FamilyFeud/
 │   ├── package.json
 │   └── .env.example
 ├── docs/                    # Wiki & User Stories documentation
+├── .nvmrc                   # Node.js Active LTS version pin (v24)
 ├── .gitignore
 └── README.md
 ```
@@ -99,7 +100,7 @@ FamilyFeud/
 ### Prerequisites
 - **Google Gemini API Key** (Free from [Google AI Studio](https://aistudio.google.com/))
 - **Docker & Docker Compose** (for containerized setup) **OR**
-- **Node.js** v18+ & **MySQL** v8.0+ (for manual local development)
+- **Node.js** v24+ (LTS) & **MySQL** v8.0+ (for manual local development)
 
 ---
 
@@ -188,7 +189,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 911 regression tests** (528 backend, 383 frontend) pass cleanly with **>90% code coverage** across 74 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 916 regression tests** (533 backend, 383 frontend) pass cleanly with **>90% code coverage** across 75 suites:
 
 ```bash
 # Run all regression tests across the whole project
