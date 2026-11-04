@@ -6,9 +6,9 @@ An interactive, real-time multiplayer web application bringing the classic telev
 
 ## 🌟 Key Features
 
-- **Dual-Display Architecture**:
-  - **Host TV Display (`/host/:roomCode`)**: High-definition 16:9 broadcast stage featuring animated flip cards, strike overlays ($X, XX, XXX$), round bank tallies, automated SpeechSynthesis (TTS), and sound synthesizer.
-  - **Player Mobile Controller (`/play/:roomCode`)**: Low-latency, touch-optimized smartphone controller with prominent buzzers, answer inputs, haptic vibration feedback, and personal team scorecards.
+- **Dual-Display Architecture (US-22)**:
+  - **Host TV Display (`/host/:roomCode`)**: High-definition 16:9 broadcast stage scaled for 1080p & 4K TV resolutions (`3xl`/`4k` breakpoints) with a localized Fullscreen toggle (`F11` shortcut or header button), animated flip cards, strike overlays ($X, XX, XXX$), round bank tallies, automated SpeechSynthesis (TTS), sound synthesizer, and strict passive contest isolation (zero contestant inputs).
+  - **Player Mobile Controller (`/play/:roomCode`)**: Portrait-optimized smartphone controller with safe-area notch insets (`viewport-fit=cover`, `.pt-safe`, `.pb-safe`), $\ge 48\text{px}$ accessible touch targets, central thumb-zone buzzers, tactile haptic vibration feedback (`buzz`, `strike`, `success`), virtual soft-keyboard viewport adaptation (`window.visualViewport`), and personal team scorecards.
 - **Multilingual Support**: Play natively in **English**, **French**, or **Spanish** with fully localized UI text, questions, and native TTS pronunciation.
 - **AI-Powered (Google Gemini API)**:
   - Dynamically generates survey questions with answers strictly summing to 100 points.
@@ -77,9 +77,9 @@ FamilyFeud/
 │   │   │   └── LanguageContext.tsx # React Context & useTranslation hook
 │   │   ├── pages/           # HomePage, HostBoard, PlayerJoin
 │   │   ├── router/          # Client router with param matching
-│   │   ├── hooks/           # useSocket
+│   │   ├── hooks/           # useSocket, useFullscreen, useVirtualKeyboard
 │   │   ├── types/           # Shared TypeScript contracts
-│   │   ├── utils/           # Web Speech API TTS (tts.ts) & Web Audio SFX (soundEffects.ts)
+│   │   ├── utils/           # Web Speech API TTS (tts.ts), Web Audio SFX (soundEffects.ts / SoundSynthesizer.ts), Haptics (haptics.ts) & Session Storage (sessionStorage.ts)
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   ├── tests/               # Symmetrical frontend regression & component suites
@@ -188,7 +188,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 894 regression tests** (528 backend, 366 frontend) pass cleanly with **>90% code coverage** across 70 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 911 regression tests** (528 backend, 383 frontend) pass cleanly with **>90% code coverage** across 74 suites:
 
 ```bash
 # Run all regression tests across the whole project

@@ -7,6 +7,8 @@ import {
   GameOverPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
+import { triggerHaptic } from '../utils/haptics';
+import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 import {
   Timer,
   Zap,
@@ -51,6 +53,8 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   const [answerText, setAnswerText] = useState<string>('');
   const [isShaking, setIsShaking] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const activeCardRef = useRef<HTMLDivElement>(null);
+  const { isKeyboardOpen, keepElementVisible } = useVirtualKeyboard();
 
   const isPlayer2 =
     playerNumber === 2 ||
@@ -64,6 +68,13 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
       : timerTick && typeof timerTick.secondsRemaining === 'number'
       ? timerTick.secondsRemaining
       : snapshot.remainingSeconds;
+
+  // US-22 Scenario 4: Ensure question card + input + buttons stay above soft keyboard
+  useEffect(() => {
+    if (isKeyboardOpen && isPlaying) {
+      keepElementVisible(activeCardRef.current);
+    }
+  }, [isKeyboardOpen, isPlaying, snapshot.currentQuestion?.id, keepElementVisible]);
 
   // Auto-focus input and reset value on each new question (DoD Requirement)
   useEffect(() => {
@@ -83,14 +94,8 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
       // Clear input field (DoD Requirement)
       setAnswerText('');
 
-      // Trigger mobile haptic feedback if supported (DoD Requirement)
-      if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate([100, 50, 100]);
-        } catch {
-          // Ignore if vibration is restricted or unsupported
-        }
-      }
+      // Trigger mobile haptic feedback via shared US-22 haptics engine
+      triggerHaptic('strike');
 
       // Trigger shake animation (DoD Requirement)
       setIsShaking(true);
@@ -183,7 +188,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="fast-money-game-over-screen"
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         {isVic ? (
           <div data-testid="player-victory-view" className="flex flex-col items-center">
@@ -264,7 +269,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid={isPlayer2 ? 'p2-ready-screen' : 'p1-ready-screen'}
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500/20 to-yellow-400/30 text-feud-gold mx-auto flex items-center justify-center mb-5 ring-4 ring-feud-gold/30 shadow-lg shadow-feud-gold/20">
           <Zap className="w-10 h-10 animate-bounce" />
@@ -298,7 +303,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           }}
           disabled={isPaused}
           data-testid={isPlayer2 ? 'p2-ready-btn' : 'p1-ready-btn'}
-          className="w-full py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full touch-target min-h-touch py-4 px-6 rounded-2xl font-black text-lg uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 hover:from-yellow-400 hover:to-feud-gold text-slate-950 shadow-xl shadow-feud-gold/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap className="w-6 h-6 fill-slate-950" />
           <span>{t.fastMoney.imReady}</span>
@@ -321,7 +326,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="p1-reveal-screen"
-        className="max-w-md w-full flex flex-col gap-4 animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe flex flex-col gap-4 animate-fade-in"
       >
         {/* Header: Synchronized Cumulative Total Score */}
         <div className="flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-feud-gold/30 shadow-lg">
@@ -442,7 +447,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="p2-reveal-spectator-screen"
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-16 h-16 rounded-full bg-feud-gold/20 text-feud-gold mx-auto flex items-center justify-center mb-4">
           <Sparkles className="w-10 h-10 text-feud-gold animate-spin" />
@@ -492,7 +497,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="fast-money-turn-complete"
-        className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-400 mx-auto flex items-center justify-center mb-4">
           <CheckCircle2 className="w-10 h-10" />
@@ -541,7 +546,10 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   return (
     <div
       data-testid="fast-money-playing-screen"
-      className="max-w-md w-full flex flex-col gap-4 animate-fade-in"
+      data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
+      className={`max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe flex flex-col ${
+        isKeyboardOpen ? 'gap-2' : 'gap-4'
+      } animate-fade-in`}
     >
       {/* Inline styles for shake animation */}
       <style>{`
@@ -556,11 +564,17 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
       `}</style>
 
       {/* Top Header: Authoritative Countdown Timer & Question Counter */}
-      <div className="flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-slate-800 shadow-lg">
+      <div
+        className={`flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md ${
+          isKeyboardOpen ? 'p-2.5' : 'p-3.5'
+        } rounded-2xl border border-slate-800 shadow-lg`}
+      >
         {/* Synchronized Timer Display */}
         <div
           data-testid="fast-money-timer"
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-black text-xl tracking-wider transition-colors ${getTimerColorClass()}`}
+          className={`flex items-center gap-2 ${
+            isKeyboardOpen ? 'px-3 py-1 text-base' : 'px-4 py-2 text-xl'
+          } rounded-xl border font-black tracking-wider transition-colors ${getTimerColorClass()}`}
         >
           <Timer className="w-5 h-5 shrink-0" />
           <span>
@@ -593,8 +607,18 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
       </div>
 
       {/* Question Card */}
-      <div className="bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-7 shadow-2xl text-center">
-        <div className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-feud-gold/20 text-feud-gold text-[11px] font-extrabold uppercase tracking-widest mb-3">
+      <div
+        ref={activeCardRef}
+        data-testid="fast-money-active-card"
+        className={`bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl ${
+          isKeyboardOpen ? 'p-3.5 sm:p-5' : 'p-6 sm:p-7'
+        } shadow-2xl text-center transition-all`}
+      >
+        <div
+          className={`inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-feud-gold/20 text-feud-gold text-[11px] font-extrabold uppercase tracking-widest ${
+            isKeyboardOpen ? 'mb-1.5' : 'mb-3'
+          }`}
+        >
           <span>
             {isPlayer2 ? 'Player 2' : 'Player 1'} • Question #{currentQ?.questionNumber ?? 1}
           </span>
@@ -602,7 +626,11 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
         <h2
           data-testid="fast-money-question-text"
-          className="text-xl sm:text-2xl font-black text-white leading-snug mb-5 min-h-[3.5rem] flex items-center justify-center"
+          className={`${
+            isKeyboardOpen
+              ? 'text-base sm:text-xl mb-2.5 min-h-0'
+              : 'text-xl sm:text-2xl mb-5 min-h-[3.5rem]'
+          } font-black text-white leading-snug flex items-center justify-center`}
         >
           {currentQ?.questionText || 'Loading question...'}
         </h2>
@@ -628,14 +656,20 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
         )}
 
         {/* Answer Submission Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <form
+          onSubmit={handleSubmit}
+          data-testid="fast-money-answer-form"
+          className={`flex flex-col ${isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'}`}
+        >
           <div className={`relative transition-transform ${isShaking ? 'animate-shake' : ''}`}>
             <input
               ref={inputRef}
               type="text"
+              inputMode="text"
               data-testid="fast-money-input"
               value={answerText}
               onChange={handleInputChange}
+              onFocus={() => keepElementVisible(activeCardRef.current)}
               placeholder={t.fastMoney.answerPlaceholder}
               autoFocus
               autoComplete="off"
@@ -644,7 +678,9 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               enterKeyHint="send"
               maxLength={50}
               disabled={isPaused || snapshot.canSubmit === false}
-              className={`w-full px-4 py-3.5 rounded-2xl bg-slate-900/90 text-white placeholder-slate-500 font-bold text-lg text-center focus:outline-none transition-all disabled:opacity-50 border ${
+              className={`w-full min-h-touch px-4 ${
+                isKeyboardOpen ? 'py-2.5' : 'py-3.5'
+              } rounded-2xl bg-slate-900/90 text-white placeholder-slate-500 font-bold text-lg text-center focus:outline-none transition-all disabled:opacity-50 border ${
                 isShaking
                   ? 'border-red-500 ring-2 ring-red-500/50 bg-red-950/30'
                   : 'border-slate-700 focus:ring-2 focus:ring-feud-gold/50 focus:border-feud-gold'
@@ -660,7 +696,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               onClick={handlePass}
               disabled={isPaused || snapshot.canPass === false}
               data-testid="fast-money-pass-btn"
-              className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <SkipForward className="w-4 h-4 fill-slate-950" />
               <span>{t.fastMoney.passButton}</span>
@@ -671,7 +707,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               type="submit"
               disabled={isPaused || !answerText.trim() || snapshot.canSubmit === false}
               data-testid="fast-money-submit-btn"
-              className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
               <span>{t.fastMoney.submitButton}</span>

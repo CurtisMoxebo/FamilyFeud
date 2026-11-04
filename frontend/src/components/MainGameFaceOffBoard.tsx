@@ -202,7 +202,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   return (
     <div
       data-testid="main-game-face-off-board"
-      className="w-full max-w-5xl flex flex-col items-center gap-8 animate-fadeIn"
+      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-8 animate-fadeIn"
     >
       {/* Persistent Grand Total Header (US-16 Scenario 1) */}
       <div className="w-full">
@@ -315,7 +315,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
               </span>
               <h2
                 data-testid="face-off-question-text"
-                className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight drop-shadow-md"
+                className="text-2xl sm:text-3xl lg:text-4xl 2xl:text-5xl 3xl:text-6xl font-extrabold text-white leading-tight drop-shadow-md"
               >
                 &ldquo;{snapshot.question?.questionText}&rdquo;
               </h2>

@@ -12,6 +12,8 @@ import {
   OpponentTurnPromptPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
+import { triggerHaptic } from '../utils/haptics';
+import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 import {
   Zap,
   Lock,
@@ -76,6 +78,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   const [answerInput, setAnswerInput] = useState<string>('');
   const [hasSubmitted, setHasSubmitted] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const formAnchorRef = useRef<HTMLFormElement>(null);
+  const lastBuzzHapticAtRef = useRef<number>(0);
+  const hasVibratedWinRef = useRef<string | null>(null);
+  const { isKeyboardOpen, keepElementVisible } = useVirtualKeyboard();
 
   // Authoritative countdown seconds
   const currentSeconds =
@@ -147,6 +153,24 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
 
   const isLockedOut = isBuzzerLocked && !isActiveRespondent && !isSpectator;
 
+  // US-22 Scenario 3: Tactile strike vibration when buzzer is rejected / locked out
+  useEffect(() => {
+    if (buzzerRejected) {
+      triggerHaptic('strike');
+    }
+  }, [buzzerRejected]);
+
+  // US-22: Celebratory haptic pulse when winning the Face-Off duel
+  useEffect(() => {
+    if (snapshot.phase === 'PASS_OR_PLAY' && isFaceOffWinner) {
+      const winKey = `${snapshot.roundNumber}-${snapshot.question?.id ?? 'q'}`;
+      if (hasVibratedWinRef.current !== winKey) {
+        hasVibratedWinRef.current = winKey;
+        triggerHaptic('success');
+      }
+    }
+  }, [snapshot.phase, snapshot.roundNumber, snapshot.question?.id, isFaceOffWinner]);
+
   // Auto-focus input when floor becomes active for current player
   useEffect(() => {
     if (
@@ -199,7 +223,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   return (
     <div
       data-testid="main-game-face-off-controller"
-      className="max-w-md w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl animate-fadeIn flex flex-col items-center gap-6 text-center"
+      data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
+      className={`max-w-md w-full max-w-[100%] overflow-x-hidden bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl ${
+        isKeyboardOpen ? 'p-3 gap-2.5' : 'p-4 sm:p-8 gap-4 sm:gap-6'
+      } pb-safe shadow-2xl animate-fadeIn flex flex-col items-center text-center`}
     >
       {/* Persistent Grand Total Header (US-16 Scenario 1 Mobile) */}
       <div className="w-full">
@@ -243,7 +270,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
             <button
               type="button"
               onClick={onLeave}
-              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+              className="touch-target min-h-touch px-3 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800/80 flex items-center justify-center gap-1 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Leave</span>
@@ -367,7 +394,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   onClick={() => {
                     if (!isPaused && onReady) onReady();
                   }}
-                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-feud-gold via-yellow-400 to-feud-gold-light text-slate-950 font-black text-lg uppercase tracking-wider shadow-[0_0_25px_rgba(234,179,8,0.4)] hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full touch-target min-h-touch py-4 px-6 rounded-2xl bg-gradient-to-r from-feud-gold via-yellow-400 to-feud-gold-light text-slate-950 font-black text-lg uppercase tracking-wider shadow-[0_0_25px_rgba(234,179,8,0.4)] hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {t.mainGame.imReady}
                 </button>
@@ -398,16 +425,30 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {snapshot.phase === 'BUZZER_ACTIVE' && (
         <div className="w-full flex flex-col items-center gap-4">
           {isContender ? (
-            /* Giant Mobile Tactile Buzzer Button (Scenario 2) */
-            <div className="flex flex-col items-center gap-3 my-2">
+            /* Giant Mobile Tactile Buzzer Button (US-22 Scenarios 2 & 3) */
+            <div
+              data-testid="face-off-buzzer-zone"
+              className="w-full flex-1 min-h-[260px] flex flex-col items-center justify-center gap-3 my-2"
+            >
               <button
                 type="button"
                 data-testid="face-off-buzzer-btn"
                 disabled={isPaused}
-                onClick={() => {
-                  if (!isPaused && onBuzz) onBuzz();
+                onTouchStart={() => {
+                  if (!isPaused) {
+                    lastBuzzHapticAtRef.current = Date.now();
+                    triggerHaptic('buzz');
+                  }
                 }}
-                className="w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-gradient-to-b from-red-500 via-feud-red to-red-800 border-8 border-yellow-400 shadow-[0_0_50px_rgba(239,68,68,0.6)] text-white font-black text-3xl sm:text-4xl uppercase tracking-widest flex flex-col items-center justify-center gap-2 transform active:scale-90 hover:brightness-110 transition-all cursor-pointer select-none animate-pulse disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => {
+                  if (!isPaused) {
+                    if (Date.now() - lastBuzzHapticAtRef.current > 400) {
+                      triggerHaptic('buzz');
+                    }
+                    if (onBuzz) onBuzz();
+                  }
+                }}
+                className="w-56 h-56 sm:w-64 sm:h-64 max-w-[75vw] max-h-[75vw] min-w-touch min-h-touch touch-target touch-manipulation rounded-full bg-gradient-to-b from-red-500 via-feud-red to-red-800 border-8 border-yellow-400 shadow-[0_0_50px_rgba(239,68,68,0.6)] text-white font-black text-3xl sm:text-4xl uppercase tracking-widest flex flex-col items-center justify-center gap-2 transform active:scale-90 hover:brightness-110 transition-all cursor-pointer select-none animate-pulse disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Zap className="w-12 h-12 text-yellow-300" />
                 <span>{t.mainGame.buzzerBtn}</span>
@@ -451,7 +492,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           {/* Active 15-Second Authoritative Countdown Ring */}
           <div
             data-testid="controller-timer-ring"
-            className={`w-24 h-24 rounded-full flex flex-col items-center justify-center border-4 shadow-xl ${
+            className={`${
+              isKeyboardOpen ? 'w-14 h-14' : 'w-24 h-24'
+            } rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all ${
               currentSeconds <= 5
                 ? 'border-red-500 bg-red-950/40 text-red-400 animate-pulse'
                 : 'border-feud-gold bg-slate-900/90 text-feud-gold'
@@ -459,7 +502,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           >
             <span
               data-testid="controller-seconds-remaining"
-              className="text-3xl font-black"
+              className={`${isKeyboardOpen ? 'text-xl' : 'text-3xl'} font-black`}
             >
               {currentSeconds}
             </span>
@@ -487,9 +530,12 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
             ) : (
               /* Input Form with 15s Timer */
               <form
+                ref={formAnchorRef}
                 onSubmit={handleSubmit}
                 data-testid="face-off-answer-form"
-                className="w-full flex flex-col gap-3"
+                className={`w-full flex flex-col ${
+                  isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'
+                }`}
               >
                 <label
                   htmlFor="face-off-answer-input"
@@ -501,20 +547,23 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   id="face-off-answer-input"
                   ref={inputRef}
                   type="text"
+                  inputMode="text"
+                  enterKeyHint="send"
                   data-testid="face-off-answer-input"
                   value={answerInput}
                   onChange={(e) => setAnswerInput(e.target.value)}
+                  onFocus={() => keepElementVisible(formAnchorRef.current)}
                   placeholder={t.mainGame.faceOffInputPlaceholder}
                   maxLength={60}
                   autoComplete="off"
                   disabled={isPaused}
-                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-feud-gold/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-feud-gold disabled:opacity-50"
+                  className="w-full min-h-touch px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-feud-gold/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-feud-gold disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   data-testid="face-off-submit-btn"
                   disabled={isPaused || !answerInput.trim()}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-feud-gold to-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                  className="w-full touch-target min-h-touch py-3.5 rounded-2xl bg-gradient-to-r from-feud-gold to-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
                 >
                   <Send className="w-4 h-4" />
                   <span>{t.mainGame.submitAnswer}</span>
@@ -574,7 +623,9 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           {/* 15-Second Countdown Ring */}
           <div
             data-testid="controller-timer-ring"
-            className={`w-24 h-24 rounded-full flex flex-col items-center justify-center border-4 shadow-xl ${
+            className={`${
+              isKeyboardOpen ? 'w-14 h-14' : 'w-24 h-24'
+            } rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all ${
               currentSeconds <= 5
                 ? 'border-red-500 bg-red-950/40 text-red-400 animate-pulse'
                 : 'border-blue-400 bg-slate-900/90 text-blue-300'
@@ -582,7 +633,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           >
             <span
               data-testid="controller-seconds-remaining"
-              className="text-3xl font-black"
+              className={`${isKeyboardOpen ? 'text-xl' : 'text-3xl'} font-black`}
             >
               {currentSeconds}
             </span>
@@ -608,9 +659,12 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
               </div>
             ) : (
               <form
+                ref={formAnchorRef}
                 onSubmit={handleSubmit}
                 data-testid="face-off-answer-form"
-                className="w-full flex flex-col gap-3"
+                className={`w-full flex flex-col ${
+                  isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'
+                }`}
               >
                 <label
                   htmlFor="face-off-answer-input"
@@ -622,20 +676,23 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   id="face-off-answer-input"
                   ref={inputRef}
                   type="text"
+                  inputMode="text"
+                  enterKeyHint="send"
                   data-testid="face-off-answer-input"
                   value={answerInput}
                   onChange={(e) => setAnswerInput(e.target.value)}
+                  onFocus={() => keepElementVisible(formAnchorRef.current)}
                   placeholder={t.mainGame.faceOffInputPlaceholder}
                   maxLength={60}
                   autoComplete="off"
                   disabled={isPaused}
-                  className="w-full px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-blue-400/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+                  className="w-full min-h-touch px-4 py-3.5 rounded-2xl bg-slate-900 border-2 border-blue-400/70 text-white font-extrabold text-lg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   data-testid="face-off-submit-btn"
                   disabled={isPaused || !answerInput.trim()}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                  className="w-full touch-target min-h-touch py-3.5 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
                 >
                   <Send className="w-4 h-4" />
                   <span>{t.mainGame.submitAnswer}</span>
@@ -696,7 +753,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   data-testid="face-off-play-btn"
                   disabled={isPaused}
                   onClick={handleChoosePlay}
-                  className="py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="touch-target min-h-touch py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center gap-2">
                     <Play className="w-5 h-5 fill-white" />
@@ -712,7 +769,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   data-testid="face-off-pass-btn"
                   disabled={isPaused}
                   onClick={handleChoosePass}
-                  className="py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="touch-target min-h-touch py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center gap-2">
                     <ArrowRight className="w-5 h-5 text-slate-950" />
