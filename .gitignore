@@ -1,23 +1,26 @@
 # Dependencies
 node_modules/
+*/node_modules/
 .pnp
 .pnp.js
 
-# Environment Variables
+# Environment Variables & Secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+*.env
+!.env.example
+!**/.env.example
 
 # Build Outputs
 dist/
 build/
 out/
 coverage/
+*/dist/
+*/coverage/
 *.lcov
 
-# Documentation (stored in GitHub Wiki)
+# Documentation
 docs/
 
 # Logs
@@ -32,4 +35,3 @@ lerna-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
-

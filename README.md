@@ -126,7 +126,7 @@ Run the full stack (MySQL database, Express/Socket.io backend, and Nginx/React f
 3. **Access the Applications**:
    - 📺 **Host & Player Web App**: [`http://localhost`](http://localhost) (Port 80 via Nginx)
    - 📡 **Backend REST & Health API**: [`http://localhost:5000/api/health`](http://localhost:5000/api/health)
-   - 🗄️ **MySQL Database**: `localhost:3306` (`user: family-feud-user`, `password: 123`, `database: family_feud` / `root: feud_root_password`)
+   - 🗄️ **MySQL Database**: `localhost:3306` (configured via `.env` file)
 
 4. **Initialize Database Schema with Prisma (first run)**:
    ```bash
