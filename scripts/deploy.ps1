@@ -115,11 +115,21 @@ try {
             if ($val) { $resolvedFrontendPort = $val }
         }
     }
+
+    # If DOCKER_HOST points to a specific remote or WSL IP (e.g. tcp://172.x.x.x:2375), probe that host directly
+    $targetHost = "localhost"
+    if ($env:DOCKER_HOST -match "tcp://([^:]+):") {
+        $candidateHost = $matches[1]
+        if ($candidateHost -ne "127.0.0.1" -and $candidateHost -ne "localhost") {
+            $targetHost = $candidateHost
+        }
+    }
+
     if ($HealthCheckUrl -eq "http://localhost:5000/api/health") {
-        $HealthCheckUrl = "http://localhost:$resolvedBackendPort/api/health"
+        $HealthCheckUrl = "http://${targetHost}:$resolvedBackendPort/api/health"
     }
     if ($FrontendCheckUrl -eq "http://localhost") {
-        $FrontendCheckUrl = if ($resolvedFrontendPort -eq "80") { "http://localhost" } else { "http://localhost:$resolvedFrontendPort" }
+        $FrontendCheckUrl = if ($resolvedFrontendPort -eq "80") { "http://${targetHost}" } else { "http://${targetHost}:$resolvedFrontendPort" }
     }
 
     Write-Success "Server-managed .env validated (Backend Port: $resolvedBackendPort, Frontend Port: $resolvedFrontendPort)."
@@ -209,8 +219,19 @@ try {
                 $healthOk = $true
                 break
             }
-        } catch {
-            # Retry after delay
+        } catch {}
+
+        # Fallback probe to localhost if targetHost was an internal IP
+        if ($targetHost -ne "localhost" -and -not $healthOk) {
+            try {
+                $localFallbackUrl = "http://localhost:$resolvedBackendPort/api/health"
+                $altResp = Invoke-RestMethod -Uri $localFallbackUrl -Method Get -TimeoutSec 5 -ErrorAction SilentlyContinue
+                if ($altResp -and $altResp.status -eq "ok") {
+                    $HealthCheckUrl = $localFallbackUrl
+                    $healthOk = $true
+                    break
+                }
+            } catch {}
         }
         Start-Sleep -Seconds 3
     }
