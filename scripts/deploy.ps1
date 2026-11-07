@@ -33,6 +33,22 @@ function Write-Failure {
 try {
     Write-Step "Starting Continuous Deployment to Windows Home Server (Environment: $Environment, Branch: $Branch)..."
 
+    # Automatically ensure Docker inside WSL is running and bind dynamic WSL IP
+    try {
+        $wslStatus = wsl.exe -u root service docker status 2>&1
+        if ($LASTEXITCODE -ne 0 -or $wslStatus -notmatch "is running") {
+            Write-Host "Waking up Docker daemon inside WSL..." -ForegroundColor Gray
+            $null = wsl.exe -u root service docker start 2>&1
+        }
+        $dynamicWslIp = (wsl.exe hostname -I 2>$null).Trim().Split(" ")[0]
+        if ($dynamicWslIp -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$") {
+            $env:DOCKER_HOST = "tcp://${dynamicWslIp}:2375"
+            Write-Host "Connected to WSL Docker daemon at $env:DOCKER_HOST" -ForegroundColor Gray
+        }
+    } catch {
+        Write-Host "WSL auto-detection skipped (using host Docker)." -ForegroundColor Gray
+    }
+
     # 1. Resolve Compose Command (docker compose or docker-compose)
     $composeCmd = "docker compose"
     $composeWorks = $false
@@ -139,9 +155,9 @@ try {
         $gitStatus = git status 2>&1
         if ($LASTEXITCODE -eq 0) {
             Write-Step "Checking for latest git commits on '$Branch'..."
-            git fetch origin $Branch
-            git checkout $Branch
-            git pull origin $Branch
+            git fetch origin $Branch 2>&1 | Out-Null
+            git checkout -B $Branch "origin/$Branch" 2>&1 | Out-Null
+            git reset --hard "origin/$Branch" 2>&1 | Out-Null
         }
     } catch {
         Write-Host "Git update skipped or already up-to-date." -ForegroundColor Gray
