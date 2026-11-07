@@ -1,4 +1,4 @@
-name: Continuous Integration (CI)
+name: Continuous Integration & Deployment (CI/CD)
 
 on:
   push:
@@ -213,3 +213,21 @@ jobs:
           file: ./frontend/Dockerfile
           push: false
           tags: familyfeud-frontend:ci-check
+
+  # ==========================================
+  # Continuous Deployment (Windows Home Server)
+  # ==========================================
+  deploy-to-windows-server:
+    name: Deploy to Windows Home Server
+    runs-on: [self-hosted, Windows]
+    needs: [docker-build-check]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Windows Server Deployment Script
+        shell: powershell
+        run: |
+          .\scripts\deploy.ps1 -Branch main -Environment production
