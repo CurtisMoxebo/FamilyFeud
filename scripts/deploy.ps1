@@ -183,8 +183,8 @@ try {
     $dbHealthy = $false
     $dbWaitStart = Get-Date
     while (((Get-Date) - $dbWaitStart).TotalSeconds -lt 45) {
-        $dbStatus = (Invoke-Docker "inspect -f '{{.State.Health.Status}}' familyfeud_db 2>$null").Trim()
-        if ($dbStatus -eq "healthy") {
+        $rawStatus = Invoke-Docker 'inspect -f "{{.State.Health.Status}}" familyfeud_db' 2>&1
+        if ($rawStatus -and ($rawStatus -join "").Trim() -eq "healthy") {
             $dbHealthy = $true
             break
         }
