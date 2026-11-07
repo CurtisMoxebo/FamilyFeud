@@ -16,14 +16,14 @@ if (fs.existsSync(rootEnvPath)) {
 
 // Fallback database URL constructed from individual DB credentials if DATABASE_URL is not directly set
 const dbUser = process.env.MYSQL_USER || 'family-feud-user';
-const dbPassword = process.env.MYSQL_PASSWORD || '';
+const dbPassword = process.env.MYSQL_PASSWORD || '123';
 const dbHost = process.env.MYSQL_HOST || 'localhost';
 const dbPort = process.env.MYSQL_PORT || '3306';
 const dbName = process.env.MYSQL_DATABASE || 'family_feud';
 const defaultDbUrl = `mysql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`;
 
 export const config = {
-  port: parseInt(process.env.PORT || '5000', 10),
+  port: parseInt(process.env.BACKEND_PORT || process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   databaseUrl: process.env.DATABASE_URL || defaultDbUrl,

@@ -101,7 +101,28 @@ try {
         throw "MYSQL_PASSWORD is not configured in '$envPath'. Please set your database password in the server's .env file."
     }
 
-    Write-Success "Server-managed .env found and validated successfully."
+    # Resolve ports dynamically from .env for health checks
+    $resolvedBackendPort = "5000"
+    $resolvedFrontendPort = "80"
+    foreach ($line in $envContent) {
+        $trimmed = $line.Trim()
+        if ($trimmed.StartsWith("BACKEND_PORT=") -or ($trimmed.StartsWith("PORT=") -and $resolvedBackendPort -eq "5000")) {
+            $val = $trimmed.Substring($trimmed.IndexOf("=") + 1).Trim().Trim('"').Trim("'")
+            if ($val) { $resolvedBackendPort = $val }
+        }
+        if ($trimmed.StartsWith("FRONTEND_PORT=")) {
+            $val = $trimmed.Substring($trimmed.IndexOf("=") + 1).Trim().Trim('"').Trim("'")
+            if ($val) { $resolvedFrontendPort = $val }
+        }
+    }
+    if ($HealthCheckUrl -eq "http://localhost:5000/api/health") {
+        $HealthCheckUrl = "http://localhost:$resolvedBackendPort/api/health"
+    }
+    if ($FrontendCheckUrl -eq "http://localhost") {
+        $FrontendCheckUrl = if ($resolvedFrontendPort -eq "80") { "http://localhost" } else { "http://localhost:$resolvedFrontendPort" }
+    }
+
+    Write-Success "Server-managed .env validated (Backend Port: $resolvedBackendPort, Frontend Port: $resolvedFrontendPort)."
 
     # 3. Pull latest Git updates if inside a repository
     try {
