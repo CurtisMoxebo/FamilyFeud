@@ -191,8 +191,9 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 ### Option C: Continuous Deployment to Windows Home Server
 
-The project includes automated Continuous Deployment ([US-24](docs/user%20stories/US-24-Continuous-Deployment-To-Windows-Home-Server.md)):
-- Every push to `main` triggers `.github/workflows/cd.yml`.
+The project includes automated Continuous Deployment ([US-24](docs/user%20stories/US-24-Continuous-Deployment-To-Windows-Home-Server.md) & [US-25](docs/user%20stories/US-25-Unified-CI-CD-Pipeline-Architecture.md)):
+- Every push to `main` triggers the unified pipeline in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+- When all CI build and regression tests pass, the pipeline flows directly into the deployment stage in the same visual window.
 - A GitHub Actions self-hosted runner on your Windows Home Server executes [`scripts/deploy.ps1`](scripts/deploy.ps1).
 - The full multi-container stack is rebuilt in Docker with in-place zero-downtime rolling updates, automated Prisma schema migrations, and health check validation.
 
