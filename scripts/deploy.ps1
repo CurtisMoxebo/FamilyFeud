@@ -58,72 +58,50 @@ try {
     }
     Write-Host "Using Compose command: $composeCmd" -ForegroundColor Gray
 
-    # 2. Synchronize / Prepare Unified Root .env
-    Write-Step "Configuring production environment variables (.env)..."
+    # 2. Verify Server-Managed Unified Root .env
+    Write-Step "Checking server-managed environment configuration (.env)..."
     $envPath = Join-Path $PSScriptRoot "..\.env"
     $envExamplePath = Join-Path $PSScriptRoot "..\.env.example"
+    
+    # Also check parent runner directories for persistent .env (e.g. C:\actions-runner\family_feud\.env)
+    $runnerRootEnv = "C:\actions-runner\family_feud\.env"
 
     if (-not (Test-Path $envPath)) {
-        if (Test-Path $envExamplePath) {
-            Write-Host "No .env found. Initializing from .env.example..." -ForegroundColor Yellow
+        if (Test-Path $runnerRootEnv) {
+            Write-Host "Found persistent server configuration at '$runnerRootEnv'. Copying to workspace..." -ForegroundColor Green
+            Copy-Item $runnerRootEnv $envPath -Force
+        } elseif (Test-Path $envExamplePath) {
+            Write-Host "No .env found on server. Initializing template from .env.example..." -ForegroundColor Yellow
             Copy-Item $envExamplePath $envPath
+            throw "A new .env file was created at '$((Resolve-Path $envPath).Path)'. Please edit it with your production database passwords and API keys before running deployment."
         } else {
-            New-Item -ItemType File -Path $envPath -Force | Out-Null
+            throw "Required root .env file was not found at '$envPath' or '$runnerRootEnv'. Please create it manually on the server with production secrets."
         }
     }
 
-    # Inject or update environment variables provided by GitHub Secrets
-    $secretsToInject = @{
-        "GEMINI_API_KEY"      = $env:GEMINI_API_KEY
-        "MYSQL_ROOT_PASSWORD" = $env:MYSQL_ROOT_PASSWORD
-        "MYSQL_PASSWORD"      = $env:MYSQL_PASSWORD
-        "MYSQL_USER"          = $env:MYSQL_USER
-        "MYSQL_DATABASE"      = $env:MYSQL_DATABASE
-    }
+    # Validate that required secrets are set in the server's .env file
+    $envContent = Get-Content $envPath
+    $hasRootPass = $false
+    $hasUserPass = $false
 
-    $existingEnvLines = if (Test-Path $envPath) { Get-Content $envPath } else { @() }
-    $envMap = [ordered]@{}
-
-    foreach ($line in $existingEnvLines) {
+    foreach ($line in $envContent) {
         $trimmed = $line.Trim()
-        if ($trimmed -and -not $trimmed.StartsWith("#") -and $trimmed.Contains("=")) {
-            $splitIndex = $trimmed.IndexOf("=")
-            $k = $trimmed.Substring(0, $splitIndex).Trim()
-            $v = $trimmed.Substring($splitIndex + 1).Trim()
-            $envMap[$k] = $v
+        if ($trimmed.StartsWith("MYSQL_ROOT_PASSWORD=") -and $trimmed -ne "MYSQL_ROOT_PASSWORD=" -and -not $trimmed.Contains("your_root_password_here")) {
+            $hasRootPass = $true
+        }
+        if ($trimmed.StartsWith("MYSQL_PASSWORD=") -and $trimmed -ne "MYSQL_PASSWORD=" -and -not $trimmed.Contains("your_database_password_here")) {
+            $hasUserPass = $true
         }
     }
 
-    # Apply non-empty secrets from environment
-    foreach ($entry in $secretsToInject.GetEnumerator()) {
-        if ($entry.Value -and $entry.Value.Trim() -ne "") {
-            $envMap[$entry.Key] = $entry.Value
-        }
+    if (-not $hasRootPass) {
+        throw "MYSQL_ROOT_PASSWORD is not configured in '$envPath'. Please set your root password in the server's .env file."
+    }
+    if (-not $hasUserPass) {
+        throw "MYSQL_PASSWORD is not configured in '$envPath'. Please set your database password in the server's .env file."
     }
 
-    # Ensure required defaults exist if not already set
-    if (-not $envMap.Contains("NODE_ENV")) { $envMap["NODE_ENV"] = "production" }
-    if (-not $envMap.Contains("PORT")) { $envMap["PORT"] = "5000" }
-    if (-not $envMap.Contains("MYSQL_PORT")) { $envMap["MYSQL_PORT"] = "3306" }
-    if (-not $envMap.Contains("MYSQL_USER") -or $envMap["MYSQL_USER"] -eq "your_database_user_here") {
-        $envMap["MYSQL_USER"] = "family-feud-user"
-    }
-    if (-not $envMap.Contains("MYSQL_DATABASE") -or $envMap["MYSQL_DATABASE"] -eq "your_database_name_here") {
-        $envMap["MYSQL_DATABASE"] = "family_feud"
-    }
-    if (-not $envMap.Contains("CLIENT_URL")) { $envMap["CLIENT_URL"] = "http://localhost" }
-
-    # Rewrite .env cleanly
-    $newEnvContent = @()
-    $newEnvContent += "# =========================================="
-    $newEnvContent += "# Family Feud Online - Production .env"
-    $newEnvContent += "# Managed by continuous deployment (deploy.ps1)"
-    $newEnvContent += "# =========================================="
-    foreach ($key in $envMap.Keys) {
-        $newEnvContent += "$key=$($envMap[$key])"
-    }
-    Set-Content -Path $envPath -Value $newEnvContent -Encoding utf8
-    Write-Success ".env configured successfully with active secrets."
+    Write-Success "Server-managed .env found and validated successfully."
 
     # 3. Pull latest Git updates if inside a repository
     try {
@@ -168,17 +146,35 @@ try {
         Write-Success "MySQL database is healthy and ready for queries."
     }
 
-    # 6. Apply Prisma Database Schema Synchronization
-    Write-Step "Synchronizing database schema with Prisma..."
-    if ($composeCmd -eq "docker compose") {
-        docker compose exec -T backend npx prisma db push --skip-generate
-    } else {
-        docker-compose exec -T backend npx prisma db push --skip-generate
+    # 6. Apply Prisma Database Schema Synchronization (US-19 & US-24)
+    Write-Step "Synchronizing database schema with Prisma migrations..."
+    $migrationSucceeded = $false
+    try {
+        if ($composeCmd -eq "docker compose") {
+            docker compose exec -T backend npx prisma migrate deploy --schema=prisma/schema
+        } else {
+            docker-compose exec -T backend npx prisma migrate deploy --schema=prisma/schema
+        }
+        if ($LASTEXITCODE -eq 0) {
+            $migrationSucceeded = $true
+            Write-Success "Prisma migrations applied cleanly."
+        }
+    } catch {
+        Write-Host "prisma migrate deploy encountered a warning. Falling back to prisma db push..." -ForegroundColor Yellow
     }
-    if ($LASTEXITCODE -ne 0) {
-        throw "Prisma database schema synchronization failed with exit code $LASTEXITCODE."
+
+    if (-not $migrationSucceeded) {
+        Write-Host "Synchronizing schema state with prisma db push..." -ForegroundColor Yellow
+        if ($composeCmd -eq "docker compose") {
+            docker compose exec -T backend npx prisma db push --skip-generate --schema=prisma/schema
+        } else {
+            docker-compose exec -T backend npx prisma db push --skip-generate --schema=prisma/schema
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "Prisma database schema synchronization failed with exit code $LASTEXITCODE."
+        }
+        Write-Success "Prisma schema synchronized cleanly via db push."
     }
-    Write-Success "Prisma schema synchronized cleanly."
 
     # 7. Post-Deployment Health Verification
     Write-Step "Verifying application health probe ($HealthCheckUrl)..."
