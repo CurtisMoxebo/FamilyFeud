@@ -1,0 +1,28 @@
+name: Continuous Deployment (CD)
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy-to-windows-server:
+    name: Deploy to Windows Home Server
+    runs-on: [self-hosted, Windows]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Windows Server Deployment Script
+        shell: powershell
+        run: |
+          .\scripts\deploy.ps1 -Branch main -Environment production

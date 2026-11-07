@@ -126,7 +126,7 @@ Run the full stack (MySQL database, Express/Socket.io backend, and Nginx/React f
 3. **Access the Applications**:
    - 📺 **Host & Player Web App**: [`http://localhost`](http://localhost) (Port 80 via Nginx)
    - 📡 **Backend REST & Health API**: [`http://localhost:5000/api/health`](http://localhost:5000/api/health)
-   - 🗄️ **MySQL Database**: `localhost:3306` (`user: family-feud-user`, `password: 123`, `database: family_feud` / `root: feud_root_password`)
+   - 🗄️ **MySQL Database**: `localhost:3306` (configured via `.env` file)
 
 4. **Initialize Database Schema with Prisma (first run)**:
    ```bash
@@ -146,30 +146,34 @@ Run the full stack (MySQL database, Express/Socket.io backend, and Nginx/React f
 
 ### Option B: Manual Local Development Setup
 
-#### 1. Database Setup
+#### 1. Environment Configuration
+Create your unified `.env` file in the project root:
+```bash
+cp .env.example .env
+# Edit .env with your DATABASE_URL, GEMINI_API_KEY, and database credentials
+```
+
+#### 2. Database Setup
 Create your local MySQL database:
 ```sql
 CREATE DATABASE family_feud CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-#### 2. Backend Setup
+#### 3. Backend Setup
 ```bash
 cd backend
 npm install
-cp .env.example .env
-# Edit .env with your DATABASE_URL and GEMINI_API_KEY
-npx prisma generate
-npx prisma db push
+npm run prisma:generate
+npm run prisma:migrate
 npm run dev
 ```
 The backend API and WebSocket server will run at `http://localhost:5000`.
 
-#### 3. Frontend Setup
+#### 4. Frontend Setup
 In a separate terminal:
 ```bash
 cd frontend
 npm install
-cp .env.example .env
 npm run dev
 ```
 The frontend application will be accessible at `http://localhost:5173`.
@@ -182,6 +186,15 @@ The frontend application will be accessible at `http://localhost:5173`.
 > # Terminal 2 (Vite Frontend dev server)
 > npm run dev:frontend
 > ```
+
+---
+
+### Option C: Continuous Deployment to Windows Home Server
+
+The project includes automated Continuous Deployment ([US-24](docs/user%20stories/US-24-Continuous-Deployment-To-Windows-Home-Server.md)):
+- Every push to `main` triggers `.github/workflows/cd.yml`.
+- A GitHub Actions self-hosted runner on your Windows Home Server executes [`scripts/deploy.ps1`](scripts/deploy.ps1).
+- The full multi-container stack is rebuilt in Docker with in-place zero-downtime rolling updates, automated Prisma schema migrations, and health check validation.
 
 ---
 

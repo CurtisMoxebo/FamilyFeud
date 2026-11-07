@@ -1,0 +1,40 @@
+# ==========================================
+# Family Feud Online - Docker Ignore Rules
+# Prevents sensitive files and build artifacts from leaking into images
+# ==========================================
+
+# Environment variables & secrets (CRITICAL)
+.env
+.env.*
+*.env
+!.env.example
+
+# Version control & CI
+.git/
+.github/
+
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build and test artifacts
+dist/
+build/
+out/
+coverage/
+*/dist/
+*/coverage/
+
+# Documentation
+docs/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# System & IDE files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
