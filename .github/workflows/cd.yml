@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 concurrency:
   group: production-deployment
@@ -17,6 +16,7 @@ jobs:
   deploy-to-windows-server:
     name: Deploy to Windows Home Server
     runs-on: [self-hosted, Windows]
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout Code
