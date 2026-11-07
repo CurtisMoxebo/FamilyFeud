@@ -250,7 +250,8 @@ try {
     if (-not $healthOk) {
         Write-Failure "Health check probe timed out after $TimeoutSeconds seconds!"
         Write-Host "Dumping recent container logs for diagnostic remediation:" -ForegroundColor Yellow
-        Invoke-DockerCompose "logs --tail=100"
+        Invoke-Docker "logs --tail 50 familyfeud_backend"
+        Invoke-Docker "logs --tail 50 familyfeud_frontend"
         throw "Continuous deployment aborted: Service failed health check."
     }
     Write-Success "Backend health check returned HTTP 200 { status: 'ok' }!"
