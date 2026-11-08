@@ -30,14 +30,14 @@ services:
       db:
         condition: service_healthy
     environment:
-      PORT: ${PORT:-5000}
+      PORT: 5000
       NODE_ENV: ${NODE_ENV:-production}
       CLIENT_URL: ${CLIENT_URL:-http://localhost}
       DATABASE_URL: mysql://${MYSQL_USER:-family-feud-user}:${MYSQL_PASSWORD:-123}@db:3306/${MYSQL_DATABASE:-family_feud}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
     ports:
-      - "${PORT:-5000}:${PORT:-5000}"
+      - "${PORT:-5000}:5000"
     networks:
       - familyfeud-network
 

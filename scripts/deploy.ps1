@@ -147,11 +147,18 @@ try {
         $FrontendCheckUrl = if ($resolvedFrontendPort -eq "80") { "http://${targetHost}" } else { "http://${targetHost}:$resolvedFrontendPort" }
     }
 
-    # If running in WSL, set up Windows port forwarding so localhost and LAN can reach the app
+    # If running in WSL, set up Windows port forwarding so localhost (IPv4 + IPv6) and LAN can reach the app instantly
     if ($useWsl) {
         try {
+            Start-Service iphlpsvc -ErrorAction SilentlyContinue
+            # IPv4 (LAN & Localhost)
             netsh interface portproxy add v4tov4 listenport=$resolvedFrontendPort listenaddress=0.0.0.0 connectport=$resolvedFrontendPort connectaddress=$dynamicWslIp 2>&1 | Out-Null
             netsh interface portproxy add v4tov4 listenport=$resolvedBackendPort listenaddress=0.0.0.0 connectport=$resolvedBackendPort connectaddress=$dynamicWslIp 2>&1 | Out-Null
+            netsh interface portproxy add v4tov4 listenport=$resolvedFrontendPort listenaddress=127.0.0.1 connectport=$resolvedFrontendPort connectaddress=$dynamicWslIp 2>&1 | Out-Null
+            netsh interface portproxy add v4tov4 listenport=$resolvedBackendPort listenaddress=127.0.0.1 connectport=$resolvedBackendPort connectaddress=$dynamicWslIp 2>&1 | Out-Null
+            # IPv6 Localhost (eliminates the 20-30s browser hang when Windows resolves localhost to [::1])
+            netsh interface portproxy add v6tov4 listenport=$resolvedFrontendPort listenaddress=::1 connectport=$resolvedFrontendPort connectaddress=$dynamicWslIp 2>&1 | Out-Null
+            netsh interface portproxy add v6tov4 listenport=$resolvedBackendPort listenaddress=::1 connectport=$resolvedBackendPort connectaddress=$dynamicWslIp 2>&1 | Out-Null
         } catch {}
     }
 
