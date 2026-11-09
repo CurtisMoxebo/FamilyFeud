@@ -55,6 +55,7 @@ export interface FastMoneyHostBoardProps {
   roomCode?: string;
   enableTTS?: boolean;
   enableSFX?: boolean;
+  defaultAutoPacing?: boolean;
   onRevealAnswer?: (slotNumber: number) => void;
   onRevealPoints?: (slotNumber: number) => void;
   onStartReveal?: () => void;
@@ -76,6 +77,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   roomCode = '',
   enableTTS = true,
   enableSFX = true,
+  defaultAutoPacing = true,
   onRevealAnswer,
   onRevealPoints,
   onStartReveal,
@@ -99,8 +101,8 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   };
   const isInitialMountRef = useRef<boolean>(true);
   const isP2InitialMountRef = useRef<boolean>(true);
-  const [isAutoPacing, setIsAutoPacing] = useState<boolean>(false);
-  const [isAutoPacingP2, setIsAutoPacingP2] = useState<boolean>(false);
+  const [isAutoPacing, setIsAutoPacing] = useState<boolean>(defaultAutoPacing);
+  const [isAutoPacingP2, setIsAutoPacingP2] = useState<boolean>(defaultAutoPacing);
   const [activeWarning, setActiveWarning] = useState<DuplicateAnswerWarningPayload | null>(null);
   const [isReplaying, setIsReplaying] = useState<boolean>(false);
 
@@ -187,9 +189,9 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   ];
 
   const p1Slots: FastMoneyRevealSlot[] =
-    snapshot?.p1Slots ?? snapshot?.revealSlots ?? defaultSlots;
+    snapshot?.p1RevealSlots ?? snapshot?.revealSlots ?? snapshot?.p1Slots ?? defaultSlots;
   const p2Slots: FastMoneyRevealSlot[] =
-    snapshot?.p2Slots ?? snapshot?.revealSlots ?? defaultSlots;
+    snapshot?.p2RevealSlots ?? snapshot?.revealSlots ?? snapshot?.p2Slots ?? defaultSlots;
 
   // Active slot tracking for P1 Reveal
   const activeRevealSlotNumber = snapshot?.activeRevealSlotNumber ?? (isReadyForP2 ? null : 1);
@@ -271,7 +273,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }
   }, [duplicateWarning, enableSFX, enableTTS, audioEnabled, language]);
 
-  // 3. Speak question via TTS when new slot begins in P1_REVEAL (US-08 Scenario 1)
+  // 3. Speak question via TTS when new slot begins in P1_REVEAL (US-08 Scenario 1 & US-26 Scenario 6)
   useEffect(() => {
     if (
       enableTTS &&
@@ -283,14 +285,20 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     ) {
       lastSpokenRevealSlotRef.current = activeRevealSlotNumber;
       const p1Prefix = language.toUpperCase() === 'ES' ? 'Pregunta' : 'Question';
+      const questionTextToSpeak =
+        activeRevealSlot.questionText && activeRevealSlot.questionText !== 'undefined'
+          ? activeRevealSlot.questionText
+          : '';
       speakQuestion(
-        `${p1Prefix} ${activeRevealSlotNumber}: ${activeRevealSlot.questionText}`,
+        questionTextToSpeak
+          ? `${p1Prefix} ${activeRevealSlotNumber}: ${questionTextToSpeak}`
+          : `${p1Prefix} ${activeRevealSlotNumber}`,
         language
       );
     }
   }, [activeRevealSlotNumber, isP1RevealPhase, activeRevealSlot, language, enableTTS, audioEnabled]);
 
-  // 4. Speak question via TTS when new slot begins in P2_REVEAL (US-10 Scenario 1)
+  // 4. Speak question via TTS when new slot begins in P2_REVEAL (US-10 Scenario 1 & US-26 Scenario 6)
   useEffect(() => {
     if (
       enableTTS &&
@@ -302,8 +310,14 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     ) {
       lastSpokenP2RevealSlotRef.current = activeP2RevealSlotNumber;
       const p2Prefix = language.toUpperCase() === 'ES' ? 'Pregunta' : 'Question';
+      const questionTextToSpeak =
+        activeP2RevealSlot.questionText && activeP2RevealSlot.questionText !== 'undefined'
+          ? activeP2RevealSlot.questionText
+          : '';
       speakQuestion(
-        `${p2Prefix} ${activeP2RevealSlotNumber}: ${activeP2RevealSlot.questionText}`,
+        questionTextToSpeak
+          ? `${p2Prefix} ${activeP2RevealSlotNumber}: ${questionTextToSpeak}`
+          : `${p2Prefix} ${activeP2RevealSlotNumber}`,
         language
       );
     }
@@ -512,12 +526,14 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   ]);
 
   const handleStartRevealClick = () => {
+    setIsAutoPacing(true);
     if (onStartReveal) {
       onStartReveal();
     }
   };
 
   const handleStartP2RevealClick = () => {
+    setIsAutoPacingP2(true);
     if (onStartP2Reveal) {
       onStartP2Reveal();
     }

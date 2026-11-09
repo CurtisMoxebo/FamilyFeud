@@ -371,6 +371,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
           snapshot={revealHostSnapshot}
           roomName="Family Feud Duel"
           enableTTS={false}
+          defaultAutoPacing={false}
           onRevealPoints={onRevealPointsMock}
         />
       );
@@ -494,6 +495,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
           snapshot={revealHostSnapshot}
           roomName="Family Feud Duel"
           enableTTS={false}
+          defaultAutoPacing={false}
           onRevealPoints={onRevealPointsMock}
         />
       );
@@ -511,6 +513,93 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       });
 
       expect(onRevealPointsMock).toHaveBeenCalledWith(2);
+      vi.useRealTimers();
+    });
+
+    it('satisfies US-26 Scenario 6: resolves questionText from p1RevealSlots over stripped p1Slots and never speaks undefined via TTS', () => {
+      const speakSpy = vi.spyOn(ttsModule, 'speakQuestion');
+
+      // Emulate backend snapshot where p1Slots contains stripped indicator objects without questionText
+      const backendSnapshotWithStrippedP1Slots: HostStateSnapshot = {
+        ...revealHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        // Stripped indicator objects sent by backend:
+        p1Slots: [
+          { slotNumber: 1, isFilled: true } as any,
+          { slotNumber: 2, isFilled: true } as any,
+        ],
+        // Fully populated reveal slots:
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name something you find in a garage',
+            rawAnswer: 'Toolbox',
+            pointsAwarded: 35,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={backendSnapshotWithStrippedP1Slots}
+          roomName="Family Feud Duel"
+          enableTTS={true}
+          language="EN"
+        />
+      );
+
+      expect(speakSpy).toHaveBeenCalledWith('Question 1: Name something you find in a garage', 'EN');
+      // Assert speech never contained the literal string 'undefined'
+      const spokenTexts = speakSpy.mock.calls.map((call) => call[0]);
+      expect(spokenTexts.some((text) => text.includes('undefined'))).toBe(false);
+    });
+
+    it('satisfies US-26 Scenario 7: defaults auto-pacing to true and initiates automated answer reveal without requiring clicks', () => {
+      vi.useFakeTimers();
+      const onRevealAnswerMock = vi.fn();
+
+      const unrevealedSlotSnapshot: HostStateSnapshot = {
+        ...revealHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name an animal',
+            rawAnswer: 'Dog',
+            pointsAwarded: 40,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={unrevealedSlotSnapshot}
+          roomName="Family Feud Duel"
+          enableTTS={false}
+          onRevealAnswer={onRevealAnswerMock}
+        />
+      );
+
+      // Verify Auto Pacing is active by default
+      const autoPacingBtn = screen.getByTestId('host-auto-pacing-btn');
+      expect(autoPacingBtn).toHaveTextContent('Auto Pacing');
+
+      // Fast-forward 1.2s -> answer should automatically reveal without any button clicks
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+
+      expect(onRevealAnswerMock).toHaveBeenCalledWith(1);
       vi.useRealTimers();
     });
 
@@ -822,6 +911,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
           roomName="Family Feud Duel"
           enableTTS={false}
           enableSFX={false}
+          defaultAutoPacing={false}
           onRevealP2Answer={onRevealAnswerSpy}
           onRevealP2Points={onRevealPointsSpy}
         />
