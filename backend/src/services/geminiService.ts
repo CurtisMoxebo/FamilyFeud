@@ -5,6 +5,8 @@ import { getFallbackQuestions } from '../data/fallbackQuestions';
 import {
   findOfflineFuzzyMatch,
   CandidateAnswer,
+  normalizeString,
+  calculateSimilarity,
 } from '../utils/stringNormalizer';
 
 export type SupportedLanguage = 'EN' | 'FR' | 'ES';
@@ -25,6 +27,7 @@ export interface QuestionGenerationOptions {
   language: SupportedLanguage;
   count?: number;
   roundNumber?: number;
+  excludedQuestions?: string[];
 }
 
 /**
@@ -99,7 +102,8 @@ export function buildPrompt(
   gameMode: SupportedGameMode,
   language: SupportedLanguage,
   count: number,
-  roundNumber = 1
+  roundNumber = 1,
+  excludedQuestions: string[] = []
 ): string {
   const langName =
     language === 'FR' ? 'French (Français)' : language === 'ES' ? 'Spanish (Español)' : 'English';
@@ -109,6 +113,15 @@ export function buildPrompt(
       ? `Generate exactly ${count} fast-paced, intuitive Family Feud survey questions for the Fast Money round. For each question, provide 4 to 6 realistic survey answers.`
       : `Generate exactly ${count} survey question for Main Game Round ${roundNumber}. The question must have between 4 and 8 ranked survey answers (ideally 5 to 8).`;
 
+  const validExcluded = (excludedQuestions || [])
+    .map((q) => (typeof q === 'string' ? q.trim() : ''))
+    .filter((q) => q.length > 0);
+
+  const exclusionSection =
+    validExcluded.length > 0
+      ? `\n6. Negative Constraints (Do NOT Repeat):\nDo NOT generate, repeat, or closely rephrase any of the following previously asked survey questions:\n${validExcluded.map((q) => `- "${q}"`).join('\n')}\nEnsure all generated questions are completely fresh, distinct, and novel.`
+      : '';
+
   return `You are an expert Family Feud survey question creator.
 Generate culturally authentic, universally accessible, family-friendly survey questions in ${langName}.
 
@@ -117,9 +130,91 @@ Requirements:
 2. Structure: 100 people were surveyed. For each question, the point values of the answers MUST sum to EXACTLY 100.
 3. Order: Answers must be sorted in descending order of points (most popular answer first).
 4. Language: Questions and answers must be naturally written in ${langName}.
-5. ${modeInstruction}
+5. ${modeInstruction}${exclusionSection}
 
 Output only valid JSON according to the schema.`;
+}
+
+/**
+ * Detects whether a candidate question collides with a target question using
+ * exact normalization, Levenshtein edit distance, or token Jaccard similarity (US-27).
+ */
+export function isQuestionCollision(
+  candidateQuestion: string,
+  targetQuestion: string,
+  threshold = 0.8
+): boolean {
+  const normA = normalizeString(candidateQuestion);
+  const normB = normalizeString(targetQuestion);
+
+  if (!normA || !normB) return false;
+  if (normA === normB) return true;
+
+  // 1. Levenshtein edit-distance similarity
+  const levSimilarity = calculateSimilarity(normA, normB);
+  if (levSimilarity >= threshold) return true;
+
+  // 2. Token Jaccard similarity (order-independent word overlap for words > 2 chars)
+  const tokensA = new Set(normA.split(' ').filter((w) => w.length > 2));
+  const tokensB = new Set(normB.split(' ').filter((w) => w.length > 2));
+
+  if (tokensA.size > 0 && tokensB.size > 0) {
+    let intersection = 0;
+    for (const token of tokensA) {
+      if (tokensB.has(token)) intersection++;
+    }
+    const union = new Set([...tokensA, ...tokensB]).size;
+    const jaccard = intersection / union;
+    if (jaccard >= threshold) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Filters generated survey questions against historical exclusion list and
+ * intra-batch candidate questions (US-27 Scenario 2 & 3).
+ */
+export function filterAndDeduplicateQuestions(
+  generatedQuestions: GeneratedQuestion[],
+  excludedQuestions: string[] = [],
+  threshold = 0.8
+): GeneratedQuestion[] {
+  const validExcluded = (excludedQuestions || []).filter((q) => Boolean(q && q.trim()));
+  const acceptedQuestions: GeneratedQuestion[] = [];
+  const acceptedTexts: string[] = [];
+
+  for (const q of generatedQuestions) {
+    const qText = q.questionText.trim();
+    if (!qText) continue;
+
+    // 1. Check historical exclusion list
+    const historicalCollision = validExcluded.find((excludedText) =>
+      isQuestionCollision(qText, excludedText, threshold)
+    );
+    if (historicalCollision) {
+      logger.warn(
+        `[QUESTIONS:DEDUP] Historical collision detected! Candidate "${qText}" matches excluded "${historicalCollision}". Discarding.`
+      );
+      continue;
+    }
+
+    // 2. Check intra-batch collisions with already-accepted questions in this batch
+    const intraBatchCollision = acceptedTexts.find((acceptedText) =>
+      isQuestionCollision(qText, acceptedText, threshold)
+    );
+    if (intraBatchCollision) {
+      logger.warn(
+        `[QUESTIONS:DEDUP] Intra-batch collision detected! Candidate "${qText}" duplicates batch question "${intraBatchCollision}". Discarding.`
+      );
+      continue;
+    }
+
+    acceptedQuestions.push(q);
+    acceptedTexts.push(qText);
+  }
+
+  return acceptedQuestions;
 }
 
 /**
@@ -139,13 +234,13 @@ export const geminiClientFactory = {
 export async function generateQuestions(
   options: QuestionGenerationOptions
 ): Promise<GeneratedQuestion[]> {
-  const { gameMode, language, roundNumber = 1 } = options;
+  const { gameMode, language, roundNumber = 1, excludedQuestions = [] } = options;
   const count = options.count ?? (gameMode === 'FAST_MONEY' ? 5 : 1);
 
   // Fallback if no API key is provided
   if (!config.geminiApiKey || config.geminiApiKey.trim() === '') {
     logger.warn('[GEMINI:CONFIG] No GEMINI_API_KEY configured. Using curated fallback question bank.');
-    const fallbacks = getFallbackQuestions(gameMode, language, roundNumber);
+    const fallbacks = getFallbackQuestions(gameMode, language, roundNumber, excludedQuestions);
     return fallbacks.slice(0, count);
   }
 
@@ -191,7 +286,7 @@ export async function generateQuestions(
       },
     });
 
-    const prompt = buildPrompt(gameMode, language, count, roundNumber);
+    const prompt = buildPrompt(gameMode, language, count, roundNumber, excludedQuestions);
     const result = await model.generateContent(prompt);
     const text = result.response.text();
 
@@ -230,17 +325,41 @@ export async function generateQuestions(
       });
     });
 
-    logger.info(
-      `[GEMINI:SUCCESS] Generated ${validatedQuestions.length} survey question(s) in ${language} for ${gameMode}`
+    // Post-generation collision detection & deduplication (US-27 Scenario 2 & 3)
+    const deduplicated = filterAndDeduplicateQuestions(
+      validatedQuestions,
+      excludedQuestions
     );
 
-    return validatedQuestions;
+    // If collisions were removed, replenish missing slots with non-overlapping fallback questions
+    if (deduplicated.length < count) {
+      const currentTexts = deduplicated.map((q) => q.questionText);
+      const combinedExcluded = [...excludedQuestions, ...currentTexts];
+
+      const replacements = getFallbackQuestions(gameMode, language, roundNumber, combinedExcluded);
+      for (const fb of replacements) {
+        if (deduplicated.length >= count) break;
+        const isDup = combinedExcluded.some((existing) =>
+          isQuestionCollision(fb.questionText, existing)
+        );
+        if (!isDup) {
+          deduplicated.push(normalizeQuestionAnswers(fb));
+          combinedExcluded.push(fb.questionText);
+        }
+      }
+    }
+
+    logger.info(
+      `[GEMINI:SUCCESS] Generated ${deduplicated.length} survey question(s) in ${language} for ${gameMode}`
+    );
+
+    return deduplicated.slice(0, count);
   } catch (error: any) {
     // Scenario 4: AI Failure / Rate Limit Handling -> fallback to curated bank
     logger.error(
       `[GEMINI:ERROR] Generation failed (${error?.message || error}). Falling back to curated bank.`
     );
-    const fallbacks = getFallbackQuestions(gameMode, language, roundNumber);
+    const fallbacks = getFallbackQuestions(gameMode, language, roundNumber, excludedQuestions);
     return fallbacks.slice(0, count);
   }
 }

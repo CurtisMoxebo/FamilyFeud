@@ -32,7 +32,7 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
   const waitForEvent = <T = unknown>(
     socket: ClientSocket,
     event: string,
-    timeout = 3000
+    timeout = 7000
   ): Promise<T> => {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {

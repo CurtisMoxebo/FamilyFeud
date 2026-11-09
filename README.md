@@ -203,7 +203,7 @@ The project includes automated Continuous Deployment ([US-24](docs/user%20storie
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 936 regression tests** (534 backend, 402 frontend) pass cleanly with **>90% code coverage** across 75 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 959 regression tests** (557 backend, 402 frontend) pass cleanly with **>90% code coverage** across 76 suites:
 
 ```bash
 # Run all regression tests across the whole project
