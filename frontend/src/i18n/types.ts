@@ -12,9 +12,7 @@ export interface TranslationDictionary {
     step2Desc: string;
     step3Title: string;
     step3Desc: string;
-    roomNameLabel: string;
     roomNamePlaceholder: string;
-    roomNameHelp: string;
     submitButton: string;
     submitting: string;
     validationErrorEmpty: string;

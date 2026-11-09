@@ -16,7 +16,7 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
     render(<App />);
 
     expect(screen.getByRole('heading', { level: 1, name: /family feud/i })).toBeInTheDocument();
-    expect(screen.getByText(/powered by google gemini ai/i)).toBeInTheDocument();
+    expect(screen.queryByText(/powered by google gemini ai/i)).not.toBeInTheDocument();
     expect(screen.getByText(/multiplayer game show & real-time duel/i)).toBeInTheDocument();
 
     // Check Room Creation Form is mounted

@@ -175,34 +175,26 @@ export const RoomCreateForm: React.FC<RoomCreateFormProps> = ({
           </div>
           <p className="text-xs text-slate-400 mb-3 ml-8">{t.createRoom.step3Desc}</p>
 
-          <div className="space-y-2">
-            <label htmlFor="room-name-input" className="block text-sm font-medium text-slate-200">
-              {t.createRoom.roomNameLabel}
-            </label>
-            <input
-              id="room-name-input"
-              type="text"
-              name="roomName"
-              value={roomName}
-              disabled={isLoading}
-              onChange={(e) => {
-                setRoomName(e.target.value);
-                if (errorMessage) setErrorMessage(null);
-              }}
-              placeholder={t.createRoom.roomNamePlaceholder}
-              data-testid="room-name-input"
-              maxLength={50}
-              className={`w-full px-4 py-3.5 rounded-xl bg-feud-slate border text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all ${
-                errorMessage
-                  ? 'border-feud-red focus:ring-feud-red/50'
-                  : 'border-feud-slate-border focus:border-feud-gold focus:ring-feud-gold/40'
-              }`}
-            />
-            <div className="flex justify-between items-center text-xs text-slate-400 px-1">
-              <span>{t.createRoom.roomNameHelp}</span>
-              <span>{roomName.length}/50</span>
-            </div>
-          </div>
+          <input
+            id="room-name-input"
+            type="text"
+            name="roomName"
+            value={roomName}
+            disabled={isLoading}
+            onChange={(e) => {
+              setRoomName(e.target.value);
+              if (errorMessage) setErrorMessage(null);
+            }}
+            placeholder={t.createRoom.roomNamePlaceholder}
+            aria-label={t.createRoom.roomNamePlaceholder}
+            data-testid="room-name-input"
+            maxLength={50}
+            className={`w-full px-4 py-3.5 rounded-xl bg-feud-slate border text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all ${
+              errorMessage
+                ? 'border-feud-red focus:ring-feud-red/50'
+                : 'border-feud-slate-border focus:border-feud-gold focus:ring-feud-gold/40'
+            }`}
+          />
         </section>
 
         {/* Error Alert Box */}
