@@ -30,6 +30,10 @@ export interface FastMoneyControllerProps {
   pausedRemainingSeconds?: number;
   onClearDuplicateWarning?: () => void;
   playerNumber?: 1 | 2;
+  playerName?: string;
+  partnerName?: string;
+  player1Name?: string;
+  player2Name?: string;
   onReady: () => void;
   onSubmitAnswer: (questionId: string, answer: string) => void;
   onPass: (questionId: string) => void;
@@ -45,6 +49,10 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   pausedRemainingSeconds,
   onClearDuplicateWarning,
   playerNumber,
+  playerName,
+  partnerName,
+  player1Name,
+  player2Name,
   onReady,
   onSubmitAnswer,
   onPass,
@@ -60,6 +68,13 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     playerNumber === 2 ||
     (playerNumber !== 1 && snapshot.phase.startsWith('P2') && !('revealSlots' in snapshot && snapshot.revealSlots));
   const isPlaying = snapshot.phase === 'P1_PLAYING' || snapshot.phase === 'P2_PLAYING';
+
+  const effectivePlayerName =
+    playerName ||
+    (isPlayer2 ? player2Name || 'Player 2' : player1Name || 'Player 1');
+  const effectivePartnerName =
+    partnerName ||
+    (isPlayer2 ? player1Name || 'Player 1' : player2Name || 'Player 2');
 
   // Synchronized countdown timer value (authoritative timer tick takes priority)
   const remainingSeconds =
@@ -281,11 +296,17 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-2">
-          {isPlayer2 ? t.fastMoney.p2ReadyTitle : t.fastMoney.p1ReadyTitle}
+          {playerName
+            ? `${playerName}, You're Up!`
+            : isPlayer2
+            ? t.fastMoney.p2ReadyTitle
+            : t.fastMoney.p1ReadyTitle}
         </h1>
         <p className="text-slate-300 text-sm mb-8 leading-relaxed">
           {isPlayer2
-            ? t.fastMoney.p2ReadySubtitle.replace('{score}', String(snapshot.totalScore ?? 0))
+            ? partnerName || player1Name
+              ? `${partnerName || player1Name} scored ${snapshot.totalScore ?? 0} points. Tap ready when you are set!`
+              : t.fastMoney.p2ReadySubtitle.replace('{score}', String(snapshot.totalScore ?? 0))
             : t.fastMoney.p1ReadySubtitle}
         </p>
 
@@ -335,7 +356,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               <Sparkles className="w-3 h-3" />
               <span>{t.fastMoney.revealPhaseTitle}</span>
             </div>
-            <h2 className="text-lg font-black text-white">Player 1 Reveal</h2>
+            <h2 className="text-lg font-black text-white">{effectivePlayerName} Reveal</h2>
           </div>
 
           <div className="flex flex-col items-end">
@@ -363,7 +384,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
                 {t.fastMoney.revealComplete}
               </div>
               <div className="text-xs text-emerald-200/80">
-                Waiting for Player 2 to start Round 2...
+                Waiting for {effectivePartnerName} to start Round 2...
               </div>
             </div>
           </div>
@@ -457,7 +478,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           {t.fastMoney.p2RevealPhaseTitle || 'Fast Money Reveal'}
         </h2>
         <p className="text-slate-300 text-sm mb-6 leading-relaxed">
-          Look up at the host TV screen to watch Player 2's answers and points revealed!
+          Look up at the host TV screen to watch {effectivePartnerName}&apos;s answers and points revealed!
         </p>
 
         {/* Grand Total Indicator */}
@@ -620,7 +641,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           }`}
         >
           <span>
-            {isPlayer2 ? 'Player 2' : 'Player 1'} • Question #{currentQ?.questionNumber ?? 1}
+            {effectivePlayerName} • Question #{currentQ?.questionNumber ?? 1}
           </span>
         </div>
 
@@ -648,7 +669,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               </div>
               {duplicateWarning.duplicateWithAnswer && (
                 <div className="text-xs text-red-300 font-normal mt-0.5">
-                  Player 1 answered: &quot;{duplicateWarning.duplicateWithAnswer}&quot;
+                  {effectivePartnerName} answered: &quot;{duplicateWarning.duplicateWithAnswer}&quot;
                 </div>
               )}
             </div>

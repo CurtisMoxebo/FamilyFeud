@@ -349,6 +349,15 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       playersList[0]?.nickname.toLowerCase() === nickname.trim().toLowerCase() ||
       playersList.length <= 1;
 
+    const isPlayer2 =
+      playersList[1]?.id === currentPlayer?.id ||
+      playersList[1]?.nickname.toLowerCase() === nickname.trim().toLowerCase();
+
+    const p1Nickname = playersList[0]?.nickname;
+    const p2Nickname = playersList[1]?.nickname;
+    const myName = currentPlayer?.nickname || nickname.trim();
+    const partnerName = isPlayer1 ? p2Nickname : p1Nickname;
+
     const renderPausedBanner = () =>
       isPaused ? (
         <div
@@ -387,6 +396,11 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             gameOver={gameOver}
             isPaused={isPaused}
             pausedRemainingSeconds={pausedRemainingSeconds}
+            playerNumber={1}
+            playerName={myName}
+            partnerName={partnerName}
+            player1Name={p1Nickname}
+            player2Name={p2Nickname}
             onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
             onSubmitAnswer={(qId, ans) =>
               submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
@@ -399,10 +413,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
         </div>
       );
     }
-
-    const isPlayer2 =
-      playersList[1]?.id === currentPlayer?.id ||
-      playersList[1]?.nickname.toLowerCase() === nickname.trim().toLowerCase();
 
     // Fast Money Player 2 Active Speed Round (US-09) & Reveal / Victory (US-10)
     if (
@@ -428,6 +438,10 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             pausedRemainingSeconds={pausedRemainingSeconds}
             onClearDuplicateWarning={clearDuplicateWarning}
             playerNumber={2}
+            playerName={myName}
+            partnerName={partnerName}
+            player1Name={p1Nickname}
+            player2Name={p2Nickname}
             onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
             onSubmitAnswer={(qId, ans) =>
               submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
@@ -451,6 +465,10 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             timerTick={timerTick}
             isPaused={isPaused}
             pausedRemainingSeconds={pausedRemainingSeconds}
+            playerName={myName}
+            partnerName={partnerName}
+            player1Name={p1Nickname}
+            player2Name={p2Nickname}
             onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
             onLeave={() => navigate('/')}
           />

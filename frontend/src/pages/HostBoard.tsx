@@ -550,8 +550,17 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       </div>
     ) : null;
 
+  // Live roster and capacity state calculation (US-04)
+  const players = roomState?.players ?? room.players ?? [];
+  const connectedPlayers = players.filter((p) => p.isConnected);
+  const playerCount = roomState?.playerCount ?? connectedPlayers.length;
+  const maxPlayers = roomState?.maxPlayers ?? (isFastMoney ? 2 : 10);
+
   // Fast Money Host Board Screen (US-07, US-08, US-09 & US-10)
   if (isFastMoney && fastMoneyHostState) {
+    const p1Nickname = connectedPlayers[0]?.nickname ?? players[0]?.nickname;
+    const p2Nickname = connectedPlayers[1]?.nickname ?? players[1]?.nickname;
+
     return (
       <div className="w-full flex flex-col items-center justify-center">
         {renderAlert()}
@@ -567,6 +576,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           language={room.language}
           roomName={room.roomName}
           roomCode={room.roomCode}
+          player1Name={p1Nickname}
+          player2Name={p2Nickname}
           onRevealAnswer={(slotNum) => revealFastMoneyAnswer(room.roomCode, slotNum)}
           onRevealPoints={(slotNum) => revealFastMoneyPoints(room.roomCode, slotNum)}
           onStartReveal={() => startFastMoneyRevealPhase(room.roomCode)}
@@ -578,12 +589,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       </div>
     );
   }
-
-  // Live roster and capacity state calculation (US-04)
-  const players = roomState?.players ?? room.players ?? [];
-  const connectedPlayers = players.filter((p) => p.isConnected);
-  const playerCount = roomState?.playerCount ?? connectedPlayers.length;
-  const maxPlayers = roomState?.maxPlayers ?? (isFastMoney ? 2 : 10);
 
   // Main Game Teams Stage (US-11)
   const activeTeams =

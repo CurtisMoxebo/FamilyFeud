@@ -710,4 +710,60 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
       expect(screen.getByTestId('player-final-score')).toHaveTextContent('205');
     });
   });
+
+  describe('Dynamic Player Names on Mobile Controller', () => {
+    it('displays custom player name on ready screen and question header', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={readySnapshot}
+          playerName="Alice"
+          partnerName="Bob"
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText("Alice, You're Up!")).toBeInTheDocument();
+      expect(screen.queryByText(/Fast Money - Player 1/i)).not.toBeInTheDocument();
+    });
+
+    it('displays custom player name on active playing question card', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          playerName="Alice"
+          partnerName="Bob"
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Alice • Question #1/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Player 1 • Question #1/i)).not.toBeInTheDocument();
+    });
+
+    it('displays partner name on duplicate warning banner', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          playerName="Bob"
+          partnerName="Alice"
+          playerNumber={2}
+          duplicateWarning={{
+            isDuplicate: true,
+            duplicateWithAnswer: 'APPLE',
+            message: 'Already said!',
+          }}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Alice answered: "APPLE"/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Player 1 answered: "APPLE"/i)).not.toBeInTheDocument();
+    });
+  });
 });

@@ -158,6 +158,51 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       expect(activeSlot).toHaveClass('border-blue-400');
     });
 
+    it('satisfies US-26: displays dual column boards at all times (both Player 1 and Player 2 boards visible during P1 speed round)', () => {
+      render(
+        <FastMoneyHostBoard
+          snapshot={playingHostSnapshot}
+          roomName="Family Feud Duel"
+          roomCode="FEUD-9999"
+          enableTTS={false}
+        />
+      );
+
+      // Player 1 header and slots
+      expect(screen.getByText('Player 1')).toBeInTheDocument();
+      expect(screen.getByTestId('fast-money-slot-1')).toBeInTheDocument();
+
+      // Player 2 header and waiting slots are also visible simultaneously
+      expect(screen.getByText('Player 2')).toBeInTheDocument();
+      for (let i = 1; i <= 5; i++) {
+        expect(screen.getByTestId(`host-p2-slot-${i}`)).toBeInTheDocument();
+      }
+    });
+
+    it('satisfies US-26: displays actual player names across boards and banners instead of generic Player 1 and Player 2', () => {
+      render(
+        <FastMoneyHostBoard
+          snapshot={playingHostSnapshot}
+          roomName="Family Feud Duel"
+          roomCode="FEUD-9999"
+          player1Name="Alice"
+          player2Name="Bob"
+          enableTTS={false}
+        />
+      );
+
+      // Displays player nicknames as column titles
+      expect(screen.getByText('Alice')).toBeInTheDocument();
+      expect(screen.getByText('Bob')).toBeInTheDocument();
+
+      // Displays player name in question banner pill
+      expect(screen.getByText(/Alice • Question #2/i)).toBeInTheDocument();
+
+      // Does not render generic "Player 1" or "Player 2" when names are provided
+      expect(screen.queryByText('Player 1')).not.toBeInTheDocument();
+      expect(screen.queryByText('Player 2')).not.toBeInTheDocument();
+    });
+
     it('displays authoritative countdown timer synchronized with timerTick', () => {
       const tick: TimerTickPayload = {
         secondsRemaining: 24,

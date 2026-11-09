@@ -201,6 +201,8 @@ export interface HostStateSnapshot {
   p2Slots?: FastMoneyRevealSlot[];
   isVictory?: boolean;
   targetScore?: number;
+  player1Name?: string;
+  player2Name?: string;
 }
 
 export interface QuestionData {

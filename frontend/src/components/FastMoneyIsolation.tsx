@@ -8,6 +8,10 @@ export interface FastMoneyIsolationProps {
   timerTick?: TimerTickPayload | null;
   isPaused?: boolean;
   pausedRemainingSeconds?: number;
+  playerName?: string;
+  partnerName?: string;
+  player1Name?: string;
+  player2Name?: string;
   onReady?: () => void;
   onLeave?: () => void;
 }
@@ -17,9 +21,16 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
   timerTick = null,
   isPaused = false,
   pausedRemainingSeconds,
+  playerName,
+  partnerName,
+  player1Name,
+  player2Name,
   onReady,
 }) => {
   const { t } = useTranslation();
+
+  const effectivePlayerName = playerName || player2Name || 'Player 2';
+  const effectivePartnerName = partnerName || player1Name || 'Player 1';
 
   const remainingSeconds =
     isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
@@ -46,17 +57,21 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-2">
-          {t.fastMoney.p2ReadyTitle || "Player 2, You're Up!"}
+          {playerName || player2Name
+            ? `${effectivePlayerName}, You're Up!`
+            : (t.fastMoney.p2ReadyTitle || "Player 2, You're Up!")}
         </h1>
         <p className="text-slate-300 text-sm mb-6 leading-relaxed">
-          {t.fastMoney.p2ReadySubtitle?.replace('{score}', String(totalScore)) ||
-            `Player 1 scored ${totalScore} points. Tap ready when you are set!`}
+          {partnerName || player1Name
+            ? `${partnerName || player1Name} scored ${totalScore} points. Tap ready when you are set!`
+            : (t.fastMoney.p2ReadySubtitle?.replace('{score}', String(totalScore)) ||
+              `Player 1 scored ${totalScore} points. Tap ready when you are set!`)}
         </p>
 
         {/* Player 1's Total Score Badge */}
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 mb-6">
           <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-            Player 1 Score to Beat
+            {effectivePartnerName} Score to Beat
           </div>
           <div
             data-testid="p2-round1-total"
@@ -100,7 +115,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
               <Eye className="w-3 h-3" />
               <span>{t.fastMoney.revealPhaseTitle}</span>
             </div>
-            <h2 className="text-lg font-black text-white">Player 1 Reveal</h2>
+            <h2 className="text-lg font-black text-white">{effectivePartnerName} Reveal</h2>
           </div>
 
           <div className="flex flex-col items-end">
@@ -177,8 +192,9 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
           <Eye className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
           <span>
             {snapshot.isolationMessage ||
-              t.fastMoney.watchingReveal ||
-              "Watching Player 1's reveal sequence..."}
+              (partnerName || player1Name
+                ? `Watching ${partnerName || player1Name}'s reveal sequence...`
+                : (t.fastMoney.watchingReveal || "Watching Player 1's reveal sequence..."))}
           </span>
         </div>
       </div>
@@ -211,7 +227,9 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
 
       {/* Localized Title */}
       <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-3 leading-tight">
-        {t.fastMoney.player2IsolationTitle}
+        {(partnerName || player1Name)
+          ? `🎧 ${partnerName || player1Name} is currently playing!`
+          : t.fastMoney.player2IsolationTitle}
       </h1>
 
       {/* Localized Instructions */}
@@ -229,7 +247,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
       >
         <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">
           <Timer className="w-4 h-4 text-indigo-400" />
-          <span>Player 1 Clock</span>
+          <span>{effectivePartnerName} Clock</span>
         </div>
         <div className="text-4xl sm:text-5xl font-black font-game text-indigo-300 tracking-wider">
           {remainingSeconds}
