@@ -500,18 +500,46 @@ export const FALLBACK_QUESTION_BANK: Record<'EN' | 'FR' | 'ES', FallbackLanguage
 };
 
 /**
- * Retrieves fallback survey questions for a specified mode, language, and optional index/round.
+ * Normalizes question text for comparison (lowercase, trimmed, strip trailing punctuation).
+ */
+function normalizeQuestionComparison(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[?!.,;:'"¿¡]+$/g, '')
+    .trim();
+}
+
+/**
+ * Retrieves fallback survey questions for a specified mode, language, optional index/round,
+ * and optional list of previously used questions to exclude.
  */
 export function getFallbackQuestions(
   gameMode: 'FAST_MONEY' | 'MAIN_GAME',
   language: 'EN' | 'FR' | 'ES',
-  roundOrIndex = 1
+  roundOrIndex = 1,
+  excludedQuestions: string[] = []
 ): FallbackQuestion[] {
   const langKey = (language.toUpperCase() as 'EN' | 'FR' | 'ES') || 'EN';
   const languageSet = FALLBACK_QUESTION_BANK[langKey] || FALLBACK_QUESTION_BANK.EN;
 
+  const normalizedExcluded = new Set(
+    (excludedQuestions || []).map((q) => normalizeQuestionComparison(q)).filter((q) => q.length > 0)
+  );
+
   if (gameMode === 'FAST_MONEY') {
     const sets = languageSet.fastMoneySets;
+
+    // If exclusions are provided, search for a set that has zero overlapping questions
+    if (normalizedExcluded.size > 0) {
+      const nonOverlappingSet = sets.find((set) =>
+        set.every((q) => !normalizedExcluded.has(normalizeQuestionComparison(q.questionText)))
+      );
+      if (nonOverlappingSet) {
+        return JSON.parse(JSON.stringify(nonOverlappingSet));
+      }
+    }
+
     const setIndex = Math.abs(roundOrIndex - 1) % sets.length;
     // Return a deep copy of the 5 questions
     return JSON.parse(JSON.stringify(sets[setIndex]));
@@ -519,6 +547,18 @@ export function getFallbackQuestions(
 
   // MAIN_GAME mode: return 1 question corresponding to round number (1-indexed)
   const questions = languageSet.mainGameQuestions;
+
+  // If exclusions are provided, prefer questions not yet in the exclusion list
+  if (normalizedExcluded.size > 0) {
+    const availableQuestions = questions.filter(
+      (q) => !normalizedExcluded.has(normalizeQuestionComparison(q.questionText))
+    );
+    if (availableQuestions.length > 0) {
+      const qIndex = Math.abs(roundOrIndex - 1) % availableQuestions.length;
+      return [JSON.parse(JSON.stringify(availableQuestions[qIndex]))];
+    }
+  }
+
   const qIndex = Math.abs(roundOrIndex - 1) % questions.length;
   return [JSON.parse(JSON.stringify(questions[qIndex]))];
 }

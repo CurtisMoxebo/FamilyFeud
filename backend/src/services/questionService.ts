@@ -28,6 +28,7 @@ export interface GenerateAndSaveOptions {
   language: SupportedLanguage;
   roundNumber?: number;
   count?: number;
+  excludedQuestions?: string[];
   prismaClient?: typeof defaultPrisma;
 }
 
@@ -92,6 +93,70 @@ export async function saveQuestionsForGame(
 }
 
 /**
+ * Retrieves question texts already played in the current room/game, combined with
+ * recent global questions in the given language, to prevent question repetition.
+ */
+export async function getExcludedQuestionTexts(
+  gameId: string,
+  language: SupportedLanguage,
+  limit = 50,
+  prismaClient = defaultPrisma
+): Promise<string[]> {
+  try {
+    // 1. Fetch current game to resolve its parent roomId (if exists)
+    const game = await prismaClient.game.findUnique({
+      where: { id: gameId },
+      select: { roomId: true },
+    });
+
+    let roomQuestions: { questionText: string }[] = [];
+    if (game?.roomId) {
+      // Fetch all questions from all games played in this room
+      roomQuestions = await prismaClient.question.findMany({
+        where: {
+          game: { roomId: game.roomId },
+        },
+        select: { questionText: true },
+      });
+    } else {
+      // Fallback: fetch questions for this specific game
+      roomQuestions = await prismaClient.question.findMany({
+        where: { gameId },
+        select: { questionText: true },
+      });
+    }
+
+    // 2. Fetch recent questions in the target language across other games/rooms
+    const recentGlobalQuestions = await prismaClient.question.findMany({
+      where: {
+        language,
+        ...(game?.roomId
+          ? { game: { roomId: { not: game.roomId } } }
+          : { gameId: { not: gameId } }),
+      },
+      select: { questionText: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+
+    const combinedSet = new Set<string>();
+    for (const q of roomQuestions) {
+      const trimmed = q.questionText?.trim();
+      if (trimmed) combinedSet.add(trimmed);
+    }
+    for (const q of recentGlobalQuestions) {
+      const trimmed = q.questionText?.trim();
+      if (trimmed) combinedSet.add(trimmed);
+    }
+
+    return Array.from(combinedSet);
+  } catch (error) {
+    logger.warn(`[QUESTIONS:EXCLUSIONS] Failed to retrieve exclusion history for game ${gameId}:`, { error });
+    return [];
+  }
+}
+
+/**
  * Orchestrator: invokes the Gemini AI generator (or fallback) and saves the generated
  * survey questions directly into MySQL via Prisma.
  */
@@ -107,12 +172,18 @@ export async function generateAndSaveGameQuestions(
     prismaClient = defaultPrisma,
   } = options;
 
+  // Retrieve excluded questions from room history and recent language history if not explicitly provided
+  const excludedQuestions =
+    options.excludedQuestions ??
+    (await getExcludedQuestionTexts(gameId, language, 50, prismaClient));
+
   // 1. Generate questions via Gemini (or fallback bank on API failure/missing key)
   const generated = await generateQuestions({
     gameMode,
     language,
     count,
     roundNumber,
+    excludedQuestions,
   });
 
   // 2. Persist the validated, normalized questions into MySQL

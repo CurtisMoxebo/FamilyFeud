@@ -25,6 +25,7 @@ export interface QuestionGenerationOptions {
   language: SupportedLanguage;
   count?: number;
   roundNumber?: number;
+  excludedQuestions?: string[];
 }
 
 /**
@@ -99,7 +100,8 @@ export function buildPrompt(
   gameMode: SupportedGameMode,
   language: SupportedLanguage,
   count: number,
-  roundNumber = 1
+  roundNumber = 1,
+  excludedQuestions: string[] = []
 ): string {
   const langName =
     language === 'FR' ? 'French (Français)' : language === 'ES' ? 'Spanish (Español)' : 'English';
@@ -109,6 +111,15 @@ export function buildPrompt(
       ? `Generate exactly ${count} fast-paced, intuitive Family Feud survey questions for the Fast Money round. For each question, provide 4 to 6 realistic survey answers.`
       : `Generate exactly ${count} survey question for Main Game Round ${roundNumber}. The question must have between 4 and 8 ranked survey answers (ideally 5 to 8).`;
 
+  const validExcluded = (excludedQuestions || [])
+    .map((q) => (typeof q === 'string' ? q.trim() : ''))
+    .filter((q) => q.length > 0);
+
+  const exclusionSection =
+    validExcluded.length > 0
+      ? `\n6. Negative Constraints (Do NOT Repeat):\nDo NOT generate, repeat, or closely rephrase any of the following previously asked survey questions:\n${validExcluded.map((q) => `- "${q}"`).join('\n')}\nEnsure all generated questions are completely fresh, distinct, and novel.`
+      : '';
+
   return `You are an expert Family Feud survey question creator.
 Generate culturally authentic, universally accessible, family-friendly survey questions in ${langName}.
 
@@ -117,7 +128,7 @@ Requirements:
 2. Structure: 100 people were surveyed. For each question, the point values of the answers MUST sum to EXACTLY 100.
 3. Order: Answers must be sorted in descending order of points (most popular answer first).
 4. Language: Questions and answers must be naturally written in ${langName}.
-5. ${modeInstruction}
+5. ${modeInstruction}${exclusionSection}
 
 Output only valid JSON according to the schema.`;
 }
@@ -139,13 +150,13 @@ export const geminiClientFactory = {
 export async function generateQuestions(
   options: QuestionGenerationOptions
 ): Promise<GeneratedQuestion[]> {
-  const { gameMode, language, roundNumber = 1 } = options;
+  const { gameMode, language, roundNumber = 1, excludedQuestions = [] } = options;
   const count = options.count ?? (gameMode === 'FAST_MONEY' ? 5 : 1);
 
   // Fallback if no API key is provided
   if (!config.geminiApiKey || config.geminiApiKey.trim() === '') {
     logger.warn('[GEMINI:CONFIG] No GEMINI_API_KEY configured. Using curated fallback question bank.');
-    const fallbacks = getFallbackQuestions(gameMode, language, roundNumber);
+    const fallbacks = getFallbackQuestions(gameMode, language, roundNumber, excludedQuestions);
     return fallbacks.slice(0, count);
   }
 
@@ -191,7 +202,7 @@ export async function generateQuestions(
       },
     });
 
-    const prompt = buildPrompt(gameMode, language, count, roundNumber);
+    const prompt = buildPrompt(gameMode, language, count, roundNumber, excludedQuestions);
     const result = await model.generateContent(prompt);
     const text = result.response.text();
 
