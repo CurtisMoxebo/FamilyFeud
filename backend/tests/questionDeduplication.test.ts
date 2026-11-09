@@ -5,7 +5,7 @@ import { getFallbackQuestions } from '../src/data/fallbackQuestions';
 import { config } from '../src/config/env';
 import { prisma } from '../src/services/db';
 
-describe('US-27 Step 1: AI Question Deduplication & Negative Exclusion History', () => {
+describe('US-27: AI Question Deduplication & Negative Exclusion History', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -342,6 +342,254 @@ describe('US-27 Step 1: AI Question Deduplication & Negative Exclusion History',
         });
         await prisma.game.deleteMany({
           where: { id: testGame.id },
+        });
+        await prisma.room.deleteMany({
+          where: { id: testRoom.id },
+        });
+      }
+    });
+  });
+
+  /* -------------------------------------------------------------
+   * 5. isQuestionCollision: Fuzzy & Semantic Overlap Detection (Scenario 2)
+   * ------------------------------------------------------------- */
+  describe('isQuestionCollision Evaluation', () => {
+    it('detects exact string matches regardless of case, punctuation, or accents', () => {
+      expect(
+        geminiService.isQuestionCollision(
+          'Name something you drink hot?',
+          'name something you drink hot'
+        )
+      ).toBe(true);
+
+      expect(
+        geminiService.isQuestionCollision(
+          'Nommez un animal du zoo !',
+          'nommez un animal du zoo'
+        )
+      ).toBe(true);
+    });
+
+    it('detects near-identical questions with >= 80% similarity', () => {
+      // 1 minor word variation: "people drink hot" vs "you drink hot"
+      expect(
+        geminiService.isQuestionCollision(
+          'Name something people drink hot',
+          'Name something you drink hot'
+        )
+      ).toBe(true);
+    });
+
+    it('returns false for distinctly different questions', () => {
+      expect(
+        geminiService.isQuestionCollision(
+          'Name something you bring to the beach',
+          'Name an animal you would see at a zoo'
+        )
+      ).toBe(false);
+
+      expect(
+        geminiService.isQuestionCollision(
+          'Name a month where people spend the most money',
+          'Name something you find in a pencil case'
+        )
+      ).toBe(false);
+    });
+  });
+
+  /* -------------------------------------------------------------
+   * 6. filterAndDeduplicateQuestions: Historical & Intra-batch Filtering (Scenario 2 & 3)
+   * ------------------------------------------------------------- */
+  describe('filterAndDeduplicateQuestions Logic', () => {
+    const q1: geminiService.GeneratedQuestion = {
+      questionText: 'Name something you find in the attic',
+      answers: [{ text: 'Old Boxes', points: 100 }],
+    };
+    const q2: geminiService.GeneratedQuestion = {
+      questionText: 'Name an animal you see at a zoo',
+      answers: [{ text: 'Lion', points: 100 }],
+    };
+    const q3DuplicateHistorical: geminiService.GeneratedQuestion = {
+      questionText: 'Name something people drink hot',
+      answers: [{ text: 'Coffee', points: 100 }],
+    };
+    const q4DuplicateBatch: geminiService.GeneratedQuestion = {
+      questionText: 'Name something you find in an attic', // near duplicate of q1
+      answers: [{ text: 'Antiques', points: 100 }],
+    };
+
+    it('filters out questions colliding with historical exclusions', () => {
+      const batch = [q1, q2, q3DuplicateHistorical];
+      const excluded = ['Name something you drink hot'];
+
+      const result = geminiService.filterAndDeduplicateQuestions(batch, excluded);
+      expect(result).toHaveLength(2);
+      expect(result.map((q) => q.questionText)).toEqual([
+        'Name something you find in the attic',
+        'Name an animal you see at a zoo',
+      ]);
+    });
+
+    it('filters out intra-batch duplicate questions, keeping only the first unique entry', () => {
+      const batch = [q1, q2, q4DuplicateBatch];
+      const result = geminiService.filterAndDeduplicateQuestions(batch, []);
+      expect(result).toHaveLength(2);
+      expect(result.map((q) => q.questionText)).toEqual([
+        'Name something you find in the attic',
+        'Name an animal you see at a zoo',
+      ]);
+    });
+  });
+
+  /* -------------------------------------------------------------
+   * 7. generateQuestions: Replenishment on Collision (Scenario 2 & 3)
+   * ------------------------------------------------------------- */
+  describe('generateQuestions Collision Replenishment', () => {
+    it('satisfies Scenario 2 & 3: replaces collided questions with non-overlapping fallback questions', async () => {
+      const excluded = ['Name something you bring to the beach'];
+
+      // Mock Gemini returning 5 questions, where Q1 collides with exclusion and Q3 collides with Q2
+      const mockRawQuestions = [
+        {
+          questionText: 'Name something you bring to a beach', // Collides with excluded
+          answers: [{ text: 'Towel', points: 100 }],
+        },
+        {
+          questionText: 'Name something you eat for breakfast',
+          answers: [{ text: 'Eggs', points: 100 }],
+        },
+        {
+          questionText: 'Name something you eat at breakfast', // Intra-batch collision with Q2
+          answers: [{ text: 'Cereal', points: 100 }],
+        },
+        {
+          questionText: 'Name a musical instrument',
+          answers: [{ text: 'Guitar', points: 100 }],
+        },
+        {
+          questionText: 'Name a mode of transportation',
+          answers: [{ text: 'Train', points: 100 }],
+        },
+      ];
+
+      const mockGenerateContent = vi.fn().mockResolvedValue({
+        response: { text: () => JSON.stringify(mockRawQuestions) },
+      });
+      const mockModel = { generateContent: mockGenerateContent };
+      const mockClient = { getGenerativeModel: vi.fn().mockReturnValue(mockModel) };
+      vi.spyOn(geminiService.geminiClientFactory, 'createClient').mockReturnValue(mockClient as any);
+
+      const originalKey = config.geminiApiKey;
+      config.geminiApiKey = 'test-fake-key-replenishment';
+
+      try {
+        const result = await geminiService.generateQuestions({
+          gameMode: 'FAST_MONEY',
+          language: 'EN',
+          count: 5,
+          roundNumber: 1,
+          excludedQuestions: excluded,
+        });
+
+        // Must still return exactly 5 valid questions
+        expect(result).toHaveLength(5);
+        const questionTexts = result.map((q) => q.questionText);
+
+        // Neither the historical collision nor intra-batch duplicate should be present
+        expect(questionTexts).not.toContain('Name something you bring to a beach');
+        expect(questionTexts.filter((t) => t.includes('breakfast'))).toHaveLength(1);
+
+        // Replenishment questions from fallback pool filled the missing slots
+        const hasReplenished = questionTexts.some(
+          (t) =>
+            t.includes('month where people spend') ||
+            t.includes('animal you would see at a zoo') ||
+            t.includes('drink hot')
+        );
+        expect(hasReplenished).toBe(true);
+
+        // All questions sum to 100 points
+        for (const q of result) {
+          const sum = q.answers.reduce((acc, a) => acc + a.points, 0);
+          expect(sum).toBe(100);
+        }
+      } finally {
+        config.geminiApiKey = originalKey;
+      }
+    });
+  });
+
+  /* -------------------------------------------------------------
+   * 8. End-to-End Room Rematch Deduplication (Scenario 1, 2, 3)
+   * ------------------------------------------------------------- */
+  describe('End-to-End Rematch Deduplication Integration', () => {
+    it('guarantees rematches in the same room never receive questions used in the initial match', async () => {
+      const roomCode = `DED5-${Math.floor(1000 + Math.random() * 9000)}`;
+      const testRoom = await prisma.room.create({
+        data: {
+          roomCode,
+          roomName: 'Rematch Integration Room',
+          language: 'EN',
+          gameMode: 'FAST_MONEY',
+        },
+      });
+
+      // Match 1: Generate & save 5 questions (using offline fallbacks)
+      const game1 = await prisma.game.create({
+        data: {
+          roomId: testRoom.id,
+          mode: 'FAST_MONEY',
+          status: 'COMPLETED',
+        },
+      });
+
+      const originalKey = config.geminiApiKey;
+      config.geminiApiKey = ''; // Force offline fallback bank to test deterministic non-repetition
+
+      try {
+        const game1Questions = await questionService.generateAndSaveGameQuestions({
+          gameId: game1.id,
+          gameMode: 'FAST_MONEY',
+          language: 'EN',
+          count: 5,
+        });
+        expect(game1Questions).toHaveLength(5);
+        const game1Texts = game1Questions.map((q) => q.questionText);
+
+        // Match 2 (Rematch / "Play Again" in same room):
+        const game2 = await prisma.game.create({
+          data: {
+            roomId: testRoom.id,
+            mode: 'FAST_MONEY',
+            status: 'IN_PROGRESS',
+          },
+        });
+
+        const game2Questions = await questionService.generateAndSaveGameQuestions({
+          gameId: game2.id,
+          gameMode: 'FAST_MONEY',
+          language: 'EN',
+          count: 5,
+        });
+        expect(game2Questions).toHaveLength(5);
+        const game2Texts = game2Questions.map((q) => q.questionText);
+
+        // Zero questions from Game 1 are repeated in Game 2!
+        for (const g2Text of game2Texts) {
+          expect(game1Texts).not.toContain(g2Text);
+        }
+      } finally {
+        config.geminiApiKey = originalKey;
+
+        // Cleanup
+        await prisma.answer.deleteMany({
+          where: { question: { game: { roomId: testRoom.id } } },
+        });
+        await prisma.question.deleteMany({
+          where: { game: { roomId: testRoom.id } },
+        });
+        await prisma.game.deleteMany({
+          where: { roomId: testRoom.id },
         });
         await prisma.room.deleteMany({
           where: { id: testRoom.id },

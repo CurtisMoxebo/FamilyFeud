@@ -448,4 +448,80 @@ describe('Backend Regression Suite: Gemini AI Question Generation Service (US-05
       expect(typeof client.getGenerativeModel).toBe('function');
     });
   });
+
+  /* -------------------------------------------------------------
+   * 6. AI Question Deduplication & Negative Exclusion (US-27)
+   * ------------------------------------------------------------- */
+  describe('AI Question Deduplication & Negative Exclusion (US-27)', () => {
+    describe('buildPrompt with exclusion constraints', () => {
+      it('satisfies Scenario 1: omits negative constraints section when exclusion list is empty', () => {
+        const prompt = geminiService.buildPrompt('FAST_MONEY', 'EN', 5, 1, []);
+        expect(prompt).not.toContain('Negative Constraints (Do NOT Repeat)');
+      });
+
+      it('satisfies Scenario 1: renders negative constraints when exclusion list is provided', () => {
+        const exclusions = [
+          'Name something you eat for breakfast',
+          'Name a common household pet',
+        ];
+        const prompt = geminiService.buildPrompt('FAST_MONEY', 'EN', 5, 1, exclusions);
+
+        expect(prompt).toContain('Negative Constraints (Do NOT Repeat)');
+        expect(prompt).toContain('Do NOT generate, repeat, or closely rephrase any of the following');
+        expect(prompt).toContain('- "Name something you eat for breakfast"');
+        expect(prompt).toContain('- "Name a common household pet"');
+      });
+
+      it('filters out empty or whitespace-only exclusion strings', () => {
+        const prompt = geminiService.buildPrompt('MAIN_GAME', 'FR', 1, 1, ['', '   ', 'Nommez un animal']);
+        expect(prompt).toContain('- "Nommez un animal"');
+        expect(prompt).not.toContain('- ""');
+      });
+    });
+
+    describe('isQuestionCollision', () => {
+      it('satisfies Scenario 2: detects exact collision regardless of case, punctuation, and whitespace', () => {
+        const candidate = '  Name something you bring to the beach! ';
+        const target = 'name something you bring to the beach?';
+        expect(geminiService.isQuestionCollision(candidate, target)).toBe(true);
+      });
+
+      it('satisfies Scenario 2: detects collision with high token overlap', () => {
+        const candidate = 'Name something you pack when going to the beach';
+        const target = 'Name something you bring when going to the beach';
+        expect(geminiService.isQuestionCollision(candidate, target)).toBe(true);
+      });
+
+      it('satisfies Scenario 2: returns false for clearly distinct questions', () => {
+        const candidate = 'Name a popular winter sport';
+        const target = 'Name something you put in your coffee';
+        expect(geminiService.isQuestionCollision(candidate, target)).toBe(false);
+      });
+    });
+
+    describe('filterAndDeduplicateQuestions', () => {
+      it('satisfies Scenario 2: discards historical duplicates and intra-batch collisions', () => {
+        const questions: geminiService.GeneratedQuestion[] = [
+          {
+            questionText: 'Name something you eat for breakfast',
+            answers: [{ text: 'Eggs', points: 100 }],
+          },
+          {
+            questionText: 'Name a musical instrument found in an orchestra',
+            answers: [{ text: 'Violin', points: 100 }],
+          },
+          {
+            questionText: 'Name a musical instrument you find in an orchestra', // duplicate of above
+            answers: [{ text: 'Flute', points: 100 }],
+          },
+        ];
+
+        const excluded = ['Name something you eat for breakfast'];
+        const result = geminiService.filterAndDeduplicateQuestions(questions, excluded);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].questionText).toBe('Name a musical instrument found in an orchestra');
+      });
+    });
+  });
 });
