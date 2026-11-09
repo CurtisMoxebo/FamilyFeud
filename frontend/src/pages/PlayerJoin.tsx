@@ -91,6 +91,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     sendPlayerReady,
     submitFastMoneyAnswer,
     passFastMoneyQuestion,
+    repeatFastMoneyQuestion,
     faceOffState: socketFaceOffState,
     buzzerLocked,
     buzzerRejected,
@@ -248,7 +249,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6">
         <Loader2 className="w-12 h-12 text-feud-gold animate-spin mb-4" />
-        <p className="text-lg text-slate-300 font-medium">Connecting to Room...</p>
+        <p className="text-lg text-slate-300 font-medium">{t.joinRoom.connectingToRoom}</p>
       </div>
     );
   }
@@ -322,7 +323,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
         <div className="w-16 h-16 rounded-full bg-red-950/80 text-feud-red mx-auto flex items-center justify-center mb-4">
           <AlertCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-extrabold text-white mb-2">Room Unavailable</h2>
+        <h2 className="text-2xl font-extrabold text-white mb-2">{t.joinRoom.roomUnavailable}</h2>
         <p className="text-slate-300 text-sm mb-6">{error || t.joinRoom.roomNotFound}</p>
         <button
           type="button"
@@ -330,7 +331,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-feud-gold text-slate-950 font-bold hover:scale-105 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
+          <span>{t.lobby.backHome}</span>
         </button>
       </div>
     );
@@ -348,6 +349,15 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       playersList[0]?.id === currentPlayer?.id ||
       playersList[0]?.nickname.toLowerCase() === nickname.trim().toLowerCase() ||
       playersList.length <= 1;
+
+    const isPlayer2 =
+      playersList[1]?.id === currentPlayer?.id ||
+      playersList[1]?.nickname.toLowerCase() === nickname.trim().toLowerCase();
+
+    const p1Nickname = playersList[0]?.nickname;
+    const p2Nickname = playersList[1]?.nickname;
+    const myName = currentPlayer?.nickname || nickname.trim();
+    const partnerName = isPlayer1 ? p2Nickname : p1Nickname;
 
     const renderPausedBanner = () =>
       isPaused ? (
@@ -387,6 +397,11 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             gameOver={gameOver}
             isPaused={isPaused}
             pausedRemainingSeconds={pausedRemainingSeconds}
+            playerNumber={1}
+            playerName={myName}
+            partnerName={partnerName}
+            player1Name={p1Nickname}
+            player2Name={p2Nickname}
             onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
             onSubmitAnswer={(qId, ans) =>
               submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
@@ -394,15 +409,14 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             onPass={(qId) =>
               passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
             }
+            onRepeatQuestion={(qId) =>
+              repeatFastMoneyQuestion && repeatFastMoneyQuestion(roomCode, activePlayerId, qId)
+            }
             onLeave={() => navigate('/')}
           />
         </div>
       );
     }
-
-    const isPlayer2 =
-      playersList[1]?.id === currentPlayer?.id ||
-      playersList[1]?.nickname.toLowerCase() === nickname.trim().toLowerCase();
 
     // Fast Money Player 2 Active Speed Round (US-09) & Reveal / Victory (US-10)
     if (
@@ -428,12 +442,19 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             pausedRemainingSeconds={pausedRemainingSeconds}
             onClearDuplicateWarning={clearDuplicateWarning}
             playerNumber={2}
+            playerName={myName}
+            partnerName={partnerName}
+            player1Name={p1Nickname}
+            player2Name={p2Nickname}
             onReady={() => sendPlayerReady && sendPlayerReady(roomCode, activePlayerId)}
             onSubmitAnswer={(qId, ans) =>
               submitFastMoneyAnswer && submitFastMoneyAnswer(roomCode, activePlayerId, qId, ans)
             }
             onPass={(qId) =>
               passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
+            }
+            onRepeatQuestion={(qId) =>
+              repeatFastMoneyQuestion && repeatFastMoneyQuestion(roomCode, activePlayerId, qId)
             }
             onLeave={() => navigate('/')}
           />
@@ -451,6 +472,10 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             timerTick={timerTick}
             isPaused={isPaused}
             pausedRemainingSeconds={pausedRemainingSeconds}
+            playerName={myName}
+            partnerName={partnerName}
+            player1Name={p1Nickname}
+            player2Name={p2Nickname}
             onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
             onLeave={() => navigate('/')}
           />

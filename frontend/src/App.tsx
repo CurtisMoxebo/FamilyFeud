@@ -21,7 +21,7 @@ export const AppContent: React.FC = () => {
   const displayMode = isHostDisplay ? 'host' : isPlayerController ? 'player' : 'home';
 
   const shellLayoutClassName = isHostDisplay
-    ? 'min-h-screen min-h-dvh-safe w-full bg-gradient-to-b from-feud-blue-dark via-feud-blue to-feud-slate text-white flex flex-col items-center justify-center px-4 py-4 sm:px-6 sm:py-6 lg:px-10 2xl:px-14 3xl:px-20 overflow-x-hidden'
+    ? 'min-h-screen min-h-dvh-safe w-full bg-gradient-to-b from-feud-blue-dark via-feud-blue to-feud-slate text-white flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 2xl:px-14 3xl:px-20 py-2 sm:py-3 lg:py-4 overflow-x-hidden'
     : isPlayerController
     ? `min-h-screen min-h-dvh-safe w-full max-w-[100vw] bg-gradient-to-b from-feud-blue-dark via-feud-blue to-feud-slate text-white flex flex-col items-center ${
         isKeyboardOpen ? 'justify-start px-3 py-2' : 'justify-center px-4 py-4 sm:p-6'

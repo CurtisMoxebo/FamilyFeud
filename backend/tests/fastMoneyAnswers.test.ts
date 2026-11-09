@@ -289,5 +289,41 @@ describe('Fast Money Answer Submission & Pass Handlers (US-07 Step 3)', () => {
       });
     });
   });
+
+  describe('repeat_question WebSocket Handler', () => {
+    it('broadcasts question_repeat_requested to room:{roomCode} when contestant asks for repeat', () => {
+      const session = initFastMoneySession('FEUD-FM01', {
+        gameId: 'game-1',
+        player1Id: 'p1-id',
+        player2Id: 'p2-id',
+        questions: mockQuestions,
+      });
+      session.startPlayer1Turn('p1-id');
+
+      registerFastMoneyHandlers(mockIo, mockSocket);
+
+      const callbackSpy = vi.fn();
+      socketListeners['repeat_question'](
+        {
+          roomCode: 'FEUD-FM01',
+          playerId: 'p1-id',
+          questionId: 'q-1',
+        },
+        callbackSpy
+      );
+
+      expect(callbackSpy).toHaveBeenCalledWith({ success: true });
+
+      const repeatEvent = emittedEvents.find(
+        (e) =>
+          e.event === 'question_repeat_requested' &&
+          e.room === 'room:FEUD-FM01' &&
+          e.payload.questionId === 'q-1'
+      );
+      expect(repeatEvent).toBeDefined();
+      expect(repeatEvent?.payload.playerId).toBe('p1-id');
+      expect(repeatEvent?.payload.timestamp).toBeGreaterThan(0);
+    });
+  });
 });
 

@@ -11,6 +11,7 @@ import {
   OpponentTurnPromptPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
+import { useFullscreen } from '../hooks/useFullscreen';
 import {
   speakQuestion,
   cancelSpeech,
@@ -36,6 +37,10 @@ import {
   Award,
   Sparkles,
   Flame,
+  Maximize2,
+  Minimize2,
+  Play,
+  Pause,
 } from 'lucide-react';
 
 export interface MainGameFaceOffBoardProps {
@@ -53,6 +58,9 @@ export interface MainGameFaceOffBoardProps {
   roomName: string;
   roomCode: string;
   onLeave?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  onTogglePause?: () => void;
 }
 
 export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
@@ -70,8 +78,14 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   roomName,
   roomCode,
   onLeave,
+  isFullscreen: propsIsFullscreen,
+  onToggleFullscreen,
+  onTogglePause,
 }) => {
   const { t } = useTranslation();
+  const internalFullscreen = useFullscreen({ enableShortcut: false });
+  const isFullscreen = propsIsFullscreen ?? internalFullscreen.isFullscreen;
+  const toggleFullscreen = onToggleFullscreen ?? internalFullscreen.toggleFullscreen;
 
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => !isTtsMuted());
 
@@ -109,7 +123,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     promptPassPlay?.winnerNickname ||
     buzzerLocked?.winnerNickname ||
     snapshot.buzzedPlayerNickname ||
-    'Contender';
+    t.mainGame.contender;
 
   const controllingTeam =
     roundControlAssigned?.controllingTeam || snapshot.controllingTeam;
@@ -248,6 +262,47 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {onTogglePause && (
+              <button
+                type="button"
+                onClick={onTogglePause}
+                data-testid="host-pause-resume-btn"
+                aria-label={isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}
+                title={isPaused ? `${t.admin.resumeTimer} (${t.admin.spacebarShortcutHint})` : `${t.admin.pauseTimer} (${t.admin.spacebarShortcutHint})`}
+                className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                  isPaused
+                    ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
+                    : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
+                }`}
+              >
+                {isPaused ? (
+                  <Play className="w-5 h-5 text-emerald-400 fill-current" />
+                ) : (
+                  <Pause className="w-5 h-5 text-amber-400 fill-current" />
+                )}
+                <span className="sr-only">{isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}</span>
+                <span className="sr-only">{t.admin.spacebarShortcutHint}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void toggleFullscreen()}
+              data-testid="host-fullscreen-toggle"
+              aria-pressed={isFullscreen}
+              aria-label={isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}
+              title={`${isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen} (${t.host.fullscreenHint})`}
+              className="p-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-5 h-5 text-feud-gold" />
+              ) : (
+                <Maximize2 className="w-5 h-5 text-feud-gold" />
+              )}
+              <span className="sr-only">{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
+              <span className="sr-only">{t.host.fullscreenHint}</span>
+            </button>
+
             <button
               type="button"
               onClick={handleToggleAudio}
@@ -270,7 +325,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
               className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Leave Lobby</span>
+              <span>{t.lobby.leaveLobby}</span>
             </button>
           )}
           </div>
@@ -300,18 +355,18 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                 {audioEnabled ? (
                   <>
                     <Volume2 className="w-4 h-4 animate-pulse" />
-                    <span>Host TTS</span>
+                    <span>{t.host.hostTts}</span>
                   </>
                 ) : (
                   <>
                     <VolumeX className="w-4 h-4 text-slate-500" />
-                    <span className="text-slate-500">Host TTS (Muted)</span>
+                    <span className="text-slate-500">{t.host.hostTtsMuted}</span>
                   </>
                 )}
               </div>
 
               <span className="text-xs font-extrabold text-feud-gold-light uppercase tracking-widest block mb-2">
-                Survey Question
+                {t.host.surveyQuestion}
               </span>
               <h2
                 data-testid="face-off-question-text"

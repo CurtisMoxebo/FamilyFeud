@@ -182,5 +182,42 @@ describe('Frontend Component Suite: FastMoneyIsolation (US-07 Scenario 5)', () =
       expect(screen.getByText(/Le joueur 1 a marqué 90 points/i)).toBeInTheDocument();
       expect(screen.getByTestId('p2-round1-total')).toHaveTextContent('90');
     });
+
+    it('displays partner name on isolation shield title and clock', () => {
+      renderWithProviders(
+        <FastMoneyIsolation
+          snapshot={defaultIsolationSnapshot}
+          playerName="Bob"
+          partnerName="Alice"
+        />
+      );
+
+      expect(screen.getByText(/🎧 Alice is currently playing!/i)).toBeInTheDocument();
+      expect(screen.getByText(/Alice Clock/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Player 1 Clock/i)).not.toBeInTheDocument();
+    });
+
+    it('displays custom player and partner names on P2 ready screen', () => {
+      const readySnapshot: Player2IsolationSnapshot = {
+        phase: 'P2_READY',
+        isOffstage: false,
+        isolationMessage: 'Get ready!',
+        remainingSeconds: 0,
+        isTimerRunning: false,
+        totalScore: 125,
+      };
+
+      renderWithProviders(
+        <FastMoneyIsolation
+          snapshot={readySnapshot}
+          playerName="Bob"
+          partnerName="Alice"
+        />
+      );
+
+      expect(screen.getByText(/Bob, You're Up!/i)).toBeInTheDocument();
+      expect(screen.getByText(/Alice scored 125 points/i)).toBeInTheDocument();
+      expect(screen.getByText(/Alice Score to Beat/i)).toBeInTheDocument();
+    });
   });
 });

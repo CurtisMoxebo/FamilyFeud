@@ -140,11 +140,16 @@ export function speakQuestion(
     utterance.rate = 1.05;
     utterance.pitch = 1.0;
 
+    // Retain reference to prevent garbage collection before speech completes in Chromium browsers
+    (window as any).__activeSpeechUtterance = utterance;
+
     utterance.onend = () => {
+      (window as any).__activeSpeechUtterance = null;
       onComplete?.();
     };
 
     utterance.onerror = (error) => {
+      (window as any).__activeSpeechUtterance = null;
       console.warn('[HOST_TTS:WARN] Speech utterance encountered an error:', error);
       onComplete?.();
     };
@@ -165,6 +170,7 @@ export const speak = speakQuestion;
 export function cancelSpeech(): void {
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
+      (window as any).__activeSpeechUtterance = null;
       window.speechSynthesis.cancel();
     } catch {
       // Ignore
@@ -350,4 +356,34 @@ export function speakStealFailed(
   const norm = language.toUpperCase();
   const fn = STEAL_FAILED_PHRASES[norm] || STEAL_FAILED_PHRASES.EN;
   speakQuestion(fn(teamName, points), language, onComplete);
+}
+
+export const YOU_SAID_PHRASES: Record<string, string> = {
+  EN: 'You said',
+  FR: 'Vous avez dit',
+  ES: 'Dijiste',
+};
+
+export function speakYouSaid(
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
+  const norm = language.toUpperCase();
+  const text = YOU_SAID_PHRASES[norm] || YOU_SAID_PHRASES.EN;
+  speakQuestion(text, language, onComplete);
+}
+
+export const SURVEY_SAID_PHRASES: Record<string, string> = {
+  EN: 'Survey said',
+  FR: 'Le sondage dit',
+  ES: 'La encuesta dice',
+};
+
+export function speakSurveySaid(
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
+  const norm = language.toUpperCase();
+  const text = SURVEY_SAID_PHRASES[norm] || SURVEY_SAID_PHRASES.EN;
+  speakQuestion(text, language, onComplete);
 }

@@ -710,4 +710,103 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
       expect(screen.getByTestId('player-final-score')).toHaveTextContent('205');
     });
   });
+
+  describe('Dynamic Player Names on Mobile Controller', () => {
+    it('displays custom player name on ready screen and question header', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={readySnapshot}
+          playerName="Alice"
+          partnerName="Bob"
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText("Alice, You're Up!")).toBeInTheDocument();
+      expect(screen.queryByText(/Fast Money - Player 1/i)).not.toBeInTheDocument();
+    });
+
+    it('displays custom player name on active playing question card', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          playerName="Alice"
+          partnerName="Bob"
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Alice • Question #1/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Player 1 • Question #1/i)).not.toBeInTheDocument();
+    });
+
+    it('displays partner name on duplicate warning banner', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          playerName="Bob"
+          partnerName="Alice"
+          playerNumber={2}
+          duplicateWarning={{
+            roomCode: 'FEUD-TEST',
+            rawInput: 'APPLE',
+            questionId: 'q-1',
+            duplicateWithAnswer: 'APPLE',
+            message: 'Already said!',
+          }}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Alice answered: "APPLE"/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Player 1 answered: "APPLE"/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Single Repeat Button Feature', () => {
+    it('renders only one repeat button with text REPEAT and no repeat pill during active speed round', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      const repeatBtn = screen.getByTestId('fast-money-repeat-btn');
+      expect(repeatBtn).toBeInTheDocument();
+      expect(repeatBtn).toHaveTextContent('REPEAT');
+      expect(screen.queryByTestId('fast-money-question-repeat-pill')).not.toBeInTheDocument();
+    });
+
+    it('invokes onRepeatQuestion callback with questionId when REPEAT button is clicked', async () => {
+      const user = userEvent.setup();
+      const onRepeatQuestionMock = vi.fn();
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+          onRepeatQuestion={onRepeatQuestionMock}
+        />
+      );
+
+      const repeatBtn = screen.getByTestId('fast-money-repeat-btn');
+      expect(repeatBtn).toHaveTextContent('REPEAT');
+      await user.click(repeatBtn);
+
+      expect(onRepeatQuestionMock).toHaveBeenCalledTimes(1);
+      expect(onRepeatQuestionMock).toHaveBeenCalledWith('q-1');
+      expect(repeatBtn).toHaveTextContent('REPEAT');
+    });
+  });
 });

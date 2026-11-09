@@ -61,7 +61,7 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
               className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Leave Lobby</span>
+              <span>{t.lobby.leaveLobby}</span>
             </button>
           )}
         </div>

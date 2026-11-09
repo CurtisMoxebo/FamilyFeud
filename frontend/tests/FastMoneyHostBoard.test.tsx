@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import confetti from 'canvas-confetti';
-import { FastMoneyHostBoard } from '../src/components/FastMoneyHostBoard';
+import { FastMoneyHostBoard, TypewriterAnswer } from '../src/components/FastMoneyHostBoard';
 import { HostStateSnapshot, TimerTickPayload } from '../src/types';
 import * as ttsModule from '../src/utils/tts';
 import * as sfxModule from '../src/utils/soundEffects';
@@ -158,6 +158,51 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       expect(activeSlot).toHaveClass('border-blue-400');
     });
 
+    it('satisfies US-26: displays dual column boards at all times (both Player 1 and Player 2 boards visible during P1 speed round)', () => {
+      render(
+        <FastMoneyHostBoard
+          snapshot={playingHostSnapshot}
+          roomName="Family Feud Duel"
+          roomCode="FEUD-9999"
+          enableTTS={false}
+        />
+      );
+
+      // Player 1 header and slots
+      expect(screen.getByText('Player 1')).toBeInTheDocument();
+      expect(screen.getByTestId('fast-money-slot-1')).toBeInTheDocument();
+
+      // Player 2 header and waiting slots are also visible simultaneously
+      expect(screen.getByText('Player 2')).toBeInTheDocument();
+      for (let i = 1; i <= 5; i++) {
+        expect(screen.getByTestId(`host-p2-slot-${i}`)).toBeInTheDocument();
+      }
+    });
+
+    it('satisfies US-26: displays actual player names across boards and banners instead of generic Player 1 and Player 2', () => {
+      render(
+        <FastMoneyHostBoard
+          snapshot={playingHostSnapshot}
+          roomName="Family Feud Duel"
+          roomCode="FEUD-9999"
+          player1Name="Alice"
+          player2Name="Bob"
+          enableTTS={false}
+        />
+      );
+
+      // Displays player nicknames as column titles
+      expect(screen.getByText('Alice')).toBeInTheDocument();
+      expect(screen.getByText('Bob')).toBeInTheDocument();
+
+      // Displays player name in question banner pill
+      expect(screen.getByText(/Alice • Question #2/i)).toBeInTheDocument();
+
+      // Does not render generic "Player 1" or "Player 2" when names are provided
+      expect(screen.queryByText('Player 1')).not.toBeInTheDocument();
+      expect(screen.queryByText('Player 2')).not.toBeInTheDocument();
+    });
+
     it('displays authoritative countdown timer synchronized with timerTick', () => {
       const tick: TimerTickPayload = {
         secondsRemaining: 24,
@@ -250,7 +295,8 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       );
       expect(speakSpy).toHaveBeenCalledWith(
         'Question 2: Name something in the living room',
-        'EN'
+        'EN',
+        expect.any(Function)
       );
     });
 
@@ -371,6 +417,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
           snapshot={revealHostSnapshot}
           roomName="Family Feud Duel"
           enableTTS={false}
+          defaultAutoPacing={false}
           onRevealPoints={onRevealPointsMock}
         />
       );
@@ -494,6 +541,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
           snapshot={revealHostSnapshot}
           roomName="Family Feud Duel"
           enableTTS={false}
+          defaultAutoPacing={false}
           onRevealPoints={onRevealPointsMock}
         />
       );
@@ -514,7 +562,98 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       vi.useRealTimers();
     });
 
-    it('renders completion banner when all slots are revealed (P2_READY)', () => {
+    it('satisfies US-26 Scenario 6: resolves questionText from p1RevealSlots over stripped p1Slots and never speaks undefined via TTS', () => {
+      const speakSpy = vi.spyOn(ttsModule, 'speakQuestion');
+
+      // Emulate backend snapshot where p1Slots contains stripped indicator objects without questionText
+      const backendSnapshotWithStrippedP1Slots: HostStateSnapshot = {
+        ...revealHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        // Stripped indicator objects sent by backend:
+        p1Slots: [
+          { slotNumber: 1, isFilled: true } as any,
+          { slotNumber: 2, isFilled: true } as any,
+        ],
+        // Fully populated reveal slots:
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name something you find in a garage',
+            rawAnswer: 'Toolbox',
+            pointsAwarded: 35,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={backendSnapshotWithStrippedP1Slots}
+          roomName="Family Feud Duel"
+          enableTTS={true}
+          language="EN"
+        />
+      );
+
+      expect(speakSpy).toHaveBeenCalledWith(
+        'Question 1: Name something you find in a garage',
+        'EN',
+        expect.any(Function)
+      );
+      // Assert speech never contained the literal string 'undefined'
+      const spokenTexts = speakSpy.mock.calls.map((call) => call[0]);
+      expect(spokenTexts.some((text) => text.includes('undefined'))).toBe(false);
+    });
+
+    it('satisfies US-26 Scenario 7: defaults auto-pacing to true and initiates automated answer reveal without requiring clicks', () => {
+      vi.useFakeTimers();
+      const onRevealAnswerMock = vi.fn();
+
+      const unrevealedSlotSnapshot: HostStateSnapshot = {
+        ...revealHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name an animal',
+            rawAnswer: 'Dog',
+            pointsAwarded: 40,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={unrevealedSlotSnapshot}
+          roomName="Family Feud Duel"
+          enableTTS={false}
+          onRevealAnswer={onRevealAnswerMock}
+        />
+      );
+
+      // Verify Auto Pacing is active by default
+      const autoPacingBtn = screen.getByTestId('host-auto-pacing-btn');
+      expect(autoPacingBtn).toHaveTextContent('Auto Pacing');
+
+      // Fast-forward 1.2s -> answer should automatically reveal without any button clicks
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+
+      expect(onRevealAnswerMock).toHaveBeenCalledWith(1);
+      vi.useRealTimers();
+    });
+
+    it('does not render green completion banner under the boards in P2_READY', () => {
       const p2ReadySnapshot: HostStateSnapshot = {
         ...revealHostSnapshot,
         phase: 'P2_READY',
@@ -530,8 +669,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         />
       );
 
-      expect(screen.getByTestId('host-reveal-complete-banner')).toBeInTheDocument();
-      expect(screen.getByTestId('host-reveal-complete-banner')).toHaveTextContent('120 PTS');
+      expect(screen.queryByTestId('host-reveal-complete-banner')).not.toBeInTheDocument();
     });
 
     it('renders Start Reveal button when phase is P1_FINISHED', () => {
@@ -737,6 +875,29 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       expect(startP2Spy).toHaveBeenCalledTimes(1);
     });
 
+    it('automatically triggers onStartP2Reveal when Player 2 finishes their turn (P2_FINISHED)', () => {
+      vi.useFakeTimers();
+      const startP2Spy = vi.fn();
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={p2FinishedSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          onStartP2Reveal={startP2Spy}
+        />
+      );
+
+      expect(startP2Spy).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(startP2Spy).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
+    });
+
     it('satisfies Scenario 1: renders dual columns in P2_REVEAL, speaks question via TTS, and reveals answers and points', () => {
       const speakSpy = vi.spyOn(ttsModule, 'speakQuestion').mockImplementation(() => {});
       const onRevealAnswerSpy = vi.fn();
@@ -761,7 +922,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       );
 
       // Question spoken via TTS
-      expect(speakSpy).toHaveBeenCalledWith('Question 1: Q1', 'EN');
+      expect(speakSpy).toHaveBeenCalledWith('Question 1: Q1', 'EN', expect.any(Function));
 
       // Reveal answer button visible
       const revealAnswerBtn = screen.getByTestId('host-reveal-p2-answer-btn');
@@ -822,6 +983,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
           roomName="Family Feud Duel"
           enableTTS={false}
           enableSFX={false}
+          defaultAutoPacing={false}
           onRevealP2Answer={onRevealAnswerSpy}
           onRevealP2Points={onRevealPointsSpy}
         />
@@ -972,6 +1134,43 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       // Enters loading / replaying state
       expect(screen.getByText(/starting new match\.\.\./i)).toBeInTheDocument();
       expect(replayBtn).toBeDisabled();
+    });
+
+    it('reveals any remaining unrevealed answers and points when game over is reached mid-reveal', () => {
+      const midRevealGameOver: HostStateSnapshot = {
+        ...p2FinishedSnapshot,
+        phase: 'GAME_OVER',
+        isVictory: true,
+        grandTotal: 215,
+        p2Slots: [
+          { slotNumber: 1, questionId: 'q-1', questionText: 'Q1', rawAnswer: 'Pancakes', pointsAwarded: 45, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+          { slotNumber: 2, questionId: 'q-2', questionText: 'Q2', rawAnswer: 'Coffee', pointsAwarded: 55, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+          { slotNumber: 3, questionId: 'q-3', questionText: 'Q3', rawAnswer: 'Cap', pointsAwarded: 30, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+          { slotNumber: 4, questionId: 'q-4', questionText: 'Q4', rawAnswer: 'Sunday', pointsAwarded: 25, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+          { slotNumber: 5, questionId: 'q-5', questionText: 'Q5', rawAnswer: '', pointsAwarded: 0, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={midRevealGameOver}
+          language="EN"
+          roomName="Family Feud Duel"
+        />
+      );
+
+      // Slots 3, 4, and 5 must be revealed on the board
+      expect(screen.getByTestId('revealed-answer-3')).toHaveTextContent('Cap');
+      expect(screen.getByTestId('points-val-3')).toHaveTextContent('30');
+      expect(screen.getByTestId('revealed-answer-4')).toHaveTextContent('Sunday');
+      expect(screen.getByTestId('points-val-4')).toHaveTextContent('25');
+      expect(screen.getByTestId('revealed-answer-5')).toHaveTextContent(/no answer/i);
+      expect(screen.getByTestId('points-val-5')).toHaveTextContent('0');
+
+      // None of the slots should display unrevealed dashes
+      expect(screen.queryByTestId('unrevealed-answer-3')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('unrevealed-answer-4')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('unrevealed-answer-5')).not.toBeInTheDocument();
     });
   });
 
@@ -1165,6 +1364,548 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       );
 
       expect(mockSpeak).not.toHaveBeenCalled();
+    });
+
+    it('displays repeat question alert banner and re-speaks question via TTS when contestant requests repeat', () => {
+      mockSpeak.mockClear();
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={playingHostSnapshot}
+          language="EN"
+          roomName="Fast Money"
+          player1Name="Alice"
+          player2Name="Bob"
+          enableTTS={true}
+          repeatQuestionAlert={{
+            roomCode: 'FEUD-TEST',
+            playerId: 'player-1',
+            questionId: 'q-2',
+            timestamp: Date.now(),
+          }}
+        />
+      );
+
+      expect(screen.getByTestId('host-repeat-question-banner')).toBeInTheDocument();
+      expect(screen.getByText(/Alice asked to repeat the question!/i)).toBeInTheDocument();
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Name something you find in the kitchen' })
+      );
+    });
+  });
+
+  describe('US-26: Fast Money Reveal Choreography & Typewriter Sequence', () => {
+    it('TypewriterAnswer reveals text one letter at a time at <= 100ms interval', () => {
+      vi.useFakeTimers();
+
+      render(
+        <TypewriterAnswer
+          text="Pancakes"
+          animate={true}
+          speedMs={50}
+          testId="test-typewriter"
+        />
+      );
+
+      const el = screen.getByTestId('test-typewriter');
+      // Initially, visible count is 0
+      expect(el).toHaveAttribute('data-revealed-length', '0');
+
+      // Advance by 50ms -> 1 char ("P")
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(el).toHaveAttribute('data-revealed-length', '1');
+
+      // Advance by 150ms -> total 200ms -> 4 chars ("Panc")
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+      expect(el).toHaveAttribute('data-revealed-length', '4');
+
+      // Advance by 200ms -> total 400ms -> full 8 chars ("Pancakes")
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(el).toHaveAttribute('data-revealed-length', '8');
+      expect(el).toHaveTextContent('Pancakes');
+
+      vi.useRealTimers();
+    });
+
+    it('executes full 5-step reveal sequence: Read question -> "You said" -> Read answer + reveal -> "Survey said" -> Reveal points', () => {
+      const mockSpeak = vi.fn();
+      const mockCancel = vi.fn();
+      Object.defineProperty(window, 'speechSynthesis', {
+        value: {
+          speak: mockSpeak,
+          cancel: mockCancel,
+          getVoices: vi.fn().mockReturnValue([]),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const onRevealAnswerSpy = vi.fn();
+      const onRevealPointsSpy = vi.fn();
+
+      const revealSnapshot: HostStateSnapshot = {
+        ...readyHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        p1Slots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name a yellow fruit',
+            rawAnswer: 'Banana',
+            pointsAwarded: 42,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name a yellow fruit',
+            rawAnswer: 'Banana',
+            pointsAwarded: 42,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+      };
+
+      const { rerender } = render(
+        <FastMoneyHostBoard
+          snapshot={revealSnapshot}
+          language="EN"
+          roomName="Fast Money Feud"
+          player1Name="Alice"
+          player2Name="Bob"
+          enableTTS={true}
+          enableSFX={true}
+          defaultAutoPacing={false}
+          onRevealAnswer={onRevealAnswerSpy}
+          onRevealPoints={onRevealPointsSpy}
+        />
+      );
+
+      // Step 1: Host reads question
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Question 1: Name a yellow fruit' })
+      );
+
+      // Step 2 & 3: Host triggers Reveal Answer -> says "You said", reads answer, triggers onRevealAnswer
+      const revealAnswerBtn = screen.getByTestId('host-reveal-answer-btn');
+      fireEvent.click(revealAnswerBtn);
+
+      expect(onRevealAnswerSpy).toHaveBeenCalledWith(1);
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'You said' })
+      );
+
+      // Simulate completion of "You said" which triggers reading the answer "Banana"
+      const youSaidUtterance = mockSpeak.mock.calls.find(
+        (call) => call[0].text === 'You said'
+      )?.[0];
+      expect(youSaidUtterance).toBeDefined();
+      act(() => {
+        youSaidUtterance.onend?.();
+      });
+
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Banana' })
+      );
+
+      // Rerender with answer revealed
+      rerender(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...revealSnapshot,
+            p1Slots: [
+              {
+                ...revealSnapshot.p1Slots![0],
+                isAnswerRevealed: true,
+              },
+            ],
+            p1RevealSlots: [
+              {
+                ...revealSnapshot.p1RevealSlots![0],
+                isAnswerRevealed: true,
+              },
+            ],
+          }}
+          language="EN"
+          roomName="Fast Money Feud"
+          player1Name="Alice"
+          player2Name="Bob"
+          enableTTS={true}
+          enableSFX={true}
+          defaultAutoPacing={false}
+          onRevealAnswer={onRevealAnswerSpy}
+          onRevealPoints={onRevealPointsSpy}
+        />
+      );
+
+      // Step 4 & 5: Host triggers Reveal Points -> says "Survey said", triggers onRevealPoints
+      const revealPointsBtn = screen.getByTestId('host-reveal-points-btn');
+      fireEvent.click(revealPointsBtn);
+
+      expect(onRevealPointsSpy).toHaveBeenCalledWith(1);
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Survey said' })
+      );
+    });
+
+    it('vocalizes French phrases for reveal sequence ("Vous avez dit", "Le sondage dit")', () => {
+      const mockSpeak = vi.fn();
+      const mockCancel = vi.fn();
+      Object.defineProperty(window, 'speechSynthesis', {
+        value: {
+          speak: mockSpeak,
+          cancel: mockCancel,
+          getVoices: vi.fn().mockReturnValue([]),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const onRevealAnswerSpy = vi.fn();
+      const onRevealPointsSpy = vi.fn();
+
+      const frenchSnapshot: HostStateSnapshot = {
+        ...readyHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        p1Slots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Nommez un fruit jaune',
+            rawAnswer: 'Banane',
+            pointsAwarded: 40,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Nommez un fruit jaune',
+            rawAnswer: 'Banane',
+            pointsAwarded: 40,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+      };
+
+      const { rerender } = render(
+        <FastMoneyHostBoard
+          snapshot={frenchSnapshot}
+          language="FR"
+          roomName="Une Famille en Or"
+          enableTTS={true}
+          enableSFX={true}
+          defaultAutoPacing={false}
+          onRevealAnswer={onRevealAnswerSpy}
+          onRevealPoints={onRevealPointsSpy}
+        />
+      );
+
+      const revealAnswerBtn = screen.getByTestId('host-reveal-answer-btn');
+      fireEvent.click(revealAnswerBtn);
+
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Vous avez dit' })
+      );
+
+      // Simulate completion of "Vous avez dit"
+      const youSaidUtterance = mockSpeak.mock.calls.find(
+        (call) => call[0].text === 'Vous avez dit'
+      )?.[0];
+      act(() => {
+        youSaidUtterance.onend?.();
+      });
+
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Banane' })
+      );
+
+      rerender(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...frenchSnapshot,
+            p1Slots: [
+              { ...frenchSnapshot.p1Slots![0], isAnswerRevealed: true },
+            ],
+            p1RevealSlots: [
+              { ...frenchSnapshot.p1RevealSlots![0], isAnswerRevealed: true },
+            ],
+          }}
+          language="FR"
+          roomName="Une Famille en Or"
+          enableTTS={true}
+          enableSFX={true}
+          defaultAutoPacing={false}
+          onRevealAnswer={onRevealAnswerSpy}
+          onRevealPoints={onRevealPointsSpy}
+        />
+      );
+
+      const revealPointsBtn = screen.getByTestId('host-reveal-points-btn');
+      fireEvent.click(revealPointsBtn);
+
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Le sondage dit' })
+      );
+    });
+
+    it('satisfies user requirement: choreographs reveal sequence via TTS event completion (Read question -> "You said" -> Reveal & Read answer -> "Survey said" -> Reveal points)', () => {
+      const mockSpeak = vi.fn();
+      const mockCancel = vi.fn();
+      Object.defineProperty(window, 'speechSynthesis', {
+        value: {
+          speak: mockSpeak,
+          cancel: mockCancel,
+          getVoices: vi.fn().mockReturnValue([]),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const onRevealAnswerSpy = vi.fn();
+      const onRevealPointsSpy = vi.fn();
+
+      const revealSnapshot: HostStateSnapshot = {
+        ...readyHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        p1Slots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name something you find in the refrigerator',
+            rawAnswer: 'Milk',
+            pointsAwarded: 45,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name something you find in the refrigerator',
+            rawAnswer: 'Milk',
+            pointsAwarded: 45,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={revealSnapshot}
+          language="EN"
+          roomName="Fast Money Feud"
+          enableTTS={true}
+          enableSFX={true}
+          defaultAutoPacing={true}
+          onRevealAnswer={onRevealAnswerSpy}
+          onRevealPoints={onRevealPointsSpy}
+        />
+      );
+
+      // Step 1: Host reads question first
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Question 1: Name something you find in the refrigerator' })
+      );
+      // Answer must NOT be revealed yet (waits for question TTS completion)
+      expect(onRevealAnswerSpy).not.toHaveBeenCalled();
+
+      // Simulate Question TTS finishing
+      const questionUtterance = mockSpeak.mock.calls.find((call) =>
+        call[0].text?.includes('Question 1: Name something you find in the refrigerator')
+      )?.[0];
+      expect(questionUtterance).toBeDefined();
+      act(() => {
+        questionUtterance.onend?.();
+      });
+
+      // Step 2: Host says "You said"
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'You said' })
+      );
+      // Answer must still NOT be revealed yet (waits for "You said" completion)
+      expect(onRevealAnswerSpy).not.toHaveBeenCalled();
+
+      // Simulate "You said" TTS finishing
+      const youSaidUtterance = mockSpeak.mock.calls.find(
+        (call) => call[0].text === 'You said'
+      )?.[0];
+      expect(youSaidUtterance).toBeDefined();
+      act(() => {
+        youSaidUtterance.onend?.();
+      });
+
+      // Step 3: Reveals answer in board AND reads answer out loud simultaneously
+      expect(onRevealAnswerSpy).toHaveBeenCalledWith(1);
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Milk' })
+      );
+      // Points must NOT be revealed yet
+      expect(onRevealPointsSpy).not.toHaveBeenCalled();
+
+      // Simulate Answer TTS finishing
+      const answerUtterance = mockSpeak.mock.calls.find(
+        (call) => call[0].text === 'Milk'
+      )?.[0];
+      expect(answerUtterance).toBeDefined();
+      act(() => {
+        answerUtterance.onend?.();
+      });
+
+      // Step 4: Host says "Survey said"
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Survey said' })
+      );
+      // Points must still wait for "Survey said" completion
+      expect(onRevealPointsSpy).not.toHaveBeenCalled();
+
+      // Simulate "Survey said" TTS finishing
+      const surveySaidUtterance = mockSpeak.mock.calls.find(
+        (call) => call[0].text === 'Survey said'
+      )?.[0];
+      expect(surveySaidUtterance).toBeDefined();
+      act(() => {
+        surveySaidUtterance.onend?.();
+      });
+
+      // Step 5: Points are revealed on the board
+      expect(onRevealPointsSpy).toHaveBeenCalledWith(1);
+    });
+
+    it('speaks actual player answer and never "no answer" when server snapshot resolves rawAnswer asynchronously', () => {
+      const mockSpeak = vi.fn();
+      const mockCancel = vi.fn();
+      Object.defineProperty(window, 'speechSynthesis', {
+        value: {
+          speak: mockSpeak,
+          cancel: mockCancel,
+          getVoices: vi.fn().mockReturnValue([]),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const onRevealAnswerSpy = vi.fn();
+
+      // Initially sanitized by server: rawAnswer is empty '' and isAnswerRevealed is false
+      const initialSanitizedSnapshot: HostStateSnapshot = {
+        ...readyHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        p1Slots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name something you eat with maple syrup',
+            rawAnswer: '', // Sanitized
+            pointsAwarded: 0,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: false,
+          },
+        ],
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name something you eat with maple syrup',
+            rawAnswer: '', // Sanitized
+            pointsAwarded: 0,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: false,
+          },
+        ],
+      };
+
+      const { rerender } = render(
+        <FastMoneyHostBoard
+          snapshot={initialSanitizedSnapshot}
+          language="EN"
+          roomName="Fast Money Feud"
+          enableTTS={true}
+          enableSFX={true}
+          defaultAutoPacing={false}
+          onRevealAnswer={onRevealAnswerSpy}
+        />
+      );
+
+      // Trigger reveal answer button
+      const revealAnswerBtn = screen.getByTestId('host-reveal-answer-btn');
+      fireEvent.click(revealAnswerBtn);
+
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'You said' })
+      );
+
+      // Server responds with revealed answer "Pancakes" before or while "You said" finishes
+      rerender(
+        <FastMoneyHostBoard
+          snapshot={{
+            ...initialSanitizedSnapshot,
+            p1Slots: [
+              {
+                ...initialSanitizedSnapshot.p1Slots![0],
+                rawAnswer: 'Pancakes',
+                isAnswerRevealed: true,
+              },
+            ],
+            p1RevealSlots: [
+              {
+                ...initialSanitizedSnapshot.p1RevealSlots![0],
+                rawAnswer: 'Pancakes',
+                isAnswerRevealed: true,
+              },
+            ],
+          }}
+          language="EN"
+          roomName="Fast Money Feud"
+          enableTTS={true}
+          enableSFX={true}
+          defaultAutoPacing={false}
+          onRevealAnswer={onRevealAnswerSpy}
+        />
+      );
+
+      // Simulate "You said" finishing
+      const youSaidUtterance = mockSpeak.mock.calls.find(
+        (call) => call[0].text === 'You said'
+      )?.[0];
+      expect(youSaidUtterance).toBeDefined();
+      act(() => {
+        youSaidUtterance.onend?.();
+      });
+
+      // Must speak the actual revealed player answer ("Pancakes"), NEVER "No Answer"
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Pancakes' })
+      );
+      const spokenTexts = mockSpeak.mock.calls.map((call) => call[0].text);
+      expect(spokenTexts).not.toContain('No Answer');
     });
   });
 });

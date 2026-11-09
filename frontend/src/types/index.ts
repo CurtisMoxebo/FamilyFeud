@@ -201,6 +201,8 @@ export interface HostStateSnapshot {
   p2Slots?: FastMoneyRevealSlot[];
   isVictory?: boolean;
   targetScore?: number;
+  player1Name?: string;
+  player2Name?: string;
 }
 
 export interface QuestionData {
@@ -232,6 +234,13 @@ export interface DuplicateAnswerWarningPayload {
   questionId: string;
   duplicateWithAnswer?: string;
   reason?: 'EXACT_RAW' | 'SEMANTIC_MATCH';
+}
+
+export interface QuestionRepeatRequestedPayload {
+  roomCode: string;
+  playerId: string;
+  questionId?: string;
+  timestamp: number;
 }
 
 export interface AssignedTeamPlayer {

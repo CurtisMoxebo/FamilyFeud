@@ -47,6 +47,9 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     sendPlayerReady: vi.fn(),
     submitFastMoneyAnswer: vi.fn(),
     passFastMoneyQuestion: vi.fn(),
+    repeatFastMoneyQuestion: vi.fn(),
+    repeatQuestionAlert: null,
+    clearRepeatQuestionAlert: vi.fn(),
     startGame: vi.fn(),
     boardReveal: null,
     p1RevealCompleted: null,
@@ -162,9 +165,7 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const scanInstruction = screen.getByTestId('host-scan-instruction');
     expect(scanInstruction).toBeInTheDocument();
     expect(scanInstruction).toHaveTextContent(/scannez avec votre téléphone/i);
-
-    // Check direct link URL is displayed
-    expect(screen.getByText(new RegExp('/play/FEUD-7890'))).toBeInTheDocument();
+    expect(screen.queryByTestId('host-direct-link-copy-btn')).not.toBeInTheDocument();
   });
 
   it('satisfies US-03 Scenario 2: copies the join URL when Copy Link is clicked', async () => {
@@ -183,11 +184,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('/play/FEUD-7890'));
     expect(screen.getByText(/copié/i)).toBeInTheDocument();
-
-    // Secondary link copy button also works
-    const directCopyBtn = screen.getByTestId('host-direct-link-copy-btn');
-    await user.click(directCopyBtn);
-    expect(writeTextMock).toHaveBeenCalledTimes(2);
   });
 
   it('fetches room details via REST API when loaded without initialRoom', async () => {
@@ -316,6 +312,10 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     await user.click(startBtn);
     expect(startGameMock).toHaveBeenCalledWith('FEUD-7890');
     expect(onStartGameMock).toHaveBeenCalledTimes(1);
+
+    // Fast Money Host Button disables and renders loading spinner
+    expect(startBtn).toBeDisabled();
+    expect(screen.getByTestId('host-start-game-spinner')).toBeInTheDocument();
   });
 
   it('satisfies US-04 Scenario 3: enforces even player count for Main Game mode', () => {

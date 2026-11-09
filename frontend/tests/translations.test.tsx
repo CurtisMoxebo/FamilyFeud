@@ -119,6 +119,10 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       }
 
       // Verify specific localized US-04 capacity texts and alerts
+      expect(translations.EN.lobby.leaveLobby).toBe('Leave Lobby');
+      expect(translations.FR.lobby.leaveLobby).toBe('Quitter le salon');
+      expect(translations.ES.lobby.leaveLobby).toBe('Salir de la sala');
+
       expect(translations.EN.lobby.roomFullFastMoney).toBe(
         'This Fast Money room is already full (2/2 players).'
       );

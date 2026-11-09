@@ -19,6 +19,7 @@ import {
   Lock,
   AlertCircle,
   Trophy,
+  Volume2,
 } from 'lucide-react';
 
 export interface FastMoneyControllerProps {
@@ -30,9 +31,14 @@ export interface FastMoneyControllerProps {
   pausedRemainingSeconds?: number;
   onClearDuplicateWarning?: () => void;
   playerNumber?: 1 | 2;
+  playerName?: string;
+  partnerName?: string;
+  player1Name?: string;
+  player2Name?: string;
   onReady: () => void;
   onSubmitAnswer: (questionId: string, answer: string) => void;
   onPass: (questionId: string) => void;
+  onRepeatQuestion?: (questionId?: string) => void;
   onLeave?: () => void;
 }
 
@@ -45,13 +51,19 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   pausedRemainingSeconds,
   onClearDuplicateWarning,
   playerNumber,
+  playerName,
+  partnerName,
+  player1Name,
+  player2Name,
   onReady,
   onSubmitAnswer,
   onPass,
+  onRepeatQuestion,
 }) => {
   const { t } = useTranslation();
   const [answerText, setAnswerText] = useState<string>('');
   const [isShaking, setIsShaking] = useState<boolean>(false);
+  const [isRepeating, setIsRepeating] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
   const { isKeyboardOpen, keepElementVisible } = useVirtualKeyboard();
@@ -60,6 +72,13 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     playerNumber === 2 ||
     (playerNumber !== 1 && snapshot.phase.startsWith('P2') && !('revealSlots' in snapshot && snapshot.revealSlots));
   const isPlaying = snapshot.phase === 'P1_PLAYING' || snapshot.phase === 'P2_PLAYING';
+
+  const effectivePlayerName =
+    playerName ||
+    (isPlayer2 ? player2Name || 'Player 2' : player1Name || 'Player 1');
+  const effectivePartnerName =
+    partnerName ||
+    (isPlayer2 ? player1Name || 'Player 1' : player2Name || 'Player 2');
 
   // Synchronized countdown timer value (authoritative timer tick takes priority)
   const remainingSeconds =
@@ -144,6 +163,20 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     }
     onPass(snapshot.currentQuestion.id);
     setAnswerText('');
+  };
+
+  const handleRepeatQuestion = () => {
+    if (isPaused || isRepeating || !snapshot.currentQuestion) {
+      return;
+    }
+    setIsRepeating(true);
+    triggerHaptic('buzz');
+    if (onRepeatQuestion) {
+      onRepeatQuestion(snapshot.currentQuestion.id);
+    }
+    setTimeout(() => {
+      setIsRepeating(false);
+    }, 2500);
   };
 
   // Timer color indicator
@@ -255,7 +288,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           className="flex items-center justify-center gap-2 text-xs font-semibold text-feud-gold/90 bg-slate-900/90 py-3 px-4 rounded-2xl border border-feud-gold/30"
         >
           <span className="w-2 h-2 rounded-full bg-feud-gold animate-ping" />
-          <span>Waiting for host to start a new match...</span>
+          <span>{t.fastMoney.waitingForHostReplay}</span>
         </div>
       </div>
     );
@@ -277,22 +310,30 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
         <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-feud-gold/15 border border-feud-gold/30 text-feud-gold text-xs font-bold uppercase tracking-widest mb-3">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>{isPlayer2 ? 'Fast Money Round 2' : 'Fast Money Round 1'}</span>
+          <span>{isPlayer2 ? t.fastMoney.fastMoneyRound2 : t.fastMoney.fastMoneyRound1}</span>
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-2">
-          {isPlayer2 ? t.fastMoney.p2ReadyTitle : t.fastMoney.p1ReadyTitle}
+          {playerName
+            ? t.fastMoney.playerYoureUp.replace('{player}', playerName)
+            : isPlayer2
+            ? t.fastMoney.p2ReadyTitle
+            : t.fastMoney.p1ReadyTitle}
         </h1>
         <p className="text-slate-300 text-sm mb-8 leading-relaxed">
           {isPlayer2
-            ? t.fastMoney.p2ReadySubtitle.replace('{score}', String(snapshot.totalScore ?? 0))
+            ? partnerName || player1Name
+              ? t.fastMoney.partnerScoredPrompt
+                  .replace('{partner}', partnerName || player1Name || '')
+                  .replace('{score}', String(snapshot.totalScore ?? 0))
+              : t.fastMoney.p2ReadySubtitle.replace('{score}', String(snapshot.totalScore ?? 0))
             : t.fastMoney.p1ReadySubtitle}
         </p>
 
         {/* 60s (P1) or 75s (P2) Timer Badge */}
         <div className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-slate-900/80 border border-slate-700/80 text-sm font-semibold text-slate-300 mb-8">
           <Timer className="w-5 h-5 text-feud-gold" />
-          <span>{isPlayer2 ? '75 Seconds on the Clock' : '60 Seconds on the Clock'}</span>
+          <span>{t.fastMoney.secondsOnClock.replace('{seconds}', isPlayer2 ? '75' : '60')}</span>
         </div>
 
         {/* "I'm Ready!" Start Button */}
@@ -335,7 +376,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               <Sparkles className="w-3 h-3" />
               <span>{t.fastMoney.revealPhaseTitle}</span>
             </div>
-            <h2 className="text-lg font-black text-white">Player 1 Reveal</h2>
+            <h2 className="text-lg font-black text-white">{effectivePlayerName} Reveal</h2>
           </div>
 
           <div className="flex flex-col items-end">
@@ -363,7 +404,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
                 {t.fastMoney.revealComplete}
               </div>
               <div className="text-xs text-emerald-200/80">
-                Waiting for Player 2 to start Round 2...
+                Waiting for {effectivePartnerName} to start Round 2...
               </div>
             </div>
           </div>
@@ -431,7 +472,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           className="flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60"
         >
           <Lock className="w-4 h-4 text-slate-400" />
-          <span>Input locked for reveal phase</span>
+          <span>{t.fastMoney.inputLockedReveal}</span>
         </div>
       </div>
     );
@@ -457,7 +498,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           {t.fastMoney.p2RevealPhaseTitle || 'Fast Money Reveal'}
         </h2>
         <p className="text-slate-300 text-sm mb-6 leading-relaxed">
-          Look up at the host TV screen to watch Player 2's answers and points revealed!
+          Look up at the host TV screen to watch {effectivePartnerName}&apos;s answers and points revealed!
         </p>
 
         {/* Grand Total Indicator */}
@@ -478,7 +519,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           className="flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60"
         >
           <Lock className="w-4 h-4 text-slate-400" />
-          <span>Input locked for reveal phase</span>
+          <span>{t.fastMoney.inputLockedReveal}</span>
         </div>
       </div>
     );
@@ -513,7 +554,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
         {/* Answers Score Badge */}
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 mb-6">
           <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-            Questions Answered
+            {t.fastMoney.progressAnswered.split(':')[0] || 'Questions Answered'}
           </div>
           <div className="text-3xl font-extrabold text-feud-gold">
             {answeredCount} / {totalQuestions}
@@ -531,7 +572,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           className="flex items-center justify-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60"
         >
           <Lock className="w-4 h-4 text-slate-400" />
-          <span>Input locked for reveal phase</span>
+          <span>{t.fastMoney.inputLockedReveal}</span>
         </div>
       </div>
     );
@@ -593,14 +634,14 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               ? t.fastMoney.questionProgress
                   .replace('{current}', String(currentQ.questionNumber))
                   .replace('{total}', String(totalQuestions))
-              : 'Question'}
+              : t.fastMoney.questionProgress.split(' ')[0]}
           </span>
           {passedCount > 0 && (
             <span
               data-testid="fast-money-passed-counter"
               className="text-[11px] font-semibold text-amber-400"
             >
-              (Passed: {passedCount})
+              {t.fastMoney.passedCountLabel.replace('{count}', String(passedCount))}
             </span>
           )}
         </div>
@@ -620,7 +661,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           }`}
         >
           <span>
-            {isPlayer2 ? 'Player 2' : 'Player 1'} • Question #{currentQ?.questionNumber ?? 1}
+            {effectivePlayerName} • Question #{currentQ?.questionNumber ?? 1}
           </span>
         </div>
 
@@ -628,11 +669,11 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           data-testid="fast-money-question-text"
           className={`${
             isKeyboardOpen
-              ? 'text-base sm:text-xl mb-2.5 min-h-0'
-              : 'text-xl sm:text-2xl mb-5 min-h-[3.5rem]'
+              ? 'text-base sm:text-xl mb-1 min-h-0'
+              : 'text-xl sm:text-2xl mb-2.5 min-h-[3.5rem]'
           } font-black text-white leading-snug flex items-center justify-center`}
         >
-          {currentQ?.questionText || 'Loading question...'}
+          {currentQ?.questionText || t.fastMoney.loadingQuestion}
         </h2>
 
         {/* US-09 Scenario 2: Duplicate Answer Error Banner */}
@@ -648,7 +689,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               </div>
               {duplicateWarning.duplicateWithAnswer && (
                 <div className="text-xs text-red-300 font-normal mt-0.5">
-                  Player 1 answered: &quot;{duplicateWarning.duplicateWithAnswer}&quot;
+                  {effectivePartnerName} answered: &quot;{duplicateWarning.duplicateWithAnswer}&quot;
                 </div>
               )}
             </div>
@@ -688,29 +729,52 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
             />
           </div>
 
-          {/* Action Buttons: Submit and Pass */}
-          <div className="grid grid-cols-2 gap-3 mt-1">
-            {/* Yellow Pass Button */}
+          {/* Action Buttons: Pass, Submit, and Repeat */}
+          <div className="flex flex-col gap-2 mt-1">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Yellow Pass Button */}
+              <button
+                type="button"
+                onClick={handlePass}
+                disabled={isPaused || snapshot.canPass === false}
+                data-testid="fast-money-pass-btn"
+                className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <SkipForward className="w-4 h-4 fill-slate-950" />
+                <span>{t.fastMoney.passButton}</span>
+              </button>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isPaused || !answerText.trim() || snapshot.canSubmit === false}
+                data-testid="fast-money-submit-btn"
+                className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+                <span>{t.fastMoney.submitButton}</span>
+              </button>
+            </div>
+
+            {/* Single Repeat Button */}
             <button
               type="button"
-              onClick={handlePass}
-              disabled={isPaused || snapshot.canPass === false}
-              data-testid="fast-money-pass-btn"
-              className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={handleRepeatQuestion}
+              disabled={isPaused || isRepeating || !snapshot.currentQuestion}
+              data-testid="fast-money-repeat-btn"
+              aria-label={t.fastMoney.repeatQuestionButton}
+              className={`touch-target min-h-touch w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border ${
+                isRepeating
+                  ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300 ring-1 ring-emerald-500/40 shadow-emerald-900/40'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-900 border-slate-700 hover:border-feud-gold/50 text-slate-200 hover:text-feud-gold shadow-sm'
+              }`}
             >
-              <SkipForward className="w-4 h-4 fill-slate-950" />
-              <span>{t.fastMoney.passButton}</span>
-            </button>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isPaused || !answerText.trim() || snapshot.canSubmit === false}
-              data-testid="fast-money-submit-btn"
-              className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Send className="w-4 h-4" />
-              <span>{t.fastMoney.submitButton}</span>
+              <Volume2
+                className={`w-4 h-4 ${
+                  isRepeating ? 'animate-bounce text-emerald-400' : 'text-feud-gold'
+                }`}
+              />
+              <span>REPEAT</span>
             </button>
           </div>
         </form>
@@ -718,8 +782,8 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
       {/* Progress Footer: Answered Count */}
       <div className="flex items-center justify-between text-xs font-semibold text-slate-400 px-2">
-        <span>Answered: {answeredCount} / {totalQuestions}</span>
-        <span>Remaining: {totalQuestions - answeredCount}</span>
+        <span>{t.fastMoney.progressAnswered.replace('{answered}', String(answeredCount)).replace('{total}', String(totalQuestions))}</span>
+        <span>{t.fastMoney.progressRemaining.replace('{remaining}', String(totalQuestions - answeredCount))}</span>
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ import {
   AnswerOverridePayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
+import { useFullscreen } from '../hooks/useFullscreen';
 import {
   playCorrectDing,
   playPointsChime,
@@ -50,6 +51,9 @@ import {
   Gavel,
   CheckCircle2,
   X,
+  Maximize2,
+  Minimize2,
+  Pause,
 } from 'lucide-react';
 
 export interface MainGameTeamGuessingBoardProps {
@@ -77,6 +81,9 @@ export interface MainGameTeamGuessingBoardProps {
   roomName: string;
   roomCode: string;
   onLeave?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  onTogglePause?: () => void;
 }
 
 export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps> = ({
@@ -104,8 +111,14 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   roomName,
   roomCode,
   onLeave,
+  isFullscreen: propsIsFullscreen,
+  onToggleFullscreen,
+  onTogglePause,
 }) => {
   const { t } = useTranslation();
+  const internalFullscreen = useFullscreen({ enableShortcut: false });
+  const isFullscreen = propsIsFullscreen ?? internalFullscreen.isFullscreen;
+  const toggleFullscreen = onToggleFullscreen ?? internalFullscreen.toggleFullscreen;
 
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => !isTtsMuted());
 
@@ -417,7 +430,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                 onLeave();
               }}
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-              title="Leave Room"
+              title={t.mainGame.leaveRoomBtn}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -441,6 +454,47 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
         {/* Controlling Team Banner & Host Audio Controls (US-17 Scenario 4) */}
         <div className="flex items-center gap-3">
+          {onTogglePause && (
+            <button
+              type="button"
+              onClick={onTogglePause}
+              data-testid="host-pause-resume-btn"
+              aria-label={isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}
+              title={isPaused ? `${t.admin.resumeTimer} (${t.admin.spacebarShortcutHint})` : `${t.admin.pauseTimer} (${t.admin.spacebarShortcutHint})`}
+              className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                isPaused
+                  ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
+              }`}
+            >
+              {isPaused ? (
+                <Play className="w-5 h-5 text-emerald-400 fill-current" />
+              ) : (
+                <Pause className="w-5 h-5 text-amber-400 fill-current" />
+              )}
+              <span className="sr-only">{isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}</span>
+              <span className="sr-only">{t.admin.spacebarShortcutHint}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void toggleFullscreen()}
+            data-testid="host-fullscreen-toggle"
+            aria-pressed={isFullscreen}
+            aria-label={isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}
+            title={`${isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen} (${t.host.fullscreenHint})`}
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-5 h-5 text-feud-gold" />
+            ) : (
+              <Maximize2 className="w-5 h-5 text-feud-gold" />
+            )}
+            <span className="sr-only">{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
+            <span className="sr-only">{t.host.fullscreenHint}</span>
+          </button>
+
           <button
             type="button"
             onClick={handleToggleAudio}
@@ -592,7 +646,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
             type="button"
             onClick={() => setOverrideToast(null)}
             className="p-1 rounded-lg hover:bg-emerald-900/60 text-emerald-300 transition-colors cursor-pointer"
-            aria-label="Dismiss"
+            aria-label={t.admin.dismiss}
           >
             <X className="w-4 h-4" />
           </button>
@@ -835,7 +889,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
           </div>
           <div className="flex items-center gap-6 text-right shrink-0">
             <div>
-              <span className="text-xs uppercase font-bold text-yellow-300 block">Bank At Stake</span>
+              <span className="text-xs uppercase font-bold text-yellow-300 block">{t.mainGame.bankAtStake}</span>
               <span className="text-3xl font-black text-yellow-400">{snapshot.roundBank} PTS</span>
             </div>
             <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600/30 border border-red-500 text-red-300 font-black text-base shadow">

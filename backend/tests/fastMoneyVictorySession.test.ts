@@ -217,6 +217,17 @@ describe('FastMoneySession: Player 2 Reveal, Victory & Replay (US-10 Step 1)', (
       expect(hostSnap.totalScore).toBe(235);
       expect(hostSnap.p1TotalScore).toBe(140);
       expect(hostSnap.p2TotalScore).toBe(95);
+
+      // Remaining unrevealed answers and points are revealed on game over
+      expect(hostSnap.p2RevealSlots).toBeDefined();
+      expect(hostSnap.p2RevealSlots![2].isAnswerRevealed).toBe(true);
+      expect(hostSnap.p2RevealSlots![2].isPointsRevealed).toBe(true);
+      expect(hostSnap.p2RevealSlots![2].rawAnswer).toBe('Cap');
+      expect(hostSnap.p2RevealSlots![2].pointsAwarded).toBe(30);
+      expect(hostSnap.p2RevealSlots![3].isAnswerRevealed).toBe(true);
+      expect(hostSnap.p2RevealSlots![3].isPointsRevealed).toBe(true);
+      expect(hostSnap.p2RevealSlots![4].isAnswerRevealed).toBe(true);
+      expect(hostSnap.p2RevealSlots![4].isPointsRevealed).toBe(true);
     });
   });
 
