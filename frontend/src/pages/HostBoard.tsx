@@ -469,67 +469,32 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     </button>
   );
 
-  const renderAdminControls = () =>
-    isActiveGameStage ? (
-      <div
-        data-testid="host-admin-controls"
-        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-3 px-1 flex-wrap"
-      >
-        {canManualOverride && (
-          <button
-            type="button"
-            onClick={handleToggleManualOverride}
-            data-testid="host-manual-override-toggle"
-            aria-expanded={isManualOverrideOpen}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${
-              isManualOverrideOpen
-                ? 'bg-indigo-500 hover:bg-indigo-400 text-white border-indigo-300 shadow-indigo-500/25'
-                : 'bg-slate-800/90 hover:bg-slate-700 text-indigo-300 border-indigo-500/40'
-            }`}
-          >
-            <Gavel className="w-3.5 h-3.5" />
-            <span>
-              {isManualOverrideOpen ? t.admin.closeOverride : t.admin.manualOverride}
-            </span>
-          </button>
-        )}
+  const renderAdminControls = () => (
+    <div
+      data-testid="host-admin-controls"
+      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-3 px-1 flex-wrap"
+    >
+      {isActiveGameStage && canManualOverride && (
         <button
           type="button"
-          onClick={handleTogglePause}
-          data-testid="host-pause-resume-btn"
+          onClick={handleToggleManualOverride}
+          data-testid="host-manual-override-toggle"
+          aria-expanded={isManualOverrideOpen}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${
-            isPaused
-              ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-300 shadow-emerald-500/25'
-              : 'bg-slate-800/90 hover:bg-slate-700 text-amber-300 border-amber-500/40'
+            isManualOverrideOpen
+              ? 'bg-indigo-500 hover:bg-indigo-400 text-white border-indigo-300 shadow-indigo-500/25'
+              : 'bg-slate-800/90 hover:bg-slate-700 text-indigo-300 border-indigo-500/40'
           }`}
         >
-          {isPaused ? (
-            <>
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>{t.admin.resumeTimer}</span>
-            </>
-          ) : (
-            <>
-              <Pause className="w-3.5 h-3.5 fill-current" />
-              <span>{t.admin.pauseTimer}</span>
-            </>
-          )}
-          <kbd className="ml-1 px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-950/50 border border-white/15 opacity-80">
-            {t.admin.spacebarShortcutHint}
-          </kbd>
+          <Gavel className="w-3.5 h-3.5" />
+          <span>
+            {isManualOverrideOpen ? t.admin.closeOverride : t.admin.manualOverride}
+          </span>
         </button>
-        {!hasSubBoardHeader && renderFullscreenToggleButton('toolbar')}
-      </div>
-    ) : (
-      !hasSubBoardHeader ? (
-        <div
-          data-testid="host-stage-display-controls"
-          className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-1.5 sm:mb-2 px-1 flex-wrap"
-        >
-          {renderFullscreenToggleButton('toolbar')}
-        </div>
-      ) : null
-    );
+      )}
+      {!hasSubBoardHeader && renderFullscreenToggleButton('toolbar')}
+    </div>
+  );
 
   const renderPausedBanner = () =>
     isPaused ? (
@@ -610,6 +575,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onReplay={() => requestReplay(room.roomCode)}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
+          onTogglePause={handleTogglePause}
         />
       </div>
     );
@@ -679,6 +645,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onLeave={() => navigate('/')}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
+          onTogglePause={handleTogglePause}
         />
       </div>
     );
@@ -705,6 +672,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onLeave={() => navigate('/')}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
+          onTogglePause={handleTogglePause}
         />
         {matchOver && (
           <MainGameVictoryModal

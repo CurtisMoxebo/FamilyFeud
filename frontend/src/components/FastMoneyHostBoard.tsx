@@ -141,6 +141,7 @@ export interface FastMoneyHostBoardProps {
   onReplay?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  onTogglePause?: () => void;
 }
 
 export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
@@ -168,6 +169,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   onReplay,
   isFullscreen: propsIsFullscreen,
   onToggleFullscreen,
+  onTogglePause,
 }) => {
   const { t } = useTranslation();
   const internalFullscreen = useFullscreen({ enableShortcut: false });
@@ -1078,6 +1080,29 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
 
           {/* Right Header Area: Total Score (Reveal/Game Over) or Countdown Clock */}
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {onTogglePause && (
+              <button
+                type="button"
+                onClick={onTogglePause}
+                data-testid="host-pause-resume-btn"
+                aria-label={isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}
+                title={isPaused ? `${t.admin.resumeTimer} (${t.admin.spacebarShortcutHint})` : `${t.admin.pauseTimer} (${t.admin.spacebarShortcutHint})`}
+                className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl border transition-all cursor-pointer ${
+                  isPaused
+                    ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
+                    : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
+                }`}
+              >
+                {isPaused ? (
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 fill-current" />
+                ) : (
+                  <Pause className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 fill-current" />
+                )}
+                <span className="sr-only">{isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}</span>
+                <span className="sr-only">{t.admin.spacebarShortcutHint}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => void toggleFullscreen()}

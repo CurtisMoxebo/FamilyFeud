@@ -39,6 +39,8 @@ import {
   Flame,
   Maximize2,
   Minimize2,
+  Play,
+  Pause,
 } from 'lucide-react';
 
 export interface MainGameFaceOffBoardProps {
@@ -58,6 +60,7 @@ export interface MainGameFaceOffBoardProps {
   onLeave?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  onTogglePause?: () => void;
 }
 
 export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
@@ -77,6 +80,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   onLeave,
   isFullscreen: propsIsFullscreen,
   onToggleFullscreen,
+  onTogglePause,
 }) => {
   const { t } = useTranslation();
   const internalFullscreen = useFullscreen({ enableShortcut: false });
@@ -258,6 +262,29 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {onTogglePause && (
+              <button
+                type="button"
+                onClick={onTogglePause}
+                data-testid="host-pause-resume-btn"
+                aria-label={isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}
+                title={isPaused ? `${t.admin.resumeTimer} (${t.admin.spacebarShortcutHint})` : `${t.admin.pauseTimer} (${t.admin.spacebarShortcutHint})`}
+                className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                  isPaused
+                    ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
+                    : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
+                }`}
+              >
+                {isPaused ? (
+                  <Play className="w-5 h-5 text-emerald-400 fill-current" />
+                ) : (
+                  <Pause className="w-5 h-5 text-amber-400 fill-current" />
+                )}
+                <span className="sr-only">{isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}</span>
+                <span className="sr-only">{t.admin.spacebarShortcutHint}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => void toggleFullscreen()}

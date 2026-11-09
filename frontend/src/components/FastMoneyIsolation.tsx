@@ -58,7 +58,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-2">
           {playerName || player2Name
-            ? `${effectivePlayerName}, You're Up!`
+            ? t.fastMoney.playerYoureUp.replace('{player}', effectivePlayerName)
             : (t.fastMoney.p2ReadyTitle || "Player 2, You're Up!")}
         </h1>
         <p className="text-slate-300 text-sm mb-6 leading-relaxed">

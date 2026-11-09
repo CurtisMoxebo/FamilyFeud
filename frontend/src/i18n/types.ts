@@ -117,6 +117,7 @@ export interface TranslationDictionary {
     autoPacing: string;
     manualPacing: string;
     p2ReadyTitle: string;
+    playerYoureUp: string;
     p2ReadySubtitle: string;
     watchingReveal: string;
     duplicateWarningHost: string;

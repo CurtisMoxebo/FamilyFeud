@@ -1135,6 +1135,43 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       expect(screen.getByText(/starting new match\.\.\./i)).toBeInTheDocument();
       expect(replayBtn).toBeDisabled();
     });
+
+    it('reveals any remaining unrevealed answers and points when game over is reached mid-reveal', () => {
+      const midRevealGameOver: HostStateSnapshot = {
+        ...p2FinishedSnapshot,
+        phase: 'GAME_OVER',
+        isVictory: true,
+        grandTotal: 215,
+        p2Slots: [
+          { slotNumber: 1, questionId: 'q-1', questionText: 'Q1', rawAnswer: 'Pancakes', pointsAwarded: 45, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+          { slotNumber: 2, questionId: 'q-2', questionText: 'Q2', rawAnswer: 'Coffee', pointsAwarded: 55, isAnswerRevealed: true, isPointsRevealed: true, isMatched: true },
+          { slotNumber: 3, questionId: 'q-3', questionText: 'Q3', rawAnswer: 'Cap', pointsAwarded: 30, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+          { slotNumber: 4, questionId: 'q-4', questionText: 'Q4', rawAnswer: 'Sunday', pointsAwarded: 25, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+          { slotNumber: 5, questionId: 'q-5', questionText: 'Q5', rawAnswer: '', pointsAwarded: 0, isAnswerRevealed: false, isPointsRevealed: false, isMatched: false },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={midRevealGameOver}
+          language="EN"
+          roomName="Family Feud Duel"
+        />
+      );
+
+      // Slots 3, 4, and 5 must be revealed on the board
+      expect(screen.getByTestId('revealed-answer-3')).toHaveTextContent('Cap');
+      expect(screen.getByTestId('points-val-3')).toHaveTextContent('30');
+      expect(screen.getByTestId('revealed-answer-4')).toHaveTextContent('Sunday');
+      expect(screen.getByTestId('points-val-4')).toHaveTextContent('25');
+      expect(screen.getByTestId('revealed-answer-5')).toHaveTextContent(/no answer/i);
+      expect(screen.getByTestId('points-val-5')).toHaveTextContent('0');
+
+      // None of the slots should display unrevealed dashes
+      expect(screen.queryByTestId('unrevealed-answer-3')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('unrevealed-answer-4')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('unrevealed-answer-5')).not.toBeInTheDocument();
+    });
   });
 
   describe('US-17: Multilingual Automated Host Speech (TTS) Full Scenario Suite', () => {

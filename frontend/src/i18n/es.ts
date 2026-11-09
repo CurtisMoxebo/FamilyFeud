@@ -120,6 +120,7 @@ export const es: TranslationDictionary = {
     autoPacing: 'Ritmo Automático',
     manualPacing: 'Control Manual',
     p2ReadyTitle: '¡Jugador 2, te toca!',
+    playerYoureUp: '¡{player}, te toca!',
     p2ReadySubtitle: '¡El jugador 1 anotó {score} puntos. Toca listo cuando estés preparado!',
     watchingReveal: 'Viendo la secuencia de revelación del Jugador 1...',
     duplicateWarningHost: '¡Ya se dijo! ¡Intenta de nuevo!',

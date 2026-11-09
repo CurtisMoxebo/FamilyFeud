@@ -315,7 +315,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-2">
           {playerName
-            ? `${playerName}, You're Up!`
+            ? t.fastMoney.playerYoureUp.replace('{player}', playerName)
             : isPlayer2
             ? t.fastMoney.p2ReadyTitle
             : t.fastMoney.p1ReadyTitle}
@@ -323,7 +323,9 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
         <p className="text-slate-300 text-sm mb-8 leading-relaxed">
           {isPlayer2
             ? partnerName || player1Name
-              ? `${partnerName || player1Name} scored ${snapshot.totalScore ?? 0} points. Tap ready when you are set!`
+              ? t.fastMoney.partnerScoredPrompt
+                  .replace('{partner}', partnerName || player1Name || '')
+                  .replace('{score}', String(snapshot.totalScore ?? 0))
               : t.fastMoney.p2ReadySubtitle.replace('{score}', String(snapshot.totalScore ?? 0))
             : t.fastMoney.p1ReadySubtitle}
         </p>
