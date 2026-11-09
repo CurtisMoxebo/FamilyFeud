@@ -503,7 +503,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     ) : (
       <div
         data-testid="host-stage-display-controls"
-        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-3 px-1 flex-wrap"
+        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-1.5 sm:mb-2 px-1 flex-wrap"
       >
         {renderFullscreenToggleButton('toolbar')}
       </div>
@@ -553,7 +553,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Fast Money Host Board Screen (US-07, US-08, US-09 & US-10)
   if (isFastMoney && fastMoneyHostState) {
     return (
-      <div className="w-full flex flex-col items-center">
+      <div className="w-full flex flex-col items-center justify-center">
         {renderAlert()}
         {renderAdminControls()}
         {renderPausedBanner()}
