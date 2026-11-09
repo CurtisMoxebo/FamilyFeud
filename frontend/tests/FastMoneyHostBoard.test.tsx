@@ -1602,5 +1602,68 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         expect.objectContaining({ text: 'Le sondage dit' })
       );
     });
+
+    it('satisfies user requirement: ensures host reads question without premature cut-off before revealing answer in Auto-Pacing', () => {
+      vi.useFakeTimers();
+      const onRevealAnswerSpy = vi.fn();
+      const onRevealPointsSpy = vi.fn();
+
+      const revealSnapshot: HostStateSnapshot = {
+        ...readyHostSnapshot,
+        phase: 'P1_REVEAL',
+        activeRevealSlotNumber: 1,
+        p1Slots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name something you find in the refrigerator',
+            rawAnswer: 'Milk',
+            pointsAwarded: 45,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+        p1RevealSlots: [
+          {
+            slotNumber: 1,
+            questionId: 'q-1',
+            questionText: 'Name something you find in the refrigerator',
+            rawAnswer: 'Milk',
+            pointsAwarded: 45,
+            isAnswerRevealed: false,
+            isPointsRevealed: false,
+            isMatched: true,
+          },
+        ],
+      };
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={revealSnapshot}
+          language="EN"
+          roomName="Fast Money Feud"
+          enableTTS={true}
+          enableSFX={true}
+          defaultAutoPacing={true}
+          onRevealAnswer={onRevealAnswerSpy}
+          onRevealPoints={onRevealPointsSpy}
+        />
+      );
+
+      // At 1.2s: Question is still being read, answer is NOT revealed prematurely
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+      expect(onRevealAnswerSpy).not.toHaveBeenCalled();
+
+      // At 3.5s+: Question finishes, answer reveal is triggered
+      act(() => {
+        vi.advanceTimersByTime(2500);
+      });
+      expect(onRevealAnswerSpy).toHaveBeenCalledWith(1);
+
+      vi.useRealTimers();
+    });
   });
 });

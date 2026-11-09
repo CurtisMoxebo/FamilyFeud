@@ -191,6 +191,8 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   const lastSpokenQuestionRef = useRef<string | null>(null);
   const lastSpokenRevealSlotRef = useRef<number | null>(null);
   const lastSpokenP2RevealSlotRef = useRef<number | null>(null);
+  const questionFinishedRef = useRef<Set<number>>(new Set());
+  const questionP2FinishedRef = useRef<Set<number>>(new Set());
   const prevRevealStatesRef = useRef<Map<number, { answer: boolean; points: boolean }>>(new Map());
   const prevP2RevealStatesRef = useRef<Map<number, { answer: boolean; points: boolean }>>(new Map());
   const autoPacingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -643,9 +645,17 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     if (!currentSlot) return;
 
     if (!currentSlot.isAnswerRevealed) {
+      // In Auto-Pacing: allow ample time for the host to read the question before revealing the answer!
+      // When TTS is enabled, question speaking takes ~3.5 - 4.5 seconds.
+      // When TTS is disabled (such as in Vitest timer tests), use 1200ms.
+      const delayMs =
+        enableTTS && audioEnabled && !isTtsMuted()
+          ? Math.max(3500, (currentSlot.questionText?.length || 0) * 65)
+          : 1200;
+
       autoPacingTimeoutRef.current = setTimeout(() => {
         handleRevealAnswer(activeRevealSlotNumber);
-      }, 1200);
+      }, delayMs);
     } else if (!currentSlot.isPointsRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
         handleRevealPoints(activeRevealSlotNumber);
@@ -680,9 +690,14 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     if (!currentSlot) return;
 
     if (!currentSlot.isAnswerRevealed) {
+      const delayMs =
+        enableTTS && audioEnabled && !isTtsMuted()
+          ? Math.max(3500, (currentSlot.questionText?.length || 0) * 65)
+          : 1200;
+
       autoPacingTimeoutRef.current = setTimeout(() => {
         handleRevealP2Answer(activeP2RevealSlotNumber);
-      }, 1200);
+      }, delayMs);
     } else if (!currentSlot.isPointsRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
         handleRevealP2Points(activeP2RevealSlotNumber);
