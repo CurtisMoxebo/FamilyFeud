@@ -122,8 +122,6 @@ export interface TranslationDictionary {
     watchingReveal: string;
     duplicateWarningHost: string;
     duplicateWarningPlayer: string;
-    p2SpeedRoundTitle: string;
-    p2SpeedRoundSubtitle: string;
     p2RevealPhaseTitle: string;
     victoryTitle: string;
     victorySubtitle: string;
@@ -136,11 +134,7 @@ export interface TranslationDictionary {
     targetGoal: string;
     startP2RevealBtn: string;
     repeatQuestionButton: string;
-    repeatQuestionPrompt: string;
-    repeatQuestionAsked: string;
     hostRepeatAlert: string;
-    youSaid: string;
-    surveySaid: string;
     inputLockedReveal: string;
     waitingForHostReplay: string;
     startingNewMatch: string;
@@ -200,10 +194,8 @@ export interface TranslationDictionary {
     opponentChance: string;
     numberOneAnswerFound: string;
     teamChosePlay: string;
-    teamChosePass: string;
     controlPassesTo: string;
     waitingForWinnerChoice: string;
-    cardRevealed: string;
     // US-14: Team Guessing Turn, Board Flips & 3-Strike System
     teamGuessingTitle: string;
     yourTurnToGuess: string;
