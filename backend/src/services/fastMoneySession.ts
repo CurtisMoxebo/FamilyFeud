@@ -790,17 +790,21 @@ export class FastMoneySession {
       isPointsRevealed: false,
     };
 
+    const isGameOver = this.phase === 'GAME_OVER';
+    const isAnswerRevealed = state.isAnswerRevealed || isGameOver;
+    const isPointsRevealed = state.isPointsRevealed || isGameOver;
+
     const rawAnswer = submission ? submission.rawAnswer : '';
 
     return {
       slotNumber,
       questionId: question.id,
       questionText: question.questionText,
-      rawAnswer: sanitized && !state.isAnswerRevealed ? '' : rawAnswer,
-      pointsAwarded: sanitized && !state.isPointsRevealed ? 0 : evaluation.pointsAwarded,
-      isAnswerRevealed: state.isAnswerRevealed,
-      isPointsRevealed: state.isPointsRevealed,
-      isMatched: state.isPointsRevealed ? evaluation.isMatched : false,
+      rawAnswer: sanitized && !isAnswerRevealed ? '' : rawAnswer,
+      pointsAwarded: sanitized && !isPointsRevealed ? 0 : evaluation.pointsAwarded,
+      isAnswerRevealed,
+      isPointsRevealed,
+      isMatched: isPointsRevealed ? evaluation.isMatched : false,
     };
   }
 
@@ -941,17 +945,21 @@ export class FastMoneySession {
       isPointsRevealed: false,
     };
 
+    const isGameOver = this.phase === 'GAME_OVER';
+    const isAnswerRevealed = state.isAnswerRevealed || isGameOver;
+    const isPointsRevealed = state.isPointsRevealed || isGameOver;
+
     const rawAnswer = submission ? submission.rawAnswer : '';
 
     return {
       slotNumber,
       questionId: question.id,
       questionText: question.questionText,
-      rawAnswer: sanitized && !state.isAnswerRevealed ? '' : rawAnswer,
-      pointsAwarded: sanitized && !state.isPointsRevealed ? 0 : evaluation.pointsAwarded,
-      isAnswerRevealed: state.isAnswerRevealed,
-      isPointsRevealed: state.isPointsRevealed,
-      isMatched: state.isPointsRevealed ? evaluation.isMatched : false,
+      rawAnswer: sanitized && !isAnswerRevealed ? '' : rawAnswer,
+      pointsAwarded: sanitized && !isPointsRevealed ? 0 : evaluation.pointsAwarded,
+      isAnswerRevealed,
+      isPointsRevealed,
+      isMatched: isPointsRevealed ? evaluation.isMatched : false,
     };
   }
 

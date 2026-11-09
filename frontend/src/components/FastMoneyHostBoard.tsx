@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import {
   HostStateSnapshot,
@@ -288,20 +288,41 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   const p2Slots: FastMoneyRevealSlot[] =
     snapshot?.p2RevealSlots ?? snapshot?.revealSlots ?? snapshot?.p2Slots ?? defaultSlots;
 
+  // If game is over and answers are still left unrevealed, reveal them on the board
+  const effectiveP1Slots: FastMoneyRevealSlot[] = useMemo(() => {
+    if (!isGameOver) return p1Slots;
+    return p1Slots.map((slot) => ({
+      ...slot,
+      isAnswerRevealed: true,
+      isPointsRevealed: true,
+    }));
+  }, [p1Slots, isGameOver]);
+
+  const effectiveP2Slots: FastMoneyRevealSlot[] = useMemo(() => {
+    if (!isGameOver) return p2Slots;
+    return p2Slots.map((slot) => ({
+      ...slot,
+      isAnswerRevealed: true,
+      isPointsRevealed: true,
+    }));
+  }, [p2Slots, isGameOver]);
+
   // Active slot tracking for P1 Reveal
   const activeRevealSlotNumber = snapshot?.activeRevealSlotNumber ?? (isReadyForP2 ? null : 1);
   const activeRevealSlot =
-    p1Slots.find((s) => s.slotNumber === activeRevealSlotNumber) ??
-    (p1Slots.length > 0 ? p1Slots[0] : null);
+    effectiveP1Slots.find((s) => s.slotNumber === activeRevealSlotNumber) ??
+    (effectiveP1Slots.length > 0 ? effectiveP1Slots[0] : null);
 
   // Active slot tracking for P2 Reveal
   const activeP2RevealSlotNumber =
-    snapshot?.activeRevealSlotNumber ??
-    p2Slots.find((s) => !s.isPointsRevealed)?.slotNumber ??
-    null;
+    isGameOver
+      ? null
+      : snapshot?.activeRevealSlotNumber ??
+        effectiveP2Slots.find((s) => !s.isPointsRevealed)?.slotNumber ??
+        null;
   const activeP2RevealSlot =
-    p2Slots.find((s) => s.slotNumber === activeP2RevealSlotNumber) ??
-    (p2Slots.length > 0 ? p2Slots[0] : null);
+    effectiveP2Slots.find((s) => s.slotNumber === activeP2RevealSlotNumber) ??
+    (effectiveP2Slots.length > 0 ? effectiveP2Slots[0] : null);
 
   // Score Calculations
   const p1TotalScore = snapshot?.p1TotalScore ?? snapshot?.totalScore ?? 0;
@@ -1307,7 +1328,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                     : `${p1TotalScore} PTS`}
                 </span>
               </div>
-              {p1Slots.map((slot) => {
+              {effectiveP1Slots.map((slot) => {
                 if (isP2OrGameOver) {
                   // In P2 or Game Over: Player 1 slots are a fully revealed summary
                   return (
@@ -1459,7 +1480,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                 </span>
               </div>
 
-              {p2Slots.map((slot) => {
+              {effectiveP2Slots.map((slot) => {
                 if (!isP2OrGameOver) {
                   // In P1 phases: Player 2 board is waiting
                   return (
