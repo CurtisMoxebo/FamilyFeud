@@ -2,7 +2,6 @@ export interface TranslationDictionary {
   app: {
     title: string;
     subtitle: string;
-    poweredBy: string;
     connectionStatus: string;
     connected: string;
     connecting: string;

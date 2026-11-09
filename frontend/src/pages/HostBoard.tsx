@@ -37,7 +37,6 @@ import {
   AlertTriangle,
   Copy,
   Check,
-  Sparkles,
   Smartphone,
   Play,
   Pause,
@@ -981,10 +980,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
       {/* Lobby Invitation & QR Code Screen */}
       <div className="w-full bg-feud-slate-card/70 backdrop-blur-md border border-feud-slate-border rounded-3xl p-8 text-center shadow-xl flex flex-col items-center">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-semibold mb-4">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>{t.app.poweredBy}</span>
-        </div>
         <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{t.host.waitingPlayers}</h3>
         <p className="text-sm text-slate-400 max-w-md mx-auto mb-6">
           {t.joinRoom.subtitle}

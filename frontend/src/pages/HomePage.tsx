@@ -5,7 +5,7 @@ import { useTranslation } from '../i18n/LanguageContext';
 import { useSocket } from '../hooks/useSocket';
 import { RoomCreateForm } from '../components/RoomCreateForm';
 import { RoomJoinForm } from '../components/RoomJoinForm';
-import { Sparkles, Tv, LogIn } from 'lucide-react';
+import { Tv, LogIn } from 'lucide-react';
 
 export interface HomePageProps {
   onRoomCreated?: (room: Room) => void;
@@ -29,10 +29,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onRoomCreated, defaultTab = 
     <div className="w-full flex flex-col items-center">
       {/* Header Bar */}
       <header className="text-center mb-6">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-feud-gold/20 border border-feud-gold/40 text-feud-gold text-sm font-semibold tracking-wide uppercase mb-4 animate-pulse">
-          <Sparkles className="w-4 h-4" />
-          {t.app.poweredBy}
-        </div>
         <h1 className="text-5xl md:text-7xl font-extrabold tracking-wider uppercase font-game text-transparent bg-clip-text bg-gradient-to-r from-feud-gold-light via-feud-gold to-yellow-200 drop-shadow-[0_4px_12px_rgba(245,158,11,0.5)]">
           {t.app.title}
         </h1>

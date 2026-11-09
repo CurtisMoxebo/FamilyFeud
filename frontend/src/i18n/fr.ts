@@ -4,7 +4,6 @@ export const fr: TranslationDictionary = {
   app: {
     title: 'Une Famille en Or',
     subtitle: 'Jeu télévisé multijoueur en temps réel',
-    poweredBy: 'Propulsé par Google Gemini AI',
     connectionStatus: 'Moteur WebSocket',
     connected: 'Connecté',
     connecting: 'Connexion au serveur...',

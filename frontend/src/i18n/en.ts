@@ -4,7 +4,6 @@ export const en: TranslationDictionary = {
   app: {
     title: 'Family Feud',
     subtitle: 'Multiplayer Game Show & Real-Time Duel',
-    poweredBy: 'Powered by Google Gemini AI',
     connectionStatus: 'WebSocket Engine',
     connected: 'Connected',
     connecting: 'Connecting to Server...',
