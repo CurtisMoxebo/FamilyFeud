@@ -37,7 +37,6 @@ import {
   Play,
   Pause,
   ChevronRight,
-  UserCheck,
   AlertTriangle,
   RotateCcw,
   Loader2,
@@ -1312,25 +1311,6 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
               <span>{player2Name ? `Start ${player2Name} Reveal` : t.fastMoney.startP2RevealBtn}</span>
             </button>
-          </div>
-        )}
-
-        {/* P1 Reveal Completion Banner */}
-        {isReadyForP2 && (
-          <div
-            data-testid="host-reveal-complete-banner"
-            className="mt-3 sm:mt-3.5 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-emerald-950/70 border border-emerald-500/40 text-center animate-fade-in shadow-lg"
-          >
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-1.5">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{t.fastMoney.revealComplete}</span>
-            </div>
-            <h4 className="text-base sm:text-lg font-extrabold text-white">
-              {effectiveP1Name} Round Total: <span className="text-feud-gold">{totalScore} PTS</span>
-            </h4>
-            <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5">
-              {effectiveP2Name} has been invited to take the stage and press &quot;I&apos;m Ready!&quot;
-            </p>
           </div>
         )}
 

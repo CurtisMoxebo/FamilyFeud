@@ -648,7 +648,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       vi.useRealTimers();
     });
 
-    it('renders completion banner when all slots are revealed (P2_READY)', () => {
+    it('does not render green completion banner under the boards in P2_READY', () => {
       const p2ReadySnapshot: HostStateSnapshot = {
         ...revealHostSnapshot,
         phase: 'P2_READY',
@@ -664,8 +664,7 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         />
       );
 
-      expect(screen.getByTestId('host-reveal-complete-banner')).toBeInTheDocument();
-      expect(screen.getByTestId('host-reveal-complete-banner')).toHaveTextContent('120 PTS');
+      expect(screen.queryByTestId('host-reveal-complete-banner')).not.toBeInTheDocument();
     });
 
     it('renders Start Reveal button when phase is P1_FINISHED', () => {
