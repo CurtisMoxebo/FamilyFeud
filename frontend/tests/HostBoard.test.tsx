@@ -162,9 +162,7 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const scanInstruction = screen.getByTestId('host-scan-instruction');
     expect(scanInstruction).toBeInTheDocument();
     expect(scanInstruction).toHaveTextContent(/scannez avec votre téléphone/i);
-
-    // Check direct link URL is displayed
-    expect(screen.getByText(new RegExp('/play/FEUD-7890'))).toBeInTheDocument();
+    expect(screen.queryByTestId('host-direct-link-copy-btn')).not.toBeInTheDocument();
   });
 
   it('satisfies US-03 Scenario 2: copies the join URL when Copy Link is clicked', async () => {
@@ -183,11 +181,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('/play/FEUD-7890'));
     expect(screen.getByText(/copié/i)).toBeInTheDocument();
-
-    // Secondary link copy button also works
-    const directCopyBtn = screen.getByTestId('host-direct-link-copy-btn');
-    await user.click(directCopyBtn);
-    expect(writeTextMock).toHaveBeenCalledTimes(2);
   });
 
   it('fetches room details via REST API when loaded without initialRoom', async () => {
