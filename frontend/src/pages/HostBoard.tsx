@@ -115,6 +115,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Live real-time socket connection for host display (US-04, US-05, US-08, US-10 & US-11)
   const {
     roomState,
+    roomError,
     startGame,
     teamsAssigned: socketTeamsAssigned,
     faceOffState: socketFaceOffState,
@@ -351,6 +352,35 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     }
   }, [roomState, room, setLanguage]);
 
+  const livePlayers = roomState?.players ?? room?.players ?? [];
+  const liveConnectedPlayers = livePlayers.filter((p) => p.isConnected);
+  const livePlayerCount = roomState?.playerCount ?? liveConnectedPlayers.length;
+  const canStartAuthoritative =
+    roomState?.canStart ??
+    (isFastMoneyRoom
+      ? livePlayerCount === 2
+      : livePlayerCount >= 2 && livePlayerCount <= 10 && livePlayerCount % 2 === 0);
+
+  const [isStartingGame, setIsStartingGame] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (roomError) {
+      setIsStartingGame(false);
+    }
+  }, [roomError]);
+
+  useEffect(() => {
+    if (!canStartAuthoritative) {
+      setIsStartingGame(false);
+    }
+  }, [canStartAuthoritative]);
+
+  useEffect(() => {
+    if (isActiveGameStage) {
+      setIsStartingGame(false);
+    }
+  }, [isActiveGameStage]);
+
   const handleCopyLink = () => {
     if (typeof window !== 'undefined') {
       navigator.clipboard.writeText(joinUrl);
@@ -361,6 +391,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   const handleStartGame = () => {
     resumeAudioContext();
+    setIsStartingGame(true);
     if (startGame) {
       startGame(roomCode);
     }
@@ -952,20 +983,35 @@ export const HostBoard: React.FC<HostBoardProps> = ({
               <button
                 type="button"
                 data-testid="host-start-game-btn"
-                disabled={!canStart}
+                disabled={!canStart || isStartingGame}
                 onClick={handleStartGame}
                 className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-extrabold text-base uppercase tracking-wider transition-all duration-200 ${
-                  canStart
+                  canStart && !isStartingGame
                     ? 'bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-105 cursor-pointer animate-pulse'
+                    : isStartingGame
+                    ? 'bg-gradient-to-r from-feud-gold/70 via-yellow-400/70 to-amber-500/70 text-slate-950 cursor-wait opacity-80'
                     : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
                 }`}
               >
-                <Play className="w-4 h-4 fill-current" />
-                <span>
-                  {canStart && playerCount > 0
-                    ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
-                    : t.lobby.startGame}
-                </span>
+                {isStartingGame ? (
+                  <>
+                    <Loader2 data-testid="host-start-game-spinner" className="w-4 h-4 animate-spin text-slate-950" />
+                    <span>
+                      {canStart && playerCount > 0
+                        ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
+                        : t.lobby.startGame}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>
+                      {canStart && playerCount > 0
+                        ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
+                        : t.lobby.startGame}
+                    </span>
+                  </>
+                )}
               </button>
 
               {!canStart && (
@@ -1095,20 +1141,35 @@ export const HostBoard: React.FC<HostBoardProps> = ({
               <button
                 type="button"
                 data-testid="host-start-game-btn"
-                disabled={!canStart}
+                disabled={!canStart || isStartingGame}
                 onClick={handleStartGame}
                 className={`w-full sm:w-auto min-w-[280px] flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-extrabold text-lg uppercase tracking-wider transition-all duration-200 ${
-                  canStart
+                  canStart && !isStartingGame
                     ? 'bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.5)] hover:scale-105 cursor-pointer animate-pulse'
+                    : isStartingGame
+                    ? 'bg-gradient-to-r from-feud-gold/70 via-yellow-400/70 to-amber-500/70 text-slate-950 cursor-wait opacity-80'
                     : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
                 }`}
               >
-                <Play className="w-5 h-5 fill-current" />
-                <span>
-                  {canStart && playerCount > 0
-                    ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
-                    : t.lobby.startGame}
-                </span>
+                {isStartingGame ? (
+                  <>
+                    <Loader2 data-testid="host-start-game-spinner" className="w-5 h-5 animate-spin text-slate-950" />
+                    <span>
+                      {canStart && playerCount > 0
+                        ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
+                        : t.lobby.startGame}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 fill-current" />
+                    <span>
+                      {canStart && playerCount > 0
+                        ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
+                        : t.lobby.startGame}
+                    </span>
+                  </>
+                )}
               </button>
 
               {!canStart && (

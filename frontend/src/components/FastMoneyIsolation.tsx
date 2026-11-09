@@ -225,7 +225,6 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
       <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold uppercase tracking-wider mb-4">
         <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" />
         <span>{t.fastMoney.isolationShieldTitle}</span>
-        <span className="sr-only">Offstage Isolation Shield</span>
       </div>
 
       {/* Localized Title */}

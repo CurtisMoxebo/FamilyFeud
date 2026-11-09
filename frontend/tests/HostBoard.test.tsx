@@ -312,6 +312,10 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     await user.click(startBtn);
     expect(startGameMock).toHaveBeenCalledWith('FEUD-7890');
     expect(onStartGameMock).toHaveBeenCalledTimes(1);
+
+    // Fast Money Host Button disables and renders loading spinner
+    expect(startBtn).toBeDisabled();
+    expect(screen.getByTestId('host-start-game-spinner')).toBeInTheDocument();
   });
 
   it('satisfies US-04 Scenario 3: enforces even player count for Main Game mode', () => {
