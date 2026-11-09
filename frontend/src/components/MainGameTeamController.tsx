@@ -287,7 +287,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               type="button"
               onClick={onLeave}
               className="touch-target min-h-touch min-w-touch flex items-center justify-center p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-              title="Leave Room"
+              title={t.mainGame.leaveRoomBtn}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -497,7 +497,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                 <span className="text-xs font-black uppercase text-indigo-300 block">
                   {t.mainGame.yourTurnToGuess}
                 </span>
-                <span className="text-xs text-slate-300">Submit an answer or pass turn</span>
+                <span className="text-xs text-slate-300">{t.mainGame.submitOrPassPrompt}</span>
               </div>
             </div>
 
@@ -769,7 +769,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             </div>
           </div>
           <div className="text-right shrink-0">
-            <span className="text-[10px] uppercase font-bold text-yellow-300 block">At Stake</span>
+            <span className="text-[10px] uppercase font-bold text-yellow-300 block">{t.mainGame.atStake}</span>
             <span className="text-lg font-black text-yellow-400">{snapshot.roundBank} PTS</span>
           </div>
         </div>

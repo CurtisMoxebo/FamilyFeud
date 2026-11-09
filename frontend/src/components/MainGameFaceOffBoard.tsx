@@ -119,7 +119,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     promptPassPlay?.winnerNickname ||
     buzzerLocked?.winnerNickname ||
     snapshot.buzzedPlayerNickname ||
-    'Contender';
+    t.mainGame.contender;
 
   const controllingTeam =
     roundControlAssigned?.controllingTeam || snapshot.controllingTeam;
@@ -298,7 +298,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
               className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Leave Lobby</span>
+              <span>{t.lobby.leaveLobby}</span>
             </button>
           )}
           </div>
@@ -328,18 +328,18 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                 {audioEnabled ? (
                   <>
                     <Volume2 className="w-4 h-4 animate-pulse" />
-                    <span>Host TTS</span>
+                    <span>{t.host.hostTts}</span>
                   </>
                 ) : (
                   <>
                     <VolumeX className="w-4 h-4 text-slate-500" />
-                    <span className="text-slate-500">Host TTS (Muted)</span>
+                    <span className="text-slate-500">{t.host.hostTtsMuted}</span>
                   </>
                 )}
               </div>
 
               <span className="text-xs font-extrabold text-feud-gold-light uppercase tracking-widest block mb-2">
-                Survey Question
+                {t.host.surveyQuestion}
               </span>
               <h2
                 data-testid="face-off-question-text"

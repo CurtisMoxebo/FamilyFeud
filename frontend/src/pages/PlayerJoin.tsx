@@ -249,7 +249,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6">
         <Loader2 className="w-12 h-12 text-feud-gold animate-spin mb-4" />
-        <p className="text-lg text-slate-300 font-medium">Connecting to Room...</p>
+        <p className="text-lg text-slate-300 font-medium">{t.joinRoom.connectingToRoom}</p>
       </div>
     );
   }
@@ -323,7 +323,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
         <div className="w-16 h-16 rounded-full bg-red-950/80 text-feud-red mx-auto flex items-center justify-center mb-4">
           <AlertCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-extrabold text-white mb-2">Room Unavailable</h2>
+        <h2 className="text-2xl font-extrabold text-white mb-2">{t.joinRoom.roomUnavailable}</h2>
         <p className="text-slate-300 text-sm mb-6">{error || t.joinRoom.roomNotFound}</p>
         <button
           type="button"
@@ -331,7 +331,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-feud-gold text-slate-950 font-bold hover:scale-105 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
+          <span>{t.lobby.backHome}</span>
         </button>
       </div>
     );

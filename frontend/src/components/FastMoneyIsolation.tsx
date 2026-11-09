@@ -53,7 +53,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
 
         <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-feud-gold/15 border border-feud-gold/30 text-feud-gold text-xs font-bold uppercase tracking-widest mb-3">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Fast Money Round 2</span>
+          <span>{t.fastMoney.fastMoneyRound2}</span>
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-2">
@@ -63,7 +63,9 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
         </h1>
         <p className="text-slate-300 text-sm mb-6 leading-relaxed">
           {partnerName || player1Name
-            ? `${partnerName || player1Name} scored ${totalScore} points. Tap ready when you are set!`
+            ? t.fastMoney.partnerScoredPrompt
+                .replace('{partner}', effectivePartnerName)
+                .replace('{score}', String(totalScore))
             : (t.fastMoney.p2ReadySubtitle?.replace('{score}', String(totalScore)) ||
               `Player 1 scored ${totalScore} points. Tap ready when you are set!`)}
         </p>
@@ -71,7 +73,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
         {/* Player 1's Total Score Badge */}
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 mb-6">
           <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-            {effectivePartnerName} Score to Beat
+            {t.fastMoney.scoreToBeat.replace('{partner}', effectivePartnerName)}
           </div>
           <div
             data-testid="p2-round1-total"
@@ -193,8 +195,8 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
           <span>
             {snapshot.isolationMessage ||
               (partnerName || player1Name
-                ? `Watching ${partnerName || player1Name}'s reveal sequence...`
-                : (t.fastMoney.watchingReveal || "Watching Player 1's reveal sequence..."))}
+                ? t.fastMoney.partnerWatchingReveal.replace('{partner}', effectivePartnerName)
+                : t.fastMoney.watchingReveal)}
           </span>
         </div>
       </div>
@@ -222,13 +224,14 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
       {/* Anti-Cheating Shield Pill */}
       <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold uppercase tracking-wider mb-4">
         <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" />
-        <span>Offstage Isolation Shield</span>
+        <span>{t.fastMoney.isolationShieldTitle}</span>
+        <span className="sr-only">Offstage Isolation Shield</span>
       </div>
 
       {/* Localized Title */}
       <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-3 leading-tight">
         {(partnerName || player1Name)
-          ? `🎧 ${partnerName || player1Name} is currently playing!`
+          ? t.fastMoney.partnerPlayingHeader.replace('{partner}', effectivePartnerName)
           : t.fastMoney.player2IsolationTitle}
       </h1>
 
@@ -247,7 +250,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
       >
         <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">
           <Timer className="w-4 h-4 text-indigo-400" />
-          <span>{effectivePartnerName} Clock</span>
+          <span>{t.fastMoney.partnerClock.replace('{partner}', effectivePartnerName)}</span>
         </div>
         <div className="text-4xl sm:text-5xl font-black font-game text-indigo-300 tracking-wider">
           {remainingSeconds}
@@ -260,7 +263,7 @@ export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({
       {/* Security notice clarifying anti-cheating confidentiality */}
       <div className="flex items-center justify-center gap-2 text-xs text-slate-400 bg-slate-800/40 py-2.5 px-4 rounded-xl border border-slate-700/40">
         <EyeOff className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        <span>Questions and answers remain strictly hidden until your turn</span>
+        <span>{t.fastMoney.isolationShieldDesc}</span>
       </div>
     </div>
   );

@@ -718,7 +718,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('player2-isolation-screen')).toBeInTheDocument();
-        expect(screen.getByText(/Offstage Isolation Shield/i)).toBeInTheDocument();
+        expect(screen.getByText(/Offstage Isolation Shield|Bouclier d’isolement/i)).toBeInTheDocument();
       });
     });
 

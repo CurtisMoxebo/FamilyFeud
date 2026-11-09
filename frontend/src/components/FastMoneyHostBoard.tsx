@@ -1217,7 +1217,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
           >
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-feud-gold text-slate-950 font-black text-[10px] sm:text-xs uppercase tracking-widest mb-1.5 shadow-md">
               <Award className="w-3.5 h-3.5" />
-              <span>Fast Money Champions</span>
+              <span>{t.fastMoney.fastMoneyChampionsBadge}</span>
             </div>
             <h3 className="text-xl sm:text-2xl 2xl:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-feud-gold to-amber-200">
               {t.fastMoney.victoryTitle}
@@ -1450,10 +1450,12 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                   {isP2RevealPhase || isGameOver
                     ? `${p2TotalScore} PTS`
                     : isP2SpeedRound
-                    ? `${snapshot?.answeredCount ?? 0} / 5 Answered`
+                    ? t.fastMoney.answeredCount
+                        .replace('{answered}', String(snapshot?.answeredCount ?? 0))
+                        .replace('{total}', '5')
                     : isReadyForP2
-                    ? 'Ready'
-                    : 'Waiting...'}
+                    ? t.lobby.statusReady
+                    : t.lobby.statusWaiting}
                 </span>
               </div>
 
@@ -1721,7 +1723,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               className="px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 text-slate-950 shadow-lg shadow-feud-gold/25 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
-              <span>{player1Name ? `Start ${player1Name} Reveal` : 'Start Fast Money Reveal'}</span>
+              <span>{player1Name ? t.fastMoney.startPlayerReveal.replace('{player}', player1Name) : t.fastMoney.startP1RevealBtn}</span>
             </button>
           </div>
         )}
@@ -1736,7 +1738,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               className="px-6 sm:px-8 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base uppercase tracking-wider bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-blue-500/25 hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
-              <span>{player2Name ? `Start ${player2Name} Reveal` : t.fastMoney.startP2RevealBtn}</span>
+              <span>{player2Name ? t.fastMoney.startPlayerReveal.replace('{player}', player2Name) : t.fastMoney.startP2RevealBtn}</span>
             </button>
           </div>
         )}
@@ -1758,7 +1760,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               {isReplaying ? (
                 <>
                   <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                  <span>Starting New Match...</span>
+                  <span>{t.fastMoney.startingNewMatch}</span>
                 </>
               ) : (
                 <>
@@ -1768,7 +1770,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               )}
             </button>
             <p className="text-[11px] sm:text-xs text-slate-400">
-              Resets scores and starts a fresh Fast Money round in the same room.
+              {t.fastMoney.resetScoresHint}
             </p>
           </div>
         )}

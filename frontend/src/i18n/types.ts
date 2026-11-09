@@ -44,6 +44,12 @@ export interface TranslationDictionary {
     enterFullscreen: string;
     exitFullscreen: string;
     fullscreenHint: string;
+    loadingGameShowBoard: string;
+    roomUnavailable: string;
+    roomDoesNotExist: string;
+    hostTts: string;
+    hostTtsMuted: string;
+    surveyQuestion: string;
   };
   joinRoom: {
     title: string;
@@ -60,6 +66,8 @@ export interface TranslationDictionary {
     validationErrorNickname: string;
     validationErrorRoomCode: string;
     roomNotFound: string;
+    connectingToRoom: string;
+    roomUnavailable: string;
   };
   lobby: {
     rosterTitle: string;
@@ -83,6 +91,8 @@ export interface TranslationDictionary {
     kickedTitle: string;
     kickedDefaultMessage: string;
     backHome: string;
+    leaveLobby: string;
+    capacity: string;
   };
   fastMoney: {
     p1ReadyTitle: string;
@@ -130,6 +140,27 @@ export interface TranslationDictionary {
     hostRepeatAlert: string;
     youSaid: string;
     surveySaid: string;
+    inputLockedReveal: string;
+    waitingForHostReplay: string;
+    startingNewMatch: string;
+    resetScoresHint: string;
+    isolationShieldTitle: string;
+    isolationShieldDesc: string;
+    fastMoneyRound1: string;
+    fastMoneyRound2: string;
+    secondsOnClock: string;
+    scoreToBeat: string;
+    partnerClock: string;
+    partnerScoredPrompt: string;
+    partnerWatchingReveal: string;
+    partnerPlayingHeader: string;
+    startP1RevealBtn: string;
+    startPlayerReveal: string;
+    fastMoneyChampionsBadge: string;
+    loadingQuestion: string;
+    passedCountLabel: string;
+    progressAnswered: string;
+    progressRemaining: string;
   };
   mainGame: {
     team1: string;
@@ -212,6 +243,16 @@ export interface TranslationDictionary {
     suddenDeathSubtitle: string;
     playAgainBtn: string;
     exitRoomBtn: string;
+    leaveRoomBtn: string;
+    matchChampionsBadge: string;
+    submitOrPassPrompt: string;
+    atStake: string;
+    bankAtStake: string;
+    buzzerLockedOpponentFirst: string;
+    spectatorRoundNotice: string;
+    buzzerRejected: string;
+    designatedContenderNotice: string;
+    contender: string;
   };
   admin: {
     pauseTimer: string;
@@ -226,5 +267,6 @@ export interface TranslationDictionary {
     judgeOverrideSubtitle: string;
     creditTeamLabel: string;
     overrideConfirmedToast: string;
+    dismiss: string;
   };
 }

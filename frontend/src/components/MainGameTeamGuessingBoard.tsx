@@ -427,7 +427,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                 onLeave();
               }}
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-              title="Leave Room"
+              title={t.mainGame.leaveRoomBtn}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -620,7 +620,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
             type="button"
             onClick={() => setOverrideToast(null)}
             className="p-1 rounded-lg hover:bg-emerald-900/60 text-emerald-300 transition-colors cursor-pointer"
-            aria-label="Dismiss"
+            aria-label={t.admin.dismiss}
           >
             <X className="w-4 h-4" />
           </button>
@@ -863,7 +863,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
           </div>
           <div className="flex items-center gap-6 text-right shrink-0">
             <div>
-              <span className="text-xs uppercase font-bold text-yellow-300 block">Bank At Stake</span>
+              <span className="text-xs uppercase font-bold text-yellow-300 block">{t.mainGame.bankAtStake}</span>
               <span className="text-3xl font-black text-yellow-400">{snapshot.roundBank} PTS</span>
             </div>
             <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600/30 border border-red-500 text-red-300 font-black text-base shadow">

@@ -273,7 +273,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
               className="touch-target min-h-touch px-3 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800/80 flex items-center justify-center gap-1 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Leave</span>
+              <span>{t.lobby.leaveLobby}</span>
             </button>
           )}
         </div>
@@ -349,10 +349,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           className="w-full p-2.5 rounded-xl bg-red-950/80 border border-red-500/80 text-xs font-bold text-red-300 animate-shake"
         >
           {buzzerRejected.reason === 'BUZZER_LOCKED'
-            ? 'Buzzer locked! Opponent buzz arrived first.'
+            ? t.mainGame.buzzerLockedOpponentFirst
             : buzzerRejected.reason === 'NOT_A_CONTENDER'
-            ? 'You are a spectator for this round.'
-            : 'Buzzer rejected.'}
+            ? t.mainGame.spectatorRoundNotice
+            : t.mainGame.buzzerRejected}
         </div>
       )}
 
@@ -385,7 +385,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
               /* Contender Needs to Click "I'm Ready!" */
               <div className="w-full flex flex-col items-center gap-3">
                 <p className="text-sm text-slate-300">
-                  You are the designated contender for this round!
+                  {t.mainGame.designatedContenderNotice}
                 </p>
                 <button
                   type="button"

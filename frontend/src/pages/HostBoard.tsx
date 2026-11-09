@@ -373,7 +373,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6">
         <Loader2 className="w-12 h-12 text-feud-gold animate-spin mb-4" />
-        <p className="text-lg text-slate-300 font-medium">Loading Game Show Board...</p>
+        <p className="text-lg text-slate-300 font-medium">{t.host.loadingGameShowBoard}</p>
       </div>
     );
   }
@@ -384,15 +384,15 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         <div className="w-16 h-16 rounded-full bg-red-950/80 text-feud-red mx-auto flex items-center justify-center mb-4">
           <AlertCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-extrabold text-white mb-2">Room Unavailable</h2>
-        <p className="text-slate-300 text-sm mb-6">{error || 'This room does not exist.'}</p>
+        <h2 className="text-2xl font-extrabold text-white mb-2">{t.host.roomUnavailable}</h2>
+        <p className="text-slate-300 text-sm mb-6">{error || t.host.roomDoesNotExist}</p>
         <button
           type="button"
           onClick={() => navigate('/')}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-feud-gold text-slate-950 font-bold hover:scale-105 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
+          <span>{t.lobby.backHome}</span>
         </button>
       </div>
     );
@@ -773,7 +773,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Leave Lobby</span>
+              <span>{t.lobby.leaveLobby}</span>
             </button>
           </div>
         </div>
@@ -856,7 +856,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           <div className="col-span-2 sm:col-span-1 flex items-center gap-2.5 p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-slate-800/50 border border-slate-700/60">
             <Users className="w-4 h-4 text-blue-400 shrink-0" />
             <div>
-              <div className="text-[10px] uppercase font-bold text-slate-400">Capacity</div>
+              <div className="text-[10px] uppercase font-bold text-slate-400">{t.lobby.capacity}</div>
               <div className="text-xs sm:text-sm font-bold text-white">
                 {isFastMoney ? t.lobby.fastMoneyCapacity : t.lobby.mainGameCapacity}
               </div>

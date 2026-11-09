@@ -65,7 +65,7 @@ export const MainGameVictoryModal: React.FC<MainGameVictoryModalProps> = ({
 
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-yellow-400/20 text-yellow-300 border border-yellow-400/40 text-xs font-black uppercase tracking-widest mb-3">
             <Award className="w-4 h-4" />
-            <span>Match Champions</span>
+            <span>{t.mainGame.matchChampionsBadge}</span>
           </div>
 
           {/* Winning Announcement Headline (Scenario 4) */}
