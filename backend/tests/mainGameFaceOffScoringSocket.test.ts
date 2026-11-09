@@ -370,9 +370,9 @@ describe('US-13: Face-Off Scoring & Pass or Play WebSocket Integration', () => {
   });
 
   /* -------------------------------------------------------------
-   * Scenario 5: Both Contenders Miss -> Cascades to Next Teammate
+   * Scenario 5: Both Contenders Miss -> Deadlock Reset (US-28)
    * ------------------------------------------------------------- */
-  it('satisfies Scenario 5: both contenders miss, cascading to David (Team 1) who lands answer and wins', async () => {
+  it('satisfies Scenario 5: both contenders miss, triggering deadlock resolution without teammate cascade (US-28)', async () => {
     const hostSocket = await connectClient(port);
     const p1Socket = await connectClient(port);
     const p2Socket = await connectClient(port);
@@ -410,31 +410,17 @@ describe('US-13: Face-Off Scoring & Pass or Play WebSocket Integration', () => {
     });
     await oppPromptPromise;
 
-    // Bob misses too -> cascades to David on Team 1
-    const cascadePromise = waitForEvent<any>(hostSocket, 'face_off_cascade');
+    // Bob misses too -> strictly triggers DEADLOCK_RESET (never cascades to David)
+    const deadlockPromise = waitForEvent<any>(hostSocket, 'face_off_timeout');
     p2Socket.emit('submit_face_off_guess', {
       roomCode: 'FEUD-S13D',
       playerId: 'p2',
       rawAnswer: 'Giraffe',
     });
 
-    const cascadeData = await cascadePromise;
-    expect(cascadeData.nextRespondentId).toBe('p4');
-    expect(cascadeData.nextRespondentNickname).toBe('David');
-    expect(cascadeData.nextRespondentTeam).toBe('TEAM_1');
-
-    // David submits valid answer: "Swimsuit" (rank 3, 18 pts)
-    const davidWinPromise = waitForEvent<PromptPassPlayPayload>(p4Socket, 'prompt_pass_play');
-    p4Socket.emit('submit_face_off_guess', {
-      roomCode: 'FEUD-S13D',
-      playerId: 'p4',
-      rawAnswer: 'Swimsuit',
-    });
-
-    const davidWin = await davidWinPromise;
-    expect(davidWin.winnerPlayerId).toBe('p4');
-    expect(davidWin.winnerTeam).toBe('TEAM_1');
-    expect(session.phase).toBe('PASS_OR_PLAY');
+    const deadlockData = await deadlockPromise;
+    expect(deadlockData.type).toBe('DEADLOCK_RESET');
+    expect(session.phase).toBe('DEADLOCK_RESET');
   });
 
   /* -------------------------------------------------------------

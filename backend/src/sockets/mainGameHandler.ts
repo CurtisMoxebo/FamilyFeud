@@ -485,7 +485,20 @@ export async function handleFaceOffTimeoutBroadcast(
     ...timeoutResult,
   });
 
-  if (timeoutResult.type === 'TIMEOUT_WINNER') {
+  if (timeoutResult.type === 'HAND_OFF') {
+    // Scenario: Contender 1 timed out -> Floor passed to opponent contender
+    io.to(`room:${normalizedCode}`).emit('opponent_turn_prompt', {
+      roomCode: normalizedCode,
+      nextRespondentId: timeoutResult.nextPlayerId!,
+      nextRespondentNickname: timeoutResult.nextPlayerNickname!,
+      nextRespondentTeam: timeoutResult.nextPlayerTeam!,
+      endsAt: timeoutResult.endsAt!,
+      duration: timeoutResult.duration!,
+      initialPoints: 0,
+      initialRawAnswer: '',
+      message: timeoutResult.message,
+    });
+  } else if (timeoutResult.type === 'TIMEOUT_WINNER') {
     // Scenario: Opponent timed out during OPPONENT_GUESS -> Initial contender won
     io.to(`room:${normalizedCode}`).emit('prompt_pass_play', {
       roomCode: normalizedCode,

@@ -472,29 +472,98 @@ export class FaceOffSession {
       `[FACEOFF:TIMEOUT] Room ${this.roomCode} player ${timedOutPlayer.nickname} timed out (15s)`
     );
 
-    // If timeout occurred during OPPONENT_GUESS phase and initial contender had points:
-    if (this.phase === 'OPPONENT_GUESS' && this.firstGuessResult && this.firstGuessResult.points > 0) {
+    // Case 1: Timeout occurred during OPPONENT_GUESS phase (Contender 2)
+    if (this.phase === 'OPPONENT_GUESS') {
       this.stopTimer();
-      const initialWinner =
-        this.team1Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
-        this.team2Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
-        timedOutPlayer;
+      const initialPoints = this.firstGuessResult?.points || 0;
 
-      this.winnerPlayerId = initialWinner.id;
-      this.winnerNickname = initialWinner.nickname;
-      this.winnerTeam = initialWinner.team;
-      this.phase = 'PASS_OR_PLAY';
+      if (initialPoints > 0) {
+        // Contender 1 had scored valid points -> Contender 1 wins!
+        const initialWinner =
+          this.team1Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
+          this.team2Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
+          timedOutPlayer;
+
+        this.winnerPlayerId = initialWinner.id;
+        this.winnerNickname = initialWinner.nickname;
+        this.winnerTeam = initialWinner.team;
+        this.phase = 'PASS_OR_PLAY';
+
+        const result: FaceOffTimeoutResult = {
+          type: 'TIMEOUT_WINNER',
+          timedOutPlayerId: timedOutPlayer.id,
+          timedOutPlayerNickname: timedOutPlayer.nickname,
+          timedOutPlayerTeam: timedOutPlayer.team,
+          winnerPlayerId: initialWinner.id,
+          winnerNickname: initialWinner.nickname,
+          winnerTeam: initialWinner.team,
+          phase: 'PASS_OR_PLAY',
+          message: `${timedOutPlayer.nickname} timed out. ${initialWinner.nickname} wins the Face-Off!`,
+        };
+
+        if (this.onTimeoutCallback) {
+          this.onTimeoutCallback(result);
+        }
+
+        return result;
+      } else {
+        // Both Contender 1 and Contender 2 failed to submit an answer -> Deadlock reset!
+        this.phase = 'DEADLOCK_RESET';
+        this.activeRespondentId = null;
+
+        const result: FaceOffTimeoutResult = {
+          type: 'DEADLOCK_RESET',
+          timedOutPlayerId: timedOutPlayer.id,
+          timedOutPlayerNickname: timedOutPlayer.nickname,
+          timedOutPlayerTeam: timedOutPlayer.team,
+          phase: 'DEADLOCK_RESET',
+          message: 'All contenders timed out without an answer. Generating replacement survey question.',
+        };
+
+        if (this.onTimeoutCallback) {
+          this.onTimeoutCallback(result);
+        }
+
+        return result;
+      }
+    }
+
+    // Case 2: Timeout occurred during ANSWERING phase (Contender 1 initial guess)
+    if (this.phase === 'ANSWERING') {
+      const opponentContender =
+        timedOutPlayer.team === 'TEAM_1' ? this.team2Contender : this.team1Contender;
+
+      // Mark Contender 1 as attempted with 0 points so opponent turn evaluates properly
+      this.firstGuessResult = {
+        playerId: timedOutPlayer.id,
+        playerNickname: timedOutPlayer.nickname,
+        playerTeam: timedOutPlayer.team,
+        rawAnswer: '',
+        isMatched: false,
+        points: 0,
+        isNumberOneAnswer: false,
+      };
+
+      this.activeRespondentId = opponentContender.id;
+      if (!this.attemptedPlayerIds.includes(opponentContender.id)) {
+        this.attemptedPlayerIds.push(opponentContender.id);
+      }
+      this.phase = 'OPPONENT_GUESS';
+
+      this.startAuthoritativeTimer();
 
       const result: FaceOffTimeoutResult = {
-        type: 'TIMEOUT_WINNER',
+        type: 'HAND_OFF',
         timedOutPlayerId: timedOutPlayer.id,
         timedOutPlayerNickname: timedOutPlayer.nickname,
         timedOutPlayerTeam: timedOutPlayer.team,
-        winnerPlayerId: initialWinner.id,
-        winnerNickname: initialWinner.nickname,
-        winnerTeam: initialWinner.team,
-        phase: 'PASS_OR_PLAY',
-        message: `${timedOutPlayer.nickname} timed out. ${initialWinner.nickname} wins the Face-Off!`,
+        nextPlayerId: opponentContender.id,
+        nextPlayerNickname: opponentContender.nickname,
+        nextPlayerTeam: opponentContender.team,
+        endsAt: this.endsAt!,
+        duration: this.timerDurationSeconds,
+        phase: 'OPPONENT_GUESS',
+        message: `${timedOutPlayer.nickname} timed out! Floor passed to ${opponentContender.nickname}. Any board answer wins!`,
       };
 
       if (this.onTimeoutCallback) {
@@ -504,56 +573,19 @@ export class FaceOffSession {
       return result;
     }
 
-    // Determine the next player in the cascade order
-    const nextPlayer = this.resolveNextCascadePlayer(timedOutPlayer);
-
-    if (!nextPlayer) {
-      // Scenario 5: Deadlock resolution (2-player match or all players exhausted)
-      this.phase = 'DEADLOCK_RESET';
-      this.activeRespondentId = null;
-
-      const result: FaceOffTimeoutResult = {
-        type: 'DEADLOCK_RESET',
-        timedOutPlayerId: timedOutPlayer.id,
-        timedOutPlayerNickname: timedOutPlayer.nickname,
-        timedOutPlayerTeam: timedOutPlayer.team,
-        phase: 'DEADLOCK_RESET',
-        message: 'All contenders timed out without an answer. Generating replacement survey question.',
-      };
-
-      if (this.onTimeoutCallback) {
-        this.onTimeoutCallback(result);
-      }
-
-      return result;
-    }
-
-    // Scenarios 3 & 4: Floor cascades to next contender with a fresh 15s timer
-    this.activeRespondentId = nextPlayer.id;
-    this.attemptedPlayerIds.push(nextPlayer.id);
-    this.phase = 'ANSWERING';
-
-    this.startAuthoritativeTimer();
-
-    const result: FaceOffTimeoutResult = {
-      type: 'HAND_OFF',
+    // Fallback for any other unexpected phase timeout
+    this.phase = 'DEADLOCK_RESET';
+    this.activeRespondentId = null;
+    const fallbackResult: FaceOffTimeoutResult = {
+      type: 'DEADLOCK_RESET',
       timedOutPlayerId: timedOutPlayer.id,
       timedOutPlayerNickname: timedOutPlayer.nickname,
       timedOutPlayerTeam: timedOutPlayer.team,
-      nextPlayerId: nextPlayer.id,
-      nextPlayerNickname: nextPlayer.nickname,
-      nextPlayerTeam: nextPlayer.team,
-      endsAt: this.endsAt!,
-      duration: this.timerDurationSeconds,
-      phase: 'ANSWERING',
-      message: `Time expired! Floor passed to ${nextPlayer.nickname} (${nextPlayer.team}).`,
+      phase: 'DEADLOCK_RESET',
+      message: 'Face-off timed out. Generating replacement survey question.',
     };
-
-    if (this.onTimeoutCallback) {
-      this.onTimeoutCallback(result);
-    }
-
-    return result;
+    if (this.onTimeoutCallback) this.onTimeoutCallback(fallbackResult);
+    return fallbackResult;
   }
 
   /**
@@ -821,10 +853,33 @@ export class FaceOffSession {
         this.team2Players.find((p) => p.id === this.initialBuzzerWinnerId) ||
         (player.team === 'TEAM_1' ? this.team2Contender : this.team1Contender);
 
+      // Scenario 1 (Opponent): Contender 2 hit the #1 answer
+      if (guessResult.isNumberOneAnswer) {
+        this.winnerPlayerId = player.id;
+        this.winnerNickname = player.nickname;
+        this.winnerTeam = player.team;
+        this.phase = 'PASS_OR_PLAY';
+
+        logger.info(
+          `[FACEOFF:WIN_#1] Room ${this.roomCode} Contender 2 (${player.nickname}) hit the #1 answer (${guessResult.points} pts). Won face-off.`
+        );
+
+        return {
+          outcome: 'OPPONENT_WON',
+          guessResult,
+          revealedAnswer: revealedItem,
+          winnerPlayerId: player.id,
+          winnerNickname: player.nickname,
+          winnerTeam: player.team,
+          phase: this.phase,
+          message: `${player.nickname} hit the #1 answer with ${guessResult.points} points!`,
+        };
+      }
+
       // Scenario 4 (Part 2): Contender 1 had missed (0 pts)
       if (initialPoints === 0) {
         if (guessResult.isMatched && guessResult.points > 0) {
-          // Contender 2 capitalizes with any answer
+          // Contender 2 capitalizes with any board answer
           this.winnerPlayerId = player.id;
           this.winnerNickname = player.nickname;
           this.winnerTeam = player.team;
@@ -846,46 +901,19 @@ export class FaceOffSession {
           };
         }
 
-        // Scenario 5: Both Contenders Missed!
-        const nextPlayer = this.resolveNextCascadePlayer(player);
-        if (nextPlayer) {
-          this.activeRespondentId = nextPlayer.id;
-          if (!this.attemptedPlayerIds.includes(nextPlayer.id)) {
-            this.attemptedPlayerIds.push(nextPlayer.id);
-          }
-          this.phase = 'ANSWERING';
-          this.startAuthoritativeTimer();
-
-          logger.info(
-            `[FACEOFF:CASCADE] Room ${this.roomCode} Both contenders missed. Cascading to ${nextPlayer.nickname} (${nextPlayer.team}).`
-          );
-
-          return {
-            outcome: 'BOTH_MISSED_CASCADE',
-            guessResult,
-            nextRespondentId: nextPlayer.id,
-            nextRespondentNickname: nextPlayer.nickname,
-            nextRespondentTeam: nextPlayer.team,
-            endsAt: this.endsAt!,
-            duration: this.timerDurationSeconds,
-            phase: this.phase,
-            message: `Both contenders missed! Floor cascades to ${nextPlayer.nickname} (${nextPlayer.team}).`,
-          };
-        }
-
-        // Deadlock reset (Scenario 5 with exhausted players or 1v1)
+        // Scenario 5: Both Contenders Missed! Trigger Deadlock Reset directly (no improper turn loop)
         this.phase = 'DEADLOCK_RESET';
         this.activeRespondentId = null;
 
         logger.warn(
-          `[FACEOFF:DEADLOCK] Room ${this.roomCode} All contenders missed without valid answers.`
+          `[FACEOFF:DEADLOCK] Room ${this.roomCode} Both contenders missed without valid answers.`
         );
 
         return {
           outcome: 'DEADLOCK_RESET',
           guessResult,
           phase: this.phase,
-          message: 'All contenders missed. Generating replacement survey question.',
+          message: 'Both contenders missed. Generating replacement survey question.',
         };
       }
 

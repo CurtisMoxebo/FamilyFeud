@@ -326,9 +326,9 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
         })
       );
 
-      // Bob now has the floor with fresh 15s timer
+      // Bob now has the floor with fresh 15s timer in OPPONENT_GUESS phase
       expect(session.activeRespondentId).toBe('p2');
-      expect(session.phase).toBe('ANSWERING');
+      expect(session.phase).toBe('OPPONENT_GUESS');
       expect(session.remainingSeconds).toBe(15);
       expect(session.isTimerRunning).toBe(true);
       expect(session.attemptedPlayerIds).toContain('p1');
@@ -337,10 +337,10 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
   });
 
   /* -------------------------------------------------------------
-   * 6. Scenario 4: Cascade to Next Teammates if Both Fail
+   * 6. Scenario 4: Strict 2-Contender Sequence on Dual Timeout (US-28)
    * ------------------------------------------------------------- */
-  describe('Scenario 4: Teammate Cascade on Dual Timeout (4 Players)', () => {
-    it('cascades to Team 1 next teammate (David) when Bob also times out', () => {
+  describe('Scenario 4: Strict 2-Contender Sequence on Dual Timeout (US-28)', () => {
+    it('triggers DEADLOCK_RESET when both contenders time out without calling other teammates', () => {
       const timeoutSpy = vi.fn();
 
       const session = initFaceOffSession('FEUD-FO13', {
@@ -356,51 +356,23 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       session.markContenderReady('p2');
       session.pressBuzzer('p1'); // Alice
 
-      // Alice times out (15s) -> hands off to Bob
+      // Alice times out (15s) -> hands off to Bob in OPPONENT_GUESS
       vi.advanceTimersByTime(15000);
       expect(session.activeRespondentId).toBe('p2');
+      expect(session.phase).toBe('OPPONENT_GUESS');
 
-      // Bob times out (15s) -> cascades to David (p4, next teammate in Team 1)
-      vi.advanceTimersByTime(15000);
-
-      expect(timeoutSpy).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          type: 'HAND_OFF',
-          timedOutPlayerId: 'p2',
-          timedOutPlayerNickname: 'Bob',
-          nextPlayerId: 'p4',
-          nextPlayerNickname: 'David',
-          nextPlayerTeam: 'TEAM_1',
-          duration: 15,
-        })
-      );
-
-      expect(session.activeRespondentId).toBe('p4');
-      expect(session.remainingSeconds).toBe(15);
-
-      // David times out (15s) -> cascades to Charlie (p3, next in Team 2)
-      vi.advanceTimersByTime(15000);
-
-      expect(timeoutSpy).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          type: 'HAND_OFF',
-          timedOutPlayerId: 'p4',
-          nextPlayerId: 'p3',
-          nextPlayerNickname: 'Charlie',
-          nextPlayerTeam: 'TEAM_2',
-        })
-      );
-      expect(session.activeRespondentId).toBe('p3');
-
-      // Charlie times out (15s) -> all 4 players exhausted -> triggers DEADLOCK_RESET
+      // Bob also times out (15s) -> strictly ends in DEADLOCK_RESET (never cascades to teammates or loops)
       vi.advanceTimersByTime(15000);
 
       expect(timeoutSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({
           type: 'DEADLOCK_RESET',
-          timedOutPlayerId: 'p3',
+          timedOutPlayerId: 'p2',
+          timedOutPlayerNickname: 'Bob',
+          phase: 'DEADLOCK_RESET',
         })
       );
+
       expect(session.phase).toBe('DEADLOCK_RESET');
       expect(session.activeRespondentId).toBeNull();
       expect(session.isTimerRunning).toBe(false);
@@ -582,20 +554,13 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       session.markContenderReady('p2');
       session.pressBuzzer('p1'); // p1 (T1) buzzed
 
-      vi.advanceTimersByTime(15000); // p1 (T1) times out -> p2 (T2 contender)
+      vi.advanceTimersByTime(15000); // p1 (T1) times out -> p2 (T2 contender) in OPPONENT_GUESS
       expect(session.activeRespondentId).toBe('p2');
+      expect(session.phase).toBe('OPPONENT_GUESS');
 
-      vi.advanceTimersByTime(15000); // p2 (T2) times out -> p3 (T1 next player)
-      expect(session.activeRespondentId).toBe('p3');
-
-      vi.advanceTimersByTime(15000); // p3 (T1) times out -> p4 (T2 next player)
-      expect(session.activeRespondentId).toBe('p4');
-
-      vi.advanceTimersByTime(15000); // p4 (T2) times out -> all T2 exhausted -> p5 (T1 remaining teammate)!
-      expect(session.activeRespondentId).toBe('p5');
-
-      vi.advanceTimersByTime(15000); // p5 (T1) times out -> all exhausted -> DEADLOCK_RESET
+      vi.advanceTimersByTime(15000); // p2 (T2) times out -> DEADLOCK_RESET (strictly 2 attempts)
       expect(session.phase).toBe('DEADLOCK_RESET');
+      expect(session.activeRespondentId).toBeNull();
     });
 
     it('stores and retrieves session in registry', () => {
@@ -820,8 +785,8 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       expect(session.revealedAnswers).toHaveLength(1);
     });
 
-    /* Scenario 5: Both Contenders Guess Incorrectly */
-    it('satisfies Scenario 5: both contenders miss, cascading opportunity to next teammate on Team 1', async () => {
+    /* Scenario 5: Both Contenders Guess Incorrectly (US-28) */
+    it('satisfies Scenario 5: both contenders miss, immediately triggering deadlock reset without teammate cascade', async () => {
       const session = initFaceOffSession('FEUD-US13-S5', {
         gameId: 'game-13',
         roundNumber: 1,
@@ -837,26 +802,12 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       // Alice misses
       await session.evaluateContenderAnswer('p1', 'Elephant');
 
-      // Bob also misses ("Giraffe")
+      // Bob also misses ("Giraffe") -> ends directly in DEADLOCK_RESET
       const r2 = await session.evaluateContenderAnswer('p2', 'Giraffe');
 
-      expect(r2.outcome).toBe('BOTH_MISSED_CASCADE');
-      expect(r2.nextRespondentId).toBe('p4'); // David (Team 1 next teammate!)
-      expect(r2.nextRespondentNickname).toBe('David');
-      expect(r2.nextRespondentTeam).toBe('TEAM_1');
-
-      expect(session.phase).toBe('ANSWERING');
-      expect(session.activeRespondentId).toBe('p4');
-      expect(session.remainingSeconds).toBe(15);
-      expect(session.isTimerRunning).toBe(true);
-
-      // David lands a valid answer ("Napkins / Tissues", rank 3, 16 pts) -> Team 1 wins face-off!
-      const r3 = await session.evaluateContenderAnswer('p4', 'Napkins / Tissues');
-      expect(r3.outcome).toBe('INITIAL_WINNER_WON');
-      expect(r3.winnerPlayerId).toBe('p4');
-      expect(r3.winnerNickname).toBe('David');
-      expect(r3.winnerTeam).toBe('TEAM_1');
-      expect(session.phase).toBe('PASS_OR_PLAY');
+      expect(r2.outcome).toBe('DEADLOCK_RESET');
+      expect(session.phase).toBe('DEADLOCK_RESET');
+      expect(session.activeRespondentId).toBeNull();
     });
 
     it('satisfies Scenario 5: deadlock resets when all available players miss without answer', async () => {

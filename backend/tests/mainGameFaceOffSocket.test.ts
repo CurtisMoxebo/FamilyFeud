@@ -338,7 +338,7 @@ describe('US-12: Main Game Face-Off Buzzer Duel WebSocket Integration', () => {
     session.stopTimer();
   });
 
-  it('satisfies Scenario 4: Cascades to next teammate on dual contender timeout in 4-player match', async () => {
+  it('satisfies Scenario 4: Triggers deadlock reset on dual contender timeout without teammate cascade (US-28)', async () => {
     const hostSocket = await connectClient(port);
     clientSockets.push(hostSocket);
 
@@ -371,28 +371,18 @@ describe('US-12: Main Game Face-Off Buzzer Duel WebSocket Integration', () => {
     session.markContenderReady('p2');
     session.pressBuzzer('p1');
 
-    // First timeout: p1 -> p2
+    // First timeout: p1 -> p2 (HAND_OFF)
     const timeout1Promise = waitForEvent<any>(hostSocket, 'face_off_timeout', 3000);
     const t1 = await timeout1Promise;
     expect(t1.type).toBe('HAND_OFF');
     expect(t1.timedOutPlayerId).toBe('p1');
     expect(t1.nextPlayerId).toBe('p2');
 
-    // Second timeout: p2 -> p3 (Team 1 next teammate)
+    // Second timeout: p2 times out -> DEADLOCK_RESET (strictly 2 attempts, no teammate cascade)
     const timeout2Promise = waitForEvent<any>(hostSocket, 'face_off_timeout', 3000);
     const t2 = await timeout2Promise;
-    expect(t2.type).toBe('HAND_OFF');
+    expect(t2.type).toBe('DEADLOCK_RESET');
     expect(t2.timedOutPlayerId).toBe('p2');
-    expect(t2.nextPlayerId).toBe('p3');
-    expect(t2.nextPlayerTeam).toBe('TEAM_1');
-
-    // Third timeout: p3 -> p4 (Team 2 next teammate)
-    const timeout3Promise = waitForEvent<any>(hostSocket, 'face_off_timeout', 3000);
-    const t3 = await timeout3Promise;
-    expect(t3.type).toBe('HAND_OFF');
-    expect(t3.timedOutPlayerId).toBe('p3');
-    expect(t3.nextPlayerId).toBe('p4');
-    expect(t3.nextPlayerTeam).toBe('TEAM_2');
 
     session.stopTimer();
   });
