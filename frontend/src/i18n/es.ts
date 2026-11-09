@@ -127,6 +127,10 @@ export const es: TranslationDictionary = {
     grandTotal: 'Total Acumulado',
     targetGoal: 'Meta: 200 pts',
     startP2RevealBtn: 'Iniciar revelación Jugador 2',
+    repeatQuestionButton: 'Repetir pregunta',
+    repeatQuestionPrompt: 'Pedir al anfitrión que repita',
+    repeatQuestionAsked: '¡Solicitud enviada al anfitrión!',
+    hostRepeatAlert: '¡{name} pidió repetir la pregunta!',
   },
   mainGame: {
     team1: 'Equipo 1',

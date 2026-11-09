@@ -54,6 +54,7 @@ import {
   HostOverrideAnswerOption,
   HostOverrideOptionsPayload,
   AnswerOverridePayload,
+  QuestionRepeatRequestedPayload,
 } from '../types';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL !== undefined
@@ -67,7 +68,7 @@ export interface UseSocketOptions {
   autoJoin?: boolean;
 }
 
-export function useSocket(options?: UseSocketOptions) {
+function _useSocketInternal(options?: UseSocketOptions) {
   const [isConnected, setIsConnected] = useState(false);
   const [socketId, setSocketId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<RoomStateUpdate | null>(null);
@@ -93,6 +94,8 @@ export function useSocket(options?: UseSocketOptions) {
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateAnswerWarningPayload | null>(
     null
   );
+  const [repeatQuestionAlert, setRepeatQuestionAlert] =
+    useState<QuestionRepeatRequestedPayload | null>(null);
 
   // Fast Money Reveal Sequence States (US-08)
   const [boardReveal, setBoardReveal] = useState<BoardRevealPayload | null>(null);
@@ -231,6 +234,24 @@ export function useSocket(options?: UseSocketOptions) {
     },
     []
   );
+
+  const repeatFastMoneyQuestion = useCallback(
+    (roomCode: string, playerId: string, questionId?: string) => {
+      setRoomError(null);
+      if (socketRef.current) {
+        socketRef.current.emit('repeat_question', {
+          roomCode,
+          playerId,
+          questionId,
+        });
+      }
+    },
+    []
+  );
+
+  const clearRepeatQuestionAlert = useCallback(() => {
+    setRepeatQuestionAlert(null);
+  }, []);
 
   const clearDuplicateWarning = useCallback(() => {
     setDuplicateWarning(null);
@@ -603,6 +624,11 @@ export function useSocket(options?: UseSocketOptions) {
       setDuplicateWarning(warning);
     });
 
+    // Fast Money Repeat Question Request
+    socket.on('question_repeat_requested', (payload: QuestionRepeatRequestedPayload) => {
+      setRepeatQuestionAlert(payload);
+    });
+
     // Board Reveal Listeners (Fast Money US-08 & Main Game US-14)
     socket.on('board_reveal', (payload: BoardRevealPayload | MainGameBoardRevealPayload) => {
       if (payload && 'slot' in payload) {
@@ -958,6 +984,9 @@ export function useSocket(options?: UseSocketOptions) {
     sendPlayerReady,
     submitFastMoneyAnswer,
     passFastMoneyQuestion,
+    repeatFastMoneyQuestion,
+    repeatQuestionAlert,
+    clearRepeatQuestionAlert,
     clearDuplicateWarning,
     startFastMoneyRevealPhase,
     revealFastMoneyAnswer,
@@ -982,4 +1011,17 @@ export function useSocket(options?: UseSocketOptions) {
     clearAnswerOverrideAck: () => setAnswerOverrideAck(null),
     requestOverrideOptions,
   };
+}
+
+export type UseSocketReturn = Omit<
+  ReturnType<typeof _useSocketInternal>,
+  'repeatFastMoneyQuestion' | 'repeatQuestionAlert' | 'clearRepeatQuestionAlert'
+> & {
+  repeatFastMoneyQuestion?: (roomCode: string, playerId: string, questionId?: string) => void;
+  repeatQuestionAlert?: QuestionRepeatRequestedPayload | null;
+  clearRepeatQuestionAlert?: () => void;
+};
+
+export function useSocket(options?: UseSocketOptions): UseSocketReturn {
+  return _useSocketInternal(options);
 }

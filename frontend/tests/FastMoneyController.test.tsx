@@ -752,7 +752,9 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
           partnerName="Alice"
           playerNumber={2}
           duplicateWarning={{
-            isDuplicate: true,
+            roomCode: 'FEUD-TEST',
+            rawInput: 'APPLE',
+            questionId: 'q-1',
             duplicateWithAnswer: 'APPLE',
             message: 'Already said!',
           }}
@@ -764,6 +766,45 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
 
       expect(screen.getByText(/Alice answered: "APPLE"/i)).toBeInTheDocument();
       expect(screen.queryByText(/Player 1 answered: "APPLE"/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Ask Host to Repeat Feature', () => {
+    it('renders the Ask Host to Repeat button and pill during active speed round', () => {
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('fast-money-repeat-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('fast-money-question-repeat-pill')).toBeInTheDocument();
+      expect(screen.getAllByText(/Ask Host to Repeat/i).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('invokes onRepeatQuestion callback with questionId and shows visual feedback when clicked', async () => {
+      const user = userEvent.setup();
+      const onRepeatQuestionMock = vi.fn();
+
+      renderWithProviders(
+        <FastMoneyController
+          snapshot={playingSnapshot}
+          onReady={vi.fn()}
+          onSubmitAnswer={vi.fn()}
+          onPass={vi.fn()}
+          onRepeatQuestion={onRepeatQuestionMock}
+        />
+      );
+
+      const repeatBtn = screen.getByTestId('fast-money-repeat-btn');
+      await user.click(repeatBtn);
+
+      expect(onRepeatQuestionMock).toHaveBeenCalledTimes(1);
+      expect(onRepeatQuestionMock).toHaveBeenCalledWith('q-1');
+      expect(screen.getAllByText(/Asked Host to Repeat!/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 });

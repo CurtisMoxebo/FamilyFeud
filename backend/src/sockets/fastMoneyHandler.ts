@@ -862,6 +862,53 @@ export function registerFastMoneyHandlers(
   );
 
   /**
+   * Contestant asks host to repeat the current question
+   */
+  socket.on(
+    'repeat_question',
+    (
+      payload: { roomCode: string; playerId: string; questionId?: string },
+      callback?: (res: { success: boolean; error?: string }) => void
+    ) => {
+      try {
+        const { roomCode, playerId, questionId } = payload || {};
+        if (!roomCode || !playerId) {
+          const errMsg = 'roomCode and playerId are required';
+          socket.emit('room_error', { code: 'INVALID_ROOM', message: errMsg });
+          if (callback) callback({ success: false, error: errMsg });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(roomCode);
+        const session = getFastMoneySession(normalizedCode);
+        const currentQ = session ? session.getCurrentQuestion() : null;
+        const qId = questionId || currentQ?.id;
+
+        logger.info(
+          `[FAST_MONEY:REPEAT] Player (${playerId}) asked to repeat question ${qId} in room ${normalizedCode}`
+        );
+
+        io.to(normalizedCode).emit('question_repeat_requested', {
+          roomCode: normalizedCode,
+          playerId,
+          questionId: qId,
+          timestamp: Date.now(),
+        });
+
+        if (callback) callback({ success: true });
+      } catch (error: unknown) {
+        logger.error('[FAST_MONEY:ERROR] Error in repeat_question handler', error);
+        const errMsg = error instanceof Error ? error.message : 'Failed to request question repeat';
+        socket.emit('room_error', {
+          code: 'SERVER_ERROR',
+          message: errMsg,
+        });
+        if (callback) callback({ success: false, error: errMsg });
+      }
+    }
+  );
+
+  /**
    * Scenario 1: Host Initiates Fast Money Reveal Phase
    */
   socket.on(

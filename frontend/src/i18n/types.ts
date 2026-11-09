@@ -124,6 +124,10 @@ export interface TranslationDictionary {
     grandTotal: string;
     targetGoal: string;
     startP2RevealBtn: string;
+    repeatQuestionButton: string;
+    repeatQuestionPrompt: string;
+    repeatQuestionAsked: string;
+    hostRepeatAlert: string;
   };
   mainGame: {
     team1: string;

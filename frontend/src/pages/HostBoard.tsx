@@ -130,6 +130,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     fastMoneyHostState,
     timerTick,
     duplicateWarning,
+    repeatQuestionAlert,
     revealFastMoneyAnswer,
     revealFastMoneyPoints,
     startFastMoneyRevealPhase,
@@ -570,6 +571,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           snapshot={fastMoneyHostState}
           timerTick={timerTick}
           duplicateWarning={duplicateWarning}
+          repeatQuestionAlert={repeatQuestionAlert}
           gameOver={gameOver}
           isPaused={isPaused}
           pausedRemainingSeconds={pausedRemainingSeconds}

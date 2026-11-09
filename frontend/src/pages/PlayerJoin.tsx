@@ -91,6 +91,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     sendPlayerReady,
     submitFastMoneyAnswer,
     passFastMoneyQuestion,
+    repeatFastMoneyQuestion,
     faceOffState: socketFaceOffState,
     buzzerLocked,
     buzzerRejected,
@@ -408,6 +409,9 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             onPass={(qId) =>
               passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
             }
+            onRepeatQuestion={(qId) =>
+              repeatFastMoneyQuestion && repeatFastMoneyQuestion(roomCode, activePlayerId, qId)
+            }
             onLeave={() => navigate('/')}
           />
         </div>
@@ -448,6 +452,9 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             }
             onPass={(qId) =>
               passFastMoneyQuestion && passFastMoneyQuestion(roomCode, activePlayerId, qId)
+            }
+            onRepeatQuestion={(qId) =>
+              repeatFastMoneyQuestion && repeatFastMoneyQuestion(roomCode, activePlayerId, qId)
             }
             onLeave={() => navigate('/')}
           />

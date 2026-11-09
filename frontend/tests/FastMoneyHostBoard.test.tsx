@@ -1301,5 +1301,32 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
 
       expect(mockSpeak).not.toHaveBeenCalled();
     });
+
+    it('displays repeat question alert banner and re-speaks question via TTS when contestant requests repeat', () => {
+      mockSpeak.mockClear();
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={playingHostSnapshot}
+          language="EN"
+          roomName="Fast Money"
+          player1Name="Alice"
+          player2Name="Bob"
+          enableTTS={true}
+          repeatQuestionAlert={{
+            roomCode: 'FEUD-TEST',
+            playerId: 'player-1',
+            questionId: 'q-2',
+            timestamp: Date.now(),
+          }}
+        />
+      );
+
+      expect(screen.getByTestId('host-repeat-question-banner')).toBeInTheDocument();
+      expect(screen.getByText(/Alice asked to repeat the question!/i)).toBeInTheDocument();
+      expect(mockSpeak).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Name something you find in the kitchen' })
+      );
+    });
   });
 });

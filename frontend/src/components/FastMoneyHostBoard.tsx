@@ -6,6 +6,7 @@ import {
   FastMoneyRevealSlot,
   DuplicateAnswerWarningPayload,
   GameOverPayload,
+  QuestionRepeatRequestedPayload,
 } from '../types';
 import {
   speakQuestion,
@@ -47,6 +48,7 @@ export interface FastMoneyHostBoardProps {
   snapshot?: HostStateSnapshot | null;
   timerTick?: TimerTickPayload | null;
   duplicateWarning?: DuplicateAnswerWarningPayload | null;
+  repeatQuestionAlert?: QuestionRepeatRequestedPayload | null;
   gameOver?: GameOverPayload | null;
   isPaused?: boolean;
   pausedRemainingSeconds?: number;
@@ -71,6 +73,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   snapshot = null,
   timerTick = null,
   duplicateWarning = null,
+  repeatQuestionAlert = null,
   gameOver = null,
   isPaused = false,
   pausedRemainingSeconds,
@@ -282,6 +285,37 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       }, 3500);
     }
   }, [duplicateWarning, enableSFX, enableTTS, audioEnabled, language]);
+
+  const [showRepeatAlert, setShowRepeatAlert] = useState<boolean>(false);
+  const lastRepeatTimestampRef = useRef<number>(0);
+  const repeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Contestant asks host to repeat the current question
+  useEffect(() => {
+    if (!repeatQuestionAlert || !repeatQuestionAlert.timestamp) return;
+    if (repeatQuestionAlert.timestamp === lastRepeatTimestampRef.current) return;
+    lastRepeatTimestampRef.current = repeatQuestionAlert.timestamp;
+
+    setShowRepeatAlert(true);
+    if (audioEnabled && enableSFX) {
+      playPointsChime();
+    }
+
+    const isPlaying = snapshot?.phase === 'P1_PLAYING' || snapshot?.phase === 'P2_PLAYING';
+    const qText = currentQuestionText;
+
+    if (enableTTS && audioEnabled && isPlaying && qText) {
+      speakQuestion(qText, language);
+    }
+
+    if (repeatTimeoutRef.current) {
+      clearTimeout(repeatTimeoutRef.current);
+    }
+
+    repeatTimeoutRef.current = setTimeout(() => {
+      setShowRepeatAlert(false);
+    }, 4000);
+  }, [repeatQuestionAlert, snapshot?.phase, currentQuestionText, audioEnabled, enableTTS, enableSFX, language]);
 
   // 3. Speak question via TTS when new slot begins in P1_REVEAL (US-08 Scenario 1 & US-26 Scenario 6)
   useEffect(() => {
@@ -702,6 +736,25 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
               : currentQuestionText || 'Loading question...'}
           </h2>
         </div>
+
+        {/* Repeat Question Alert Banner */}
+        {showRepeatAlert && (
+          <div
+            data-testid="host-repeat-question-banner"
+            className="mt-2.5 sm:mt-3 p-3 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border-2 border-yellow-200 text-slate-950 text-center shadow-[0_0_30px_rgba(245,158,11,0.6)] animate-bounce"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Volume2 className="w-5 h-5 fill-slate-950 shrink-0" />
+              <span className="text-base sm:text-lg font-black uppercase tracking-wider">
+                {t.fastMoney.hostRepeatAlert.replace(
+                  '{name}',
+                  isP2Playing ? effectiveP2Name : effectiveP1Name
+                )}
+              </span>
+              <Volume2 className="w-5 h-5 fill-slate-950 shrink-0" />
+            </div>
+          </div>
+        )}
 
         {/* Duplicate Answer Warning Banner */}
         {activeWarning && (

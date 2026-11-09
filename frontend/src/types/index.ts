@@ -236,6 +236,13 @@ export interface DuplicateAnswerWarningPayload {
   reason?: 'EXACT_RAW' | 'SEMANTIC_MATCH';
 }
 
+export interface QuestionRepeatRequestedPayload {
+  roomCode: string;
+  playerId: string;
+  questionId?: string;
+  timestamp: number;
+}
+
 export interface AssignedTeamPlayer {
   id: string;
   nickname?: string;

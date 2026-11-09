@@ -19,6 +19,7 @@ import {
   Lock,
   AlertCircle,
   Trophy,
+  Volume2,
 } from 'lucide-react';
 
 export interface FastMoneyControllerProps {
@@ -37,6 +38,7 @@ export interface FastMoneyControllerProps {
   onReady: () => void;
   onSubmitAnswer: (questionId: string, answer: string) => void;
   onPass: (questionId: string) => void;
+  onRepeatQuestion?: (questionId?: string) => void;
   onLeave?: () => void;
 }
 
@@ -56,10 +58,12 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
   onReady,
   onSubmitAnswer,
   onPass,
+  onRepeatQuestion,
 }) => {
   const { t } = useTranslation();
   const [answerText, setAnswerText] = useState<string>('');
   const [isShaking, setIsShaking] = useState<boolean>(false);
+  const [isRepeating, setIsRepeating] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
   const { isKeyboardOpen, keepElementVisible } = useVirtualKeyboard();
@@ -159,6 +163,20 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     }
     onPass(snapshot.currentQuestion.id);
     setAnswerText('');
+  };
+
+  const handleRepeatQuestion = () => {
+    if (isPaused || isRepeating || !snapshot.currentQuestion) {
+      return;
+    }
+    setIsRepeating(true);
+    triggerHaptic('buzz');
+    if (onRepeatQuestion) {
+      onRepeatQuestion(snapshot.currentQuestion.id);
+    }
+    setTimeout(() => {
+      setIsRepeating(false);
+    }, 2500);
   };
 
   // Timer color indicator
@@ -649,12 +667,37 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           data-testid="fast-money-question-text"
           className={`${
             isKeyboardOpen
-              ? 'text-base sm:text-xl mb-2.5 min-h-0'
-              : 'text-xl sm:text-2xl mb-5 min-h-[3.5rem]'
+              ? 'text-base sm:text-xl mb-1 min-h-0'
+              : 'text-xl sm:text-2xl mb-2.5 min-h-[3.5rem]'
           } font-black text-white leading-snug flex items-center justify-center`}
         >
           {currentQ?.questionText || 'Loading question...'}
         </h2>
+
+        {/* Ask Host to Repeat Pill */}
+        <div className={`flex items-center justify-center ${isKeyboardOpen ? 'mb-1.5' : 'mb-3'}`}>
+          <button
+            type="button"
+            onClick={handleRepeatQuestion}
+            disabled={isPaused || isRepeating || !snapshot.currentQuestion}
+            data-testid="fast-money-question-repeat-pill"
+            aria-label={t.fastMoney.repeatQuestionPrompt}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+              isRepeating
+                ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/40'
+                : 'text-feud-gold/90 bg-feud-gold/10 hover:bg-feud-gold/20 border-feud-gold/30 hover:border-feud-gold/50'
+            }`}
+          >
+            <Volume2
+              className={`w-3.5 h-3.5 ${
+                isRepeating ? 'animate-bounce text-emerald-400' : 'text-feud-gold'
+              }`}
+            />
+            <span>
+              {isRepeating ? t.fastMoney.repeatQuestionAsked : t.fastMoney.repeatQuestionPrompt}
+            </span>
+          </button>
+        </div>
 
         {/* US-09 Scenario 2: Duplicate Answer Error Banner */}
         {duplicateWarning && (
@@ -709,29 +752,53 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
             />
           </div>
 
-          {/* Action Buttons: Submit and Pass */}
-          <div className="grid grid-cols-2 gap-3 mt-1">
-            {/* Yellow Pass Button */}
+          {/* Action Buttons: Pass, Submit, and Repeat */}
+          <div className="flex flex-col gap-2 mt-1">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Yellow Pass Button */}
+              <button
+                type="button"
+                onClick={handlePass}
+                disabled={isPaused || snapshot.canPass === false}
+                data-testid="fast-money-pass-btn"
+                className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <SkipForward className="w-4 h-4 fill-slate-950" />
+                <span>{t.fastMoney.passButton}</span>
+              </button>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isPaused || !answerText.trim() || snapshot.canSubmit === false}
+                data-testid="fast-money-submit-btn"
+                className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+                <span>{t.fastMoney.submitButton}</span>
+              </button>
+            </div>
+
+            {/* Repeat Question Button */}
             <button
               type="button"
-              onClick={handlePass}
-              disabled={isPaused || snapshot.canPass === false}
-              data-testid="fast-money-pass-btn"
-              className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={handleRepeatQuestion}
+              disabled={isPaused || isRepeating || !snapshot.currentQuestion}
+              data-testid="fast-money-repeat-btn"
+              className={`touch-target min-h-touch w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border ${
+                isRepeating
+                  ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300 ring-1 ring-emerald-500/40 shadow-emerald-900/40'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-900 border-slate-700 hover:border-feud-gold/50 text-slate-300 hover:text-feud-gold shadow-sm'
+              }`}
             >
-              <SkipForward className="w-4 h-4 fill-slate-950" />
-              <span>{t.fastMoney.passButton}</span>
-            </button>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isPaused || !answerText.trim() || snapshot.canSubmit === false}
-              data-testid="fast-money-submit-btn"
-              className="touch-target min-h-touch flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold to-yellow-500 hover:from-yellow-400 hover:to-feud-gold active:to-amber-500 text-slate-950 shadow-md shadow-feud-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Send className="w-4 h-4" />
-              <span>{t.fastMoney.submitButton}</span>
+              <Volume2
+                className={`w-4 h-4 ${
+                  isRepeating ? 'animate-bounce text-emerald-400' : 'text-feud-gold'
+                }`}
+              />
+              <span>
+                {isRepeating ? t.fastMoney.repeatQuestionAsked : t.fastMoney.repeatQuestionPrompt}
+              </span>
             </button>
           </div>
         </form>
