@@ -875,6 +875,29 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       expect(startP2Spy).toHaveBeenCalledTimes(1);
     });
 
+    it('automatically triggers onStartP2Reveal when Player 2 finishes their turn (P2_FINISHED)', () => {
+      vi.useFakeTimers();
+      const startP2Spy = vi.fn();
+
+      render(
+        <FastMoneyHostBoard
+          snapshot={p2FinishedSnapshot}
+          language="EN"
+          roomName="Family Feud Duel"
+          onStartP2Reveal={startP2Spy}
+        />
+      );
+
+      expect(startP2Spy).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(startP2Spy).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
+    });
+
     it('satisfies Scenario 1: renders dual columns in P2_REVEAL, speaks question via TTS, and reveals answers and points', () => {
       const speakSpy = vi.spyOn(ttsModule, 'speakQuestion').mockImplementation(() => {});
       const onRevealAnswerSpy = vi.fn();

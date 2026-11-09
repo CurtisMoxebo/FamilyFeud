@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import {
   HostStateSnapshot,
@@ -968,12 +968,34 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }
   };
 
-  const handleStartP2RevealClick = () => {
+  const autoStartP2RevealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleStartP2RevealClick = useCallback(() => {
+    if (autoStartP2RevealTimeoutRef.current) {
+      clearTimeout(autoStartP2RevealTimeoutRef.current);
+      autoStartP2RevealTimeoutRef.current = null;
+    }
     setIsAutoPacingP2(true);
     if (onStartP2Reveal) {
       onStartP2Reveal();
     }
-  };
+  }, [onStartP2Reveal]);
+
+  // Automatically start Player 2 reveal once Player 2 is done (P2_FINISHED)
+  useEffect(() => {
+    if (phase === 'P2_FINISHED' && onStartP2Reveal && !isPaused) {
+      autoStartP2RevealTimeoutRef.current = setTimeout(() => {
+        handleStartP2RevealClick();
+      }, 1000);
+
+      return () => {
+        if (autoStartP2RevealTimeoutRef.current) {
+          clearTimeout(autoStartP2RevealTimeoutRef.current);
+          autoStartP2RevealTimeoutRef.current = null;
+        }
+      };
+    }
+  }, [phase, onStartP2Reveal, isPaused, handleStartP2RevealClick]);
 
   const handleReplayClick = () => {
     if (onReplay && !isReplaying) {
