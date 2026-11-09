@@ -888,7 +888,7 @@ export function registerFastMoneyHandlers(
           `[FAST_MONEY:REPEAT] Player (${playerId}) asked to repeat question ${qId} in room ${normalizedCode}`
         );
 
-        io.to(normalizedCode).emit('question_repeat_requested', {
+        io.to(`room:${normalizedCode}`).emit('question_repeat_requested', {
           roomCode: normalizedCode,
           playerId,
           questionId: qId,

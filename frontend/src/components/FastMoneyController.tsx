@@ -674,31 +674,6 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
           {currentQ?.questionText || 'Loading question...'}
         </h2>
 
-        {/* Ask Host to Repeat Pill */}
-        <div className={`flex items-center justify-center ${isKeyboardOpen ? 'mb-1.5' : 'mb-3'}`}>
-          <button
-            type="button"
-            onClick={handleRepeatQuestion}
-            disabled={isPaused || isRepeating || !snapshot.currentQuestion}
-            data-testid="fast-money-question-repeat-pill"
-            aria-label={t.fastMoney.repeatQuestionPrompt}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-              isRepeating
-                ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/40'
-                : 'text-feud-gold/90 bg-feud-gold/10 hover:bg-feud-gold/20 border-feud-gold/30 hover:border-feud-gold/50'
-            }`}
-          >
-            <Volume2
-              className={`w-3.5 h-3.5 ${
-                isRepeating ? 'animate-bounce text-emerald-400' : 'text-feud-gold'
-              }`}
-            />
-            <span>
-              {isRepeating ? t.fastMoney.repeatQuestionAsked : t.fastMoney.repeatQuestionPrompt}
-            </span>
-          </button>
-        </div>
-
         {/* US-09 Scenario 2: Duplicate Answer Error Banner */}
         {duplicateWarning && (
           <div
@@ -779,16 +754,17 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
               </button>
             </div>
 
-            {/* Repeat Question Button */}
+            {/* Single Repeat Button */}
             <button
               type="button"
               onClick={handleRepeatQuestion}
               disabled={isPaused || isRepeating || !snapshot.currentQuestion}
               data-testid="fast-money-repeat-btn"
-              className={`touch-target min-h-touch w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border ${
+              aria-label="Repeat Question"
+              className={`touch-target min-h-touch w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border ${
                 isRepeating
                   ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300 ring-1 ring-emerald-500/40 shadow-emerald-900/40'
-                  : 'bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-900 border-slate-700 hover:border-feud-gold/50 text-slate-300 hover:text-feud-gold shadow-sm'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-900 border-slate-700 hover:border-feud-gold/50 text-slate-200 hover:text-feud-gold shadow-sm'
               }`}
             >
               <Volume2
@@ -796,9 +772,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
                   isRepeating ? 'animate-bounce text-emerald-400' : 'text-feud-gold'
                 }`}
               />
-              <span>
-                {isRepeating ? t.fastMoney.repeatQuestionAsked : t.fastMoney.repeatQuestionPrompt}
-              </span>
+              <span>REPEAT</span>
             </button>
           </div>
         </form>

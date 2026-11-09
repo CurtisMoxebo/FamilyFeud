@@ -372,10 +372,20 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       playPointsChime();
     }
 
-    const isPlaying = snapshot?.phase === 'P1_PLAYING' || snapshot?.phase === 'P2_PLAYING';
-    const qText = currentQuestionText;
+    const isPlaying =
+      snapshot?.phase === 'P1_PLAYING' ||
+      snapshot?.phase === 'P2_PLAYING' ||
+      phase === 'P1_PLAYING' ||
+      phase === 'P2_PLAYING';
 
-    if (enableTTS && audioEnabled && isPlaying && qText) {
+    const qText =
+      currentQuestionText ||
+      snapshot?.currentQuestionText ||
+      p1Slots.find((s) => s.questionId === repeatQuestionAlert.questionId)?.questionText ||
+      p2Slots.find((s) => s.questionId === repeatQuestionAlert.questionId)?.questionText;
+
+    if (enableTTS && (audioEnabled || !isTtsMuted()) && isPlaying && qText) {
+      cancelSpeech();
       speakQuestion(qText, language);
     }
 

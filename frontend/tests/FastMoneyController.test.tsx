@@ -769,8 +769,8 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
     });
   });
 
-  describe('Ask Host to Repeat Feature', () => {
-    it('renders the Ask Host to Repeat button and pill during active speed round', () => {
+  describe('Single Repeat Button Feature', () => {
+    it('renders only one repeat button with text REPEAT and no repeat pill during active speed round', () => {
       renderWithProviders(
         <FastMoneyController
           snapshot={playingSnapshot}
@@ -780,12 +780,13 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
         />
       );
 
-      expect(screen.getByTestId('fast-money-repeat-btn')).toBeInTheDocument();
-      expect(screen.getByTestId('fast-money-question-repeat-pill')).toBeInTheDocument();
-      expect(screen.getAllByText(/Ask Host to Repeat/i).length).toBeGreaterThanOrEqual(1);
+      const repeatBtn = screen.getByTestId('fast-money-repeat-btn');
+      expect(repeatBtn).toBeInTheDocument();
+      expect(repeatBtn).toHaveTextContent('REPEAT');
+      expect(screen.queryByTestId('fast-money-question-repeat-pill')).not.toBeInTheDocument();
     });
 
-    it('invokes onRepeatQuestion callback with questionId and shows visual feedback when clicked', async () => {
+    it('invokes onRepeatQuestion callback with questionId when REPEAT button is clicked', async () => {
       const user = userEvent.setup();
       const onRepeatQuestionMock = vi.fn();
 
@@ -800,11 +801,12 @@ describe('Frontend Component Suite: FastMoneyController (US-07)', () => {
       );
 
       const repeatBtn = screen.getByTestId('fast-money-repeat-btn');
+      expect(repeatBtn).toHaveTextContent('REPEAT');
       await user.click(repeatBtn);
 
       expect(onRepeatQuestionMock).toHaveBeenCalledTimes(1);
       expect(onRepeatQuestionMock).toHaveBeenCalledWith('q-1');
-      expect(screen.getAllByText(/Asked Host to Repeat!/i).length).toBeGreaterThanOrEqual(1);
+      expect(repeatBtn).toHaveTextContent('REPEAT');
     });
   });
 });
