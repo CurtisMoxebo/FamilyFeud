@@ -16,6 +16,8 @@ import {
   speakDuplicateAlert,
   speakVictory,
   speakDefeat,
+  speakYouSaid,
+  speakSurveySaid,
 } from '../utils/tts';
 import {
   playCorrectDing,
@@ -42,6 +44,74 @@ import {
   Loader2,
   Award,
 } from 'lucide-react';
+
+export interface TypewriterAnswerProps {
+  text: string;
+  animate?: boolean;
+  speedMs?: number;
+  className?: string;
+  testId?: string;
+  onComplete?: () => void;
+}
+
+export const TypewriterAnswer: React.FC<TypewriterAnswerProps> = ({
+  text,
+  animate = false,
+  speedMs = 50,
+  className = '',
+  testId,
+  onComplete,
+}) => {
+  const [visibleCount, setVisibleCount] = useState<number>(animate ? 0 : text.length);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  useEffect(() => {
+    if (!animate) {
+      setVisibleCount(text.length);
+      return;
+    }
+
+    setVisibleCount(0);
+    const chars = Array.from(text);
+    if (chars.length === 0) {
+      onCompleteRef.current?.();
+      return;
+    }
+
+    let current = 0;
+    const interval = setInterval(() => {
+      current += 1;
+      setVisibleCount(current);
+      if (current >= chars.length) {
+        clearInterval(interval);
+        onCompleteRef.current?.();
+      }
+    }, speedMs);
+
+    return () => clearInterval(interval);
+  }, [text, animate, speedMs]);
+
+  const chars = Array.from(text);
+  const visible = chars.slice(0, visibleCount).join('');
+  const hidden = chars.slice(visibleCount).join('');
+
+  return (
+    <span
+      data-testid={testId}
+      data-revealed-length={visibleCount}
+      data-animating={animate && visibleCount < chars.length}
+      className={className}
+    >
+      <span>{visible}</span>
+      {hidden.length > 0 && (
+        <span className="opacity-0 select-none" aria-hidden="true">
+          {hidden}
+        </span>
+      )}
+    </span>
+  );
+};
 
 export interface FastMoneyHostBoardProps {
   snapshot?: HostStateSnapshot | null;
@@ -113,6 +183,8 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   const isP2InitialMountRef = useRef<boolean>(true);
   const [isAutoPacing, setIsAutoPacing] = useState<boolean>(defaultAutoPacing);
   const [isAutoPacingP2, setIsAutoPacingP2] = useState<boolean>(defaultAutoPacing);
+  const [animatingSlotNumbers, setAnimatingSlotNumbers] = useState<Set<number>>(new Set());
+  const [animatingP2SlotNumbers, setAnimatingP2SlotNumbers] = useState<Set<number>>(new Set());
   const [activeWarning, setActiveWarning] = useState<DuplicateAnswerWarningPayload | null>(null);
   const [isReplaying, setIsReplaying] = useState<boolean>(false);
 
@@ -505,6 +577,49 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }
   }, [isGameOver, isVictory, grandTotal, enableSFX, enableTTS, audioEnabled, language]);
 
+  // Handlers for Reveal Sequence (Host reads question -> says "You said" -> reads answer + typewriters reveal <=100ms -> says "Survey said" -> reveals points & adds to total)
+  const handleRevealAnswer = (slotNum: number) => {
+    setAnimatingSlotNumbers((prev) => new Set(prev).add(slotNum));
+    onRevealAnswer?.(slotNum);
+
+    if (enableTTS && audioEnabled) {
+      const currentSlot = p1Slots.find((s) => s.slotNumber === slotNum);
+      const answerText = currentSlot?.rawAnswer || t.fastMoney.noAnswer;
+      speakYouSaid(language, () => {
+        speakQuestion(answerText, language);
+      });
+    }
+  };
+
+  const handleRevealPoints = (slotNum: number) => {
+    onRevealPoints?.(slotNum);
+
+    if (enableTTS && audioEnabled) {
+      speakSurveySaid(language);
+    }
+  };
+
+  const handleRevealP2Answer = (slotNum: number) => {
+    setAnimatingP2SlotNumbers((prev) => new Set(prev).add(slotNum));
+    onRevealP2Answer?.(slotNum);
+
+    if (enableTTS && audioEnabled) {
+      const currentSlot = p2Slots.find((s) => s.slotNumber === slotNum);
+      const answerText = currentSlot?.rawAnswer || t.fastMoney.noAnswer;
+      speakYouSaid(language, () => {
+        speakQuestion(answerText, language);
+      });
+    }
+  };
+
+  const handleRevealP2Points = (slotNum: number) => {
+    onRevealP2Points?.(slotNum);
+
+    if (enableTTS && audioEnabled) {
+      speakSurveySaid(language);
+    }
+  };
+
   // 8. Auto-Pacing Execution Engine for P1 Reveal
   useEffect(() => {
     if (isPaused || !isAutoPacing || !isP1RevealPhase || !activeRevealSlotNumber) {
@@ -519,11 +634,11 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
 
     if (!currentSlot.isAnswerRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
-        onRevealAnswer?.(activeRevealSlotNumber);
+        handleRevealAnswer(activeRevealSlotNumber);
       }, 1200);
     } else if (!currentSlot.isPointsRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
-        onRevealPoints?.(activeRevealSlotNumber);
+        handleRevealPoints(activeRevealSlotNumber);
       }, 1500);
     }
 
@@ -532,7 +647,18 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
         clearTimeout(autoPacingTimeoutRef.current);
       }
     };
-  }, [isPaused, isAutoPacing, isP1RevealPhase, activeRevealSlotNumber, p1Slots, onRevealAnswer, onRevealPoints]);
+  }, [
+    isPaused,
+    isAutoPacing,
+    isP1RevealPhase,
+    activeRevealSlotNumber,
+    p1Slots,
+    language,
+    enableTTS,
+    audioEnabled,
+    onRevealAnswer,
+    onRevealPoints,
+  ]);
 
   // 9. Auto-Pacing Execution Engine for P2 Reveal with 1.5s Suspense Pause (US-10 Scenario 1)
   useEffect(() => {
@@ -545,11 +671,11 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
 
     if (!currentSlot.isAnswerRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
-        onRevealP2Answer?.(activeP2RevealSlotNumber);
+        handleRevealP2Answer(activeP2RevealSlotNumber);
       }, 1200);
     } else if (!currentSlot.isPointsRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
-        onRevealP2Points?.(activeP2RevealSlotNumber);
+        handleRevealP2Points(activeP2RevealSlotNumber);
       }, 1500);
     }
 
@@ -564,6 +690,9 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     isP2RevealPhase,
     activeP2RevealSlotNumber,
     p2Slots,
+    language,
+    enableTTS,
+    audioEnabled,
     onRevealP2Answer,
     onRevealP2Points,
   ]);
@@ -938,16 +1067,13 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                       >
                         {isP1RevealPhase || isReadyForP2 ? (
                           slot.isAnswerRevealed ? (
-                            <span
-                              data-testid={`revealed-answer-${slot.slotNumber}`}
+                            <TypewriterAnswer
+                              testId={`revealed-answer-${slot.slotNumber}`}
+                              text={slot.rawAnswer || t.fastMoney.noAnswer}
+                              animate={animatingSlotNumbers.has(slot.slotNumber)}
+                              speedMs={50}
                               className="text-white font-extrabold uppercase tracking-wide text-xs sm:text-sm drop-shadow"
-                            >
-                              {slot.rawAnswer || (
-                                <span className="text-slate-500 italic">
-                                  {t.fastMoney.noAnswer}
-                                </span>
-                              )}
-                            </span>
+                            />
                           ) : (
                             <span
                               data-testid={`unrevealed-answer-${slot.slotNumber}`}
@@ -1088,16 +1214,13 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                       >
                         {isP2RevealPhase || isGameOver ? (
                           slot.isAnswerRevealed ? (
-                            <span
-                              data-testid={`revealed-answer-${slot.slotNumber}`}
+                            <TypewriterAnswer
+                              testId={`revealed-answer-${slot.slotNumber}`}
+                              text={slot.rawAnswer || t.fastMoney.noAnswer}
+                              animate={animatingP2SlotNumbers.has(slot.slotNumber)}
+                              speedMs={50}
                               className="text-white font-extrabold uppercase tracking-wide text-xs sm:text-sm drop-shadow"
-                            >
-                              {slot.rawAnswer || (
-                                <span className="text-slate-500 italic">
-                                  {t.fastMoney.noAnswer}
-                                </span>
-                              )}
-                            </span>
+                            />
                           ) : (
                             <span
                               data-testid={`unrevealed-answer-${slot.slotNumber}`}
@@ -1183,7 +1306,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                 {activeRevealSlot && !activeRevealSlot.isAnswerRevealed && (
                   <button
                     type="button"
-                    onClick={() => onRevealAnswer?.(activeRevealSlotNumber)}
+                    onClick={() => handleRevealAnswer(activeRevealSlotNumber)}
                     data-testid="host-reveal-answer-btn"
                     className="flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-r from-feud-gold via-amber-400 to-yellow-500 text-slate-950 hover:scale-105 active:scale-95 transition-all shadow-md shadow-feud-gold/20 cursor-pointer"
                   >
@@ -1202,7 +1325,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                   !activeRevealSlot.isPointsRevealed && (
                     <button
                       type="button"
-                      onClick={() => onRevealPoints?.(activeRevealSlotNumber)}
+                      onClick={() => handleRevealPoints(activeRevealSlotNumber)}
                       data-testid="host-reveal-points-btn"
                       className="flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-r from-amber-500 via-yellow-400 to-feud-gold text-slate-950 hover:scale-105 active:scale-95 transition-all shadow-md shadow-feud-gold/25 cursor-pointer"
                     >
@@ -1247,7 +1370,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                 {activeP2RevealSlot && !activeP2RevealSlot.isAnswerRevealed && (
                   <button
                     type="button"
-                    onClick={() => onRevealP2Answer?.(activeP2RevealSlotNumber)}
+                    onClick={() => handleRevealP2Answer(activeP2RevealSlotNumber)}
                     data-testid="host-reveal-p2-answer-btn"
                     className="flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600 text-slate-950 hover:scale-105 active:scale-95 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
                   >
@@ -1266,7 +1389,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                   !activeP2RevealSlot.isPointsRevealed && (
                     <button
                       type="button"
-                      onClick={() => onRevealP2Points?.(activeP2RevealSlotNumber)}
+                      onClick={() => handleRevealP2Points(activeP2RevealSlotNumber)}
                       data-testid="host-reveal-p2-points-btn"
                       className="flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-r from-amber-500 via-yellow-400 to-feud-gold text-slate-950 hover:scale-105 active:scale-95 transition-all shadow-md shadow-feud-gold/25 cursor-pointer"
                     >

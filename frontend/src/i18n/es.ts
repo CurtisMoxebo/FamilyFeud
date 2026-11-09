@@ -131,6 +131,8 @@ export const es: TranslationDictionary = {
     repeatQuestionPrompt: 'Pedir al anfitrión que repita',
     repeatQuestionAsked: '¡Solicitud enviada al anfitrión!',
     hostRepeatAlert: '¡{name} pidió repetir la pregunta!',
+    youSaid: 'Dijiste',
+    surveySaid: 'La encuesta dice',
   },
   mainGame: {
     team1: 'Equipo 1',

@@ -128,6 +128,8 @@ export interface TranslationDictionary {
     repeatQuestionPrompt: string;
     repeatQuestionAsked: string;
     hostRepeatAlert: string;
+    youSaid: string;
+    surveySaid: string;
   };
   mainGame: {
     team1: string;

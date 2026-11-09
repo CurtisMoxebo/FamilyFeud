@@ -351,3 +351,33 @@ export function speakStealFailed(
   const fn = STEAL_FAILED_PHRASES[norm] || STEAL_FAILED_PHRASES.EN;
   speakQuestion(fn(teamName, points), language, onComplete);
 }
+
+export const YOU_SAID_PHRASES: Record<string, string> = {
+  EN: 'You said',
+  FR: 'Vous avez dit',
+  ES: 'Dijiste',
+};
+
+export function speakYouSaid(
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
+  const norm = language.toUpperCase();
+  const text = YOU_SAID_PHRASES[norm] || YOU_SAID_PHRASES.EN;
+  speakQuestion(text, language, onComplete);
+}
+
+export const SURVEY_SAID_PHRASES: Record<string, string> = {
+  EN: 'Survey said',
+  FR: 'Le sondage dit',
+  ES: 'La encuesta dice',
+};
+
+export function speakSurveySaid(
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
+  const norm = language.toUpperCase();
+  const text = SURVEY_SAID_PHRASES[norm] || SURVEY_SAID_PHRASES.EN;
+  speakQuestion(text, language, onComplete);
+}

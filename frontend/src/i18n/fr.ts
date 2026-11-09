@@ -131,6 +131,8 @@ export const fr: TranslationDictionary = {
     repeatQuestionPrompt: "Demander à l'hôte de répéter",
     repeatQuestionAsked: "Demande envoyée à l'hôte !",
     hostRepeatAlert: "{name} a demandé de répéter la question !",
+    youSaid: 'Vous avez dit',
+    surveySaid: 'Le sondage dit',
   },
   mainGame: {
     team1: 'Équipe 1',
