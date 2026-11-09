@@ -4,10 +4,6 @@ export const fr: TranslationDictionary = {
   app: {
     title: 'Une Famille en Or',
     subtitle: 'Jeu télévisé multijoueur en temps réel',
-    connectionStatus: 'Moteur WebSocket',
-    connected: 'Connecté',
-    connecting: 'Connexion au serveur...',
-    disconnected: 'Déconnecté',
   },
   createRoom: {
     heading: 'Animer une partie',

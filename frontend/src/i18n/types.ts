@@ -2,10 +2,6 @@ export interface TranslationDictionary {
   app: {
     title: string;
     subtitle: string;
-    connectionStatus: string;
-    connected: string;
-    connecting: string;
-    disconnected: string;
   };
   createRoom: {
     heading: string;

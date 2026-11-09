@@ -4,10 +4,6 @@ export const es: TranslationDictionary = {
   app: {
     title: '100 Mexicanos Dijeron',
     subtitle: 'Programa de juegos multijugador en tiempo real',
-    connectionStatus: 'Motor WebSocket',
-    connected: 'Conectado',
-    connecting: 'Conectando al servidor...',
-    disconnected: 'Desconectado',
   },
   createRoom: {
     heading: 'Presentar una partida',

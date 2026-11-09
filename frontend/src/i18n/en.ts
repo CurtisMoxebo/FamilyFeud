@@ -4,10 +4,6 @@ export const en: TranslationDictionary = {
   app: {
     title: 'Family Feud',
     subtitle: 'Multiplayer Game Show & Real-Time Duel',
-    connectionStatus: 'WebSocket Engine',
-    connected: 'Connected',
-    connecting: 'Connecting to Server...',
-    disconnected: 'Disconnected',
   },
   createRoom: {
     heading: 'Host a Game Show',
