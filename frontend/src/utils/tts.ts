@@ -140,11 +140,16 @@ export function speakQuestion(
     utterance.rate = 1.05;
     utterance.pitch = 1.0;
 
+    // Retain reference to prevent garbage collection before speech completes in Chromium browsers
+    (window as any).__activeSpeechUtterance = utterance;
+
     utterance.onend = () => {
+      (window as any).__activeSpeechUtterance = null;
       onComplete?.();
     };
 
     utterance.onerror = (error) => {
+      (window as any).__activeSpeechUtterance = null;
       console.warn('[HOST_TTS:WARN] Speech utterance encountered an error:', error);
       onComplete?.();
     };
@@ -165,6 +170,7 @@ export const speak = speakQuestion;
 export function cancelSpeech(): void {
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
+      (window as any).__activeSpeechUtterance = null;
       window.speechSynthesis.cancel();
     } catch {
       // Ignore

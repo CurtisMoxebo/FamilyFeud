@@ -18,6 +18,7 @@ import {
   AnswerOverridePayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
+import { useFullscreen } from '../hooks/useFullscreen';
 import {
   playCorrectDing,
   playPointsChime,
@@ -50,6 +51,8 @@ import {
   Gavel,
   CheckCircle2,
   X,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 export interface MainGameTeamGuessingBoardProps {
@@ -77,6 +80,8 @@ export interface MainGameTeamGuessingBoardProps {
   roomName: string;
   roomCode: string;
   onLeave?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps> = ({
@@ -104,8 +109,13 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   roomName,
   roomCode,
   onLeave,
+  isFullscreen: propsIsFullscreen,
+  onToggleFullscreen,
 }) => {
   const { t } = useTranslation();
+  const internalFullscreen = useFullscreen({ enableShortcut: false });
+  const isFullscreen = propsIsFullscreen ?? internalFullscreen.isFullscreen;
+  const toggleFullscreen = onToggleFullscreen ?? internalFullscreen.toggleFullscreen;
 
   const [audioEnabled, setAudioEnabled] = useState<boolean>(() => !isTtsMuted());
 
@@ -441,6 +451,24 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
         {/* Controlling Team Banner & Host Audio Controls (US-17 Scenario 4) */}
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void toggleFullscreen()}
+            data-testid="host-fullscreen-toggle"
+            aria-pressed={isFullscreen}
+            aria-label={isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}
+            title={`${isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen} (${t.host.fullscreenHint})`}
+            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-5 h-5 text-feud-gold" />
+            ) : (
+              <Maximize2 className="w-5 h-5 text-feud-gold" />
+            )}
+            <span className="sr-only">{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
+            <span className="sr-only">{t.host.fullscreenHint}</span>
+          </button>
+
           <button
             type="button"
             onClick={handleToggleAudio}

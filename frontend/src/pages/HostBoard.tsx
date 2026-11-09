@@ -414,7 +414,9 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       </div>
     ) : null;
 
-  const renderFullscreenToggleButton = (variant: 'header' | 'toolbar' = 'toolbar') => (
+  const hasSubBoardHeader = isFastMoney || Boolean(faceOffState) || Boolean(teamGuessingState);
+
+  const renderFullscreenToggleButton = (_variant: 'header' | 'toolbar' = 'toolbar') => (
     <button
       type="button"
       onClick={() => {
@@ -424,29 +426,15 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       aria-pressed={isFullscreen}
       aria-label={isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}
       title={`${isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen} (${t.host.fullscreenHint})`}
-      className={
-        variant === 'header'
-          ? `inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer ${
-              isFullscreen
-                ? 'bg-feud-gold/20 hover:bg-feud-gold/30 text-feud-gold border-feud-gold/50 shadow-md'
-                : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 hover:text-white border-slate-700'
-            }`
-          : `inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${
-              isFullscreen
-                ? 'bg-feud-gold/20 hover:bg-feud-gold/30 text-feud-gold border-feud-gold/50'
-                : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border-slate-600/60'
-            }`
-      }
+      className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
     >
       {isFullscreen ? (
-        <Minimize2 className="w-4 h-4 text-feud-gold" />
+        <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5 text-feud-gold" />
       ) : (
-        <Maximize2 className="w-4 h-4 text-feud-gold" />
+        <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 text-feud-gold" />
       )}
-      <span>{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
-      <kbd className="hidden sm:inline-block ml-0.5 px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-950/60 border border-white/15 opacity-80">
-        {t.host.fullscreenHint}
-      </kbd>
+      <span className="sr-only">{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
+      <span className="sr-only">{t.host.fullscreenHint}</span>
     </button>
   );
 
@@ -499,15 +487,17 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             {t.admin.spacebarShortcutHint}
           </kbd>
         </button>
-        {renderFullscreenToggleButton('toolbar')}
+        {!hasSubBoardHeader && renderFullscreenToggleButton('toolbar')}
       </div>
     ) : (
-      <div
-        data-testid="host-stage-display-controls"
-        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-1.5 sm:mb-2 px-1 flex-wrap"
-      >
-        {renderFullscreenToggleButton('toolbar')}
-      </div>
+      !hasSubBoardHeader ? (
+        <div
+          data-testid="host-stage-display-controls"
+          className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex items-center justify-end gap-2 mb-1.5 sm:mb-2 px-1 flex-wrap"
+        >
+          {renderFullscreenToggleButton('toolbar')}
+        </div>
+      ) : null
     );
 
   const renderPausedBanner = () =>
@@ -587,6 +577,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onRevealP2Answer={(slotNum) => revealP2FastMoneyAnswer(room.roomCode, slotNum)}
           onRevealP2Points={(slotNum) => revealP2FastMoneyPoints(room.roomCode, slotNum)}
           onReplay={() => requestReplay(room.roomCode)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
       </div>
     );
@@ -654,6 +646,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           roomName={room.roomName}
           roomCode={room.roomCode}
           onLeave={() => navigate('/')}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
       </div>
     );
@@ -678,6 +672,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           roomName={room.roomName}
           roomCode={room.roomCode}
           onLeave={() => navigate('/')}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
         {matchOver && (
           <MainGameVictoryModal

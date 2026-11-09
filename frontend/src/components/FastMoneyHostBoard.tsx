@@ -28,6 +28,7 @@ import {
   playDefeatSound,
 } from '../utils/soundEffects';
 import { useTranslation } from '../i18n/LanguageContext';
+import { useFullscreen } from '../hooks/useFullscreen';
 import {
   Timer,
   Zap,
@@ -36,6 +37,8 @@ import {
   Trophy,
   Volume2,
   VolumeX,
+  Maximize2,
+  Minimize2,
   Play,
   Pause,
   ChevronRight,
@@ -136,6 +139,8 @@ export interface FastMoneyHostBoardProps {
   onRevealP2Answer?: (slotNumber: number) => void;
   onRevealP2Points?: (slotNumber: number) => void;
   onReplay?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
@@ -161,8 +166,13 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   onRevealP2Answer,
   onRevealP2Points,
   onReplay,
+  isFullscreen: propsIsFullscreen,
+  onToggleFullscreen,
 }) => {
   const { t } = useTranslation();
+  const internalFullscreen = useFullscreen({ enableShortcut: false });
+  const isFullscreen = propsIsFullscreen ?? internalFullscreen.isFullscreen;
+  const toggleFullscreen = onToggleFullscreen ?? internalFullscreen.toggleFullscreen;
   const effectiveP1Name =
     player1Name || snapshot?.player1Name || t.fastMoney.p1ColumnTitle;
   const effectiveP2Name =
@@ -191,11 +201,10 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   const lastSpokenQuestionRef = useRef<string | null>(null);
   const lastSpokenRevealSlotRef = useRef<number | null>(null);
   const lastSpokenP2RevealSlotRef = useRef<number | null>(null);
-  const questionFinishedRef = useRef<Set<number>>(new Set());
-  const questionP2FinishedRef = useRef<Set<number>>(new Set());
   const prevRevealStatesRef = useRef<Map<number, { answer: boolean; points: boolean }>>(new Map());
   const prevP2RevealStatesRef = useRef<Map<number, { answer: boolean; points: boolean }>>(new Map());
   const autoPacingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoPacingP2TimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasHandledGameOverRef = useRef<boolean>(false);
 
@@ -307,6 +316,43 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     ? gameOver.isVictory
     : snapshot?.isVictory ?? grandTotal >= 200;
 
+  // Mutable refs to prevent stale closure references during async TTS sequences
+  const isAutoPacingRef = useRef<boolean>(isAutoPacing);
+  isAutoPacingRef.current = isAutoPacing;
+
+  const isAutoPacingP2Ref = useRef<boolean>(isAutoPacingP2);
+  isAutoPacingP2Ref.current = isAutoPacingP2;
+
+  const isPausedRef = useRef<boolean>(isPaused);
+  isPausedRef.current = isPaused;
+
+  const phaseRef = useRef<string>(phase);
+  phaseRef.current = phase;
+
+  const activeRevealSlotNumberRef = useRef<number | null>(activeRevealSlotNumber);
+  activeRevealSlotNumberRef.current = activeRevealSlotNumber;
+
+  const activeP2RevealSlotNumberRef = useRef<number | null>(activeP2RevealSlotNumber);
+  activeP2RevealSlotNumberRef.current = activeP2RevealSlotNumber;
+
+  const p1SlotsRef = useRef<FastMoneyRevealSlot[]>(p1Slots);
+  p1SlotsRef.current = p1Slots;
+
+  const p2SlotsRef = useRef<FastMoneyRevealSlot[]>(p2Slots);
+  p2SlotsRef.current = p2Slots;
+
+  const onRevealAnswerRef = useRef(onRevealAnswer);
+  onRevealAnswerRef.current = onRevealAnswer;
+
+  const onRevealPointsRef = useRef(onRevealPoints);
+  onRevealPointsRef.current = onRevealPoints;
+
+  const onRevealP2AnswerRef = useRef(onRevealP2Answer);
+  onRevealP2AnswerRef.current = onRevealP2Answer;
+
+  const onRevealP2PointsRef = useRef(onRevealP2Points);
+  onRevealP2PointsRef.current = onRevealP2Points;
+
   // Rapid transition cancellation: stop any pending speech when round finishes or advances (US-17 Scenario 2)
   useEffect(() => {
     if (phase !== 'P1_PLAYING' && phase !== 'P2_PLAYING') {
@@ -400,7 +446,34 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }, 4000);
   }, [repeatQuestionAlert, snapshot?.phase, currentQuestionText, audioEnabled, enableTTS, enableSFX, language]);
 
-  // 3. Speak question via TTS when new slot begins in P1_REVEAL (US-08 Scenario 1 & US-26 Scenario 6)
+  // Resolves revealed answer text from snapshot, waiting for server response if slot was sanitized
+  const resolveAnswerText = (
+    slotNum: number,
+    isP2: boolean,
+    onResolved: (answer: string) => void
+  ) => {
+    const slots = isP2 ? p2SlotsRef.current : p1SlotsRef.current;
+    const current = slots.find((s) => s.slotNumber === slotNum);
+    // If rawAnswer is already populated or slot is confirmed revealed, resolve immediately
+    if (current?.rawAnswer || current?.isAnswerRevealed) {
+      onResolved(current?.rawAnswer || t.fastMoney.noAnswer);
+      return;
+    }
+
+    // Otherwise, check periodically for server snapshot update with revealed rawAnswer
+    let elapsed = 0;
+    const interval = setInterval(() => {
+      elapsed += 25;
+      const updatedSlots = isP2 ? p2SlotsRef.current : p1SlotsRef.current;
+      const updated = updatedSlots.find((s) => s.slotNumber === slotNum);
+      if (updated?.rawAnswer || updated?.isAnswerRevealed || elapsed >= 800) {
+        clearInterval(interval);
+        onResolved(updated?.rawAnswer || t.fastMoney.noAnswer);
+      }
+    }, 25);
+  };
+
+  // 3. Speak question via TTS when new slot begins in P1_REVEAL & Drive Event-Based Sequence
   useEffect(() => {
     if (
       enableTTS &&
@@ -411,21 +484,97 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       activeRevealSlot
     ) {
       lastSpokenRevealSlotRef.current = activeRevealSlotNumber;
+      const slotNum = activeRevealSlotNumber;
       const p1Prefix = language.toUpperCase() === 'ES' ? 'Pregunta' : 'Question';
       const questionTextToSpeak =
         activeRevealSlot.questionText && activeRevealSlot.questionText !== 'undefined'
           ? activeRevealSlot.questionText
           : '';
-      speakQuestion(
-        questionTextToSpeak
-          ? `${p1Prefix} ${activeRevealSlotNumber}: ${questionTextToSpeak}`
-          : `${p1Prefix} ${activeRevealSlotNumber}`,
-        language
-      );
-    }
-  }, [activeRevealSlotNumber, isP1RevealPhase, activeRevealSlot, language, enableTTS, audioEnabled]);
+      const textToSpeak = questionTextToSpeak
+        ? `${p1Prefix} ${slotNum}: ${questionTextToSpeak}`
+        : `${p1Prefix} ${slotNum}`;
 
-  // 4. Speak question via TTS when new slot begins in P2_REVEAL (US-10 Scenario 1 & US-26 Scenario 6)
+      const handleQuestionDone = () => {
+        // Step 1 done: Question TTS has completed
+        if (
+          !isAutoPacingRef.current ||
+          isPausedRef.current ||
+          phaseRef.current !== 'P1_REVEAL' ||
+          activeRevealSlotNumberRef.current !== slotNum
+        ) {
+          return;
+        }
+
+        // Step 2: Say "You said"
+        speakYouSaid(language, () => {
+          // "You said" TTS has completed
+          if (
+            !isAutoPacingRef.current ||
+            isPausedRef.current ||
+            phaseRef.current !== 'P1_REVEAL' ||
+            activeRevealSlotNumberRef.current !== slotNum
+          ) {
+            return;
+          }
+
+          // Step 3: Reveal answer on the board while reading out loud the answer
+          setAnimatingSlotNumbers((prev) => new Set(prev).add(slotNum));
+          onRevealAnswerRef.current?.(slotNum);
+
+          resolveAnswerText(slotNum, false, (answerText) => {
+            if (
+              !isAutoPacingRef.current ||
+              isPausedRef.current ||
+              phaseRef.current !== 'P1_REVEAL' ||
+              activeRevealSlotNumberRef.current !== slotNum
+            ) {
+              return;
+            }
+
+            speakQuestion(answerText, language, () => {
+              // Answer TTS has completed
+              if (
+                !isAutoPacingRef.current ||
+                isPausedRef.current ||
+                phaseRef.current !== 'P1_REVEAL' ||
+                activeRevealSlotNumberRef.current !== slotNum
+              ) {
+                return;
+              }
+
+              // Step 4: Say "Survey said"
+              speakSurveySaid(language, () => {
+                // "Survey said" TTS has completed
+                if (
+                  !isAutoPacingRef.current ||
+                  isPausedRef.current ||
+                  phaseRef.current !== 'P1_REVEAL' ||
+                  activeRevealSlotNumberRef.current !== slotNum
+                ) {
+                  return;
+                }
+
+                // Step 5: Reveal points for the answer
+                onRevealPointsRef.current?.(slotNum);
+              });
+            });
+          });
+        });
+      };
+
+      speakQuestion(textToSpeak, language, handleQuestionDone);
+    }
+  }, [
+    activeRevealSlotNumber,
+    isP1RevealPhase,
+    activeRevealSlot,
+    language,
+    enableTTS,
+    audioEnabled,
+    t.fastMoney.noAnswer,
+  ]);
+
+  // 4. Speak question via TTS when new slot begins in P2_REVEAL & Drive Event-Based Sequence
   useEffect(() => {
     if (
       enableTTS &&
@@ -436,19 +585,92 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       activeP2RevealSlot
     ) {
       lastSpokenP2RevealSlotRef.current = activeP2RevealSlotNumber;
+      const slotNum = activeP2RevealSlotNumber;
       const p2Prefix = language.toUpperCase() === 'ES' ? 'Pregunta' : 'Question';
       const questionTextToSpeak =
         activeP2RevealSlot.questionText && activeP2RevealSlot.questionText !== 'undefined'
           ? activeP2RevealSlot.questionText
           : '';
-      speakQuestion(
-        questionTextToSpeak
-          ? `${p2Prefix} ${activeP2RevealSlotNumber}: ${questionTextToSpeak}`
-          : `${p2Prefix} ${activeP2RevealSlotNumber}`,
-        language
-      );
+      const textToSpeak = questionTextToSpeak
+        ? `${p2Prefix} ${slotNum}: ${questionTextToSpeak}`
+        : `${p2Prefix} ${slotNum}`;
+
+      const handleP2QuestionDone = () => {
+        // Step 1 done: Question TTS has completed
+        if (
+          !isAutoPacingP2Ref.current ||
+          isPausedRef.current ||
+          phaseRef.current !== 'P2_REVEAL' ||
+          activeP2RevealSlotNumberRef.current !== slotNum
+        ) {
+          return;
+        }
+
+        // Step 2: Say "You said"
+        speakYouSaid(language, () => {
+          if (
+            !isAutoPacingP2Ref.current ||
+            isPausedRef.current ||
+            phaseRef.current !== 'P2_REVEAL' ||
+            activeP2RevealSlotNumberRef.current !== slotNum
+          ) {
+            return;
+          }
+
+          // Step 3: Reveal P2 answer on the board while reading out loud the answer
+          setAnimatingP2SlotNumbers((prev) => new Set(prev).add(slotNum));
+          onRevealP2AnswerRef.current?.(slotNum);
+
+          resolveAnswerText(slotNum, true, (answerText) => {
+            if (
+              !isAutoPacingP2Ref.current ||
+              isPausedRef.current ||
+              phaseRef.current !== 'P2_REVEAL' ||
+              activeP2RevealSlotNumberRef.current !== slotNum
+            ) {
+              return;
+            }
+
+            speakQuestion(answerText, language, () => {
+              if (
+                !isAutoPacingP2Ref.current ||
+                isPausedRef.current ||
+                phaseRef.current !== 'P2_REVEAL' ||
+                activeP2RevealSlotNumberRef.current !== slotNum
+              ) {
+                return;
+              }
+
+              // Step 4: Say "Survey said"
+              speakSurveySaid(language, () => {
+                if (
+                  !isAutoPacingP2Ref.current ||
+                  isPausedRef.current ||
+                  phaseRef.current !== 'P2_REVEAL' ||
+                  activeP2RevealSlotNumberRef.current !== slotNum
+                ) {
+                  return;
+                }
+
+                // Step 5: Reveal P2 points for the answer
+                onRevealP2PointsRef.current?.(slotNum);
+              });
+            });
+          });
+        });
+      };
+
+      speakQuestion(textToSpeak, language, handleP2QuestionDone);
     }
-  }, [activeP2RevealSlotNumber, isP2RevealPhase, activeP2RevealSlot, language, enableTTS, audioEnabled]);
+  }, [
+    activeP2RevealSlotNumber,
+    isP2RevealPhase,
+    activeP2RevealSlot,
+    language,
+    enableTTS,
+    audioEnabled,
+    t.fastMoney.noAnswer,
+  ]);
 
   // 5. Play Synchronized Sound Effects on P1 Reveal Flips
   useEffect(() => {
@@ -595,10 +817,10 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     onRevealAnswer?.(slotNum);
 
     if (enableTTS && audioEnabled) {
-      const currentSlot = p1Slots.find((s) => s.slotNumber === slotNum);
-      const answerText = currentSlot?.rawAnswer || t.fastMoney.noAnswer;
       speakYouSaid(language, () => {
-        speakQuestion(answerText, language);
+        resolveAnswerText(slotNum, false, (answerText) => {
+          speakQuestion(answerText, language);
+        });
       });
     }
   };
@@ -616,10 +838,10 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     onRevealP2Answer?.(slotNum);
 
     if (enableTTS && audioEnabled) {
-      const currentSlot = p2Slots.find((s) => s.slotNumber === slotNum);
-      const answerText = currentSlot?.rawAnswer || t.fastMoney.noAnswer;
       speakYouSaid(language, () => {
-        speakQuestion(answerText, language);
+        resolveAnswerText(slotNum, true, (answerText) => {
+          speakQuestion(answerText, language);
+        });
       });
     }
   };
@@ -632,9 +854,23 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     }
   };
 
-  // 8. Auto-Pacing Execution Engine for P1 Reveal
+  // 8. Auto-Pacing Execution Engine for P1 Reveal (Fallback timer when TTS is inactive or muted)
   useEffect(() => {
-    if (isPaused || !isAutoPacing || !isP1RevealPhase || !activeRevealSlotNumber) {
+    if (
+      isPaused ||
+      !isAutoPacing ||
+      !isP1RevealPhase ||
+      !activeRevealSlotNumber
+    ) {
+      if (autoPacingTimeoutRef.current) {
+        clearTimeout(autoPacingTimeoutRef.current);
+      }
+      return;
+    }
+
+    const ttsActive = enableTTS && audioEnabled && !isTtsMuted();
+    // When TTS is active, the entire choreography is driven event-by-event in useEffect #3
+    if (ttsActive) {
       if (autoPacingTimeoutRef.current) {
         clearTimeout(autoPacingTimeoutRef.current);
       }
@@ -645,17 +881,9 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     if (!currentSlot) return;
 
     if (!currentSlot.isAnswerRevealed) {
-      // In Auto-Pacing: allow ample time for the host to read the question before revealing the answer!
-      // When TTS is enabled, question speaking takes ~3.5 - 4.5 seconds.
-      // When TTS is disabled (such as in Vitest timer tests), use 1200ms.
-      const delayMs =
-        enableTTS && audioEnabled && !isTtsMuted()
-          ? Math.max(3500, (currentSlot.questionText?.length || 0) * 65)
-          : 1200;
-
       autoPacingTimeoutRef.current = setTimeout(() => {
         handleRevealAnswer(activeRevealSlotNumber);
-      }, delayMs);
+      }, 1200);
     } else if (!currentSlot.isPointsRevealed) {
       autoPacingTimeoutRef.current = setTimeout(() => {
         handleRevealPoints(activeRevealSlotNumber);
@@ -680,9 +908,25 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     onRevealPoints,
   ]);
 
-  // 9. Auto-Pacing Execution Engine for P2 Reveal with 1.5s Suspense Pause (US-10 Scenario 1)
+  // 9. Auto-Pacing Execution Engine for P2 Reveal (Fallback timer when TTS is inactive or muted)
   useEffect(() => {
-    if (isPaused || !isAutoPacingP2 || !isP2RevealPhase || !activeP2RevealSlotNumber) {
+    if (
+      isPaused ||
+      !isAutoPacingP2 ||
+      !isP2RevealPhase ||
+      !activeP2RevealSlotNumber
+    ) {
+      if (autoPacingP2TimeoutRef.current) {
+        clearTimeout(autoPacingP2TimeoutRef.current);
+      }
+      return;
+    }
+
+    const ttsActive = enableTTS && audioEnabled && !isTtsMuted();
+    if (ttsActive) {
+      if (autoPacingP2TimeoutRef.current) {
+        clearTimeout(autoPacingP2TimeoutRef.current);
+      }
       return;
     }
 
@@ -690,23 +934,18 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
     if (!currentSlot) return;
 
     if (!currentSlot.isAnswerRevealed) {
-      const delayMs =
-        enableTTS && audioEnabled && !isTtsMuted()
-          ? Math.max(3500, (currentSlot.questionText?.length || 0) * 65)
-          : 1200;
-
-      autoPacingTimeoutRef.current = setTimeout(() => {
+      autoPacingP2TimeoutRef.current = setTimeout(() => {
         handleRevealP2Answer(activeP2RevealSlotNumber);
-      }, delayMs);
+      }, 1200);
     } else if (!currentSlot.isPointsRevealed) {
-      autoPacingTimeoutRef.current = setTimeout(() => {
+      autoPacingP2TimeoutRef.current = setTimeout(() => {
         handleRevealP2Points(activeP2RevealSlotNumber);
       }, 1500);
     }
 
     return () => {
-      if (autoPacingTimeoutRef.current) {
-        clearTimeout(autoPacingTimeoutRef.current);
+      if (autoPacingP2TimeoutRef.current) {
+        clearTimeout(autoPacingP2TimeoutRef.current);
       }
     };
   }, [
@@ -796,6 +1035,24 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
 
           {/* Right Header Area: Total Score (Reveal/Game Over) or Countdown Clock */}
           <div className="flex items-center gap-2 sm:gap-2.5">
+            <button
+              type="button"
+              onClick={() => void toggleFullscreen()}
+              data-testid="host-fullscreen-toggle"
+              aria-pressed={isFullscreen}
+              aria-label={isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}
+              title={`${isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen} (${t.host.fullscreenHint})`}
+              className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5 text-feud-gold" />
+              ) : (
+                <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 text-feud-gold" />
+              )}
+              <span className="sr-only">{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
+              <span className="sr-only">{t.host.fullscreenHint}</span>
+            </button>
+
             <button
               type="button"
               onClick={handleToggleAudio}

@@ -632,7 +632,25 @@ function _useSocketInternal(options?: UseSocketOptions) {
     // Board Reveal Listeners (Fast Money US-08 & Main Game US-14)
     socket.on('board_reveal', (payload: BoardRevealPayload | MainGameBoardRevealPayload) => {
       if (payload && 'slot' in payload) {
-        setBoardReveal(payload as BoardRevealPayload);
+        const fmPayload = payload as BoardRevealPayload;
+        setBoardReveal(fmPayload);
+        setFastMoneyHostState((prev) => {
+          if (!prev) return prev;
+          const isP2 = fmPayload.column === 2;
+          const slotsKey = isP2 ? 'p2RevealSlots' : 'p1RevealSlots';
+          const existing = prev[slotsKey] || prev.revealSlots || [];
+          const updated = existing.map((s) =>
+            s.slotNumber === fmPayload.slotNumber ? { ...s, ...fmPayload.slot } : s
+          );
+          return {
+            ...prev,
+            [slotsKey]: updated,
+            revealSlots: !isP2 ? updated : prev.revealSlots,
+            totalScore: fmPayload.totalScore ?? prev.totalScore,
+            p1TotalScore: fmPayload.p1TotalScore ?? prev.p1TotalScore,
+            p2TotalScore: fmPayload.p2TotalScore ?? prev.p2TotalScore,
+          };
+        });
       } else if (payload && 'answerText' in payload) {
         setMainGameBoardReveal(payload as MainGameBoardRevealPayload);
       }
