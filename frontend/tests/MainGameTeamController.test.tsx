@@ -432,8 +432,9 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
     expect(screen.getByTestId('team1-grand-total')).toHaveTextContent('120');
     expect(screen.getByTestId('team2-grand-total')).toHaveTextContent('65');
     expect(screen.getByTestId('header-round-bank')).toHaveTextContent('45');
-    // Alice is on Team 1 (controlling team in baseSnapshot), so Team 1 is highlighted
-    expect(screen.getByTestId('your-team-badge')).toBeInTheDocument();
+    // Alice is on Team 1 (controlling team in baseSnapshot), so Team 1 is highlighted without badge in mobile
+    expect(screen.queryByTestId('your-team-badge')).not.toBeInTheDocument();
+    expect(screen.getByTestId('team1-grand-total-card')).toHaveClass('ring-blue-400/40');
   });
 
   it('satisfies US-28: renders only members of own team in 2 columns instead of the survey board', () => {

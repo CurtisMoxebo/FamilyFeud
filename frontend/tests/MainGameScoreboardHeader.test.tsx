@@ -74,7 +74,7 @@ describe('US-16 Scenario 1 & 2: MainGameScoreboardHeader Component', () => {
     expect(screen.getByTestId('round-progress-indicator')).toHaveTextContent(/Sudden Death/i);
   });
 
-  it('supports compact rendering mode for player controller viewports', () => {
+  it('supports compact rendering mode for player controller viewports and hides your team badge', () => {
     renderWithLanguage(
       <MainGameScoreboardHeader
         team1GrandTotal={100}
@@ -82,11 +82,14 @@ describe('US-16 Scenario 1 & 2: MainGameScoreboardHeader Component', () => {
         activeRoundBank={15}
         currentRoundNumber={2}
         totalRounds={3}
+        highlightTeam="TEAM_1"
         compact={true}
       />
     );
 
     expect(screen.getByTestId('grand-total-header')).toHaveClass('p-2.5');
+    expect(screen.queryByTestId('your-team-badge')).not.toBeInTheDocument();
+    expect(screen.getByTestId('team1-grand-total-card')).toHaveClass('ring-blue-400/40');
   });
 });
 

@@ -504,8 +504,8 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       expect(screen.getByTestId('grand-total-header')).toBeInTheDocument();
       expect(screen.getByTestId('team1-grand-total')).toHaveTextContent('150');
       expect(screen.getByTestId('team2-grand-total')).toHaveTextContent('85');
-      // Alice is on Team 1, so Team 1 is highlighted with "YOUR TEAM" badge
-      expect(screen.getByTestId('your-team-badge')).toBeInTheDocument();
+      // Alice is on Team 1, so Team 1 is highlighted with ring glow (badge hidden on mobile)
+      expect(screen.queryByTestId('your-team-badge')).not.toBeInTheDocument();
       expect(screen.getByTestId('team1-grand-total-card')).toHaveClass('ring-blue-400/40');
     });
 
