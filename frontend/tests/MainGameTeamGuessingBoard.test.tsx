@@ -849,4 +849,36 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
     expect(screen.getByTestId('strike-box-3')).toHaveTextContent('X');
     expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(3);
   });
+
+  it('always renders exactly 8 slots counted vertically (1 5 / 2 6 / 3 7 / 4 8) with empty placeholders for unused slots', () => {
+    // baseSnapshot has totalAnswersCount: 4
+    renderComponent();
+
+    // Verify all 4 active answer cards are present
+    expect(screen.getByTestId('team-board-card-1')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-card-2')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-card-3')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-card-4')).toBeInTheDocument();
+
+    // Verify slots 5, 6, 7, 8 are empty placeholders holding the 8-slot grid layout
+    expect(screen.getByTestId('team-board-empty-slot-5')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-empty-slot-6')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-empty-slot-7')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-empty-slot-8')).toBeInTheDocument();
+
+    // Verify vertical counting order in DOM grid: 1, 5, 2, 6, 3, 7, 4, 8
+    const gridContainer = screen.getByTestId('team-board-card-1').parentElement;
+    expect(gridContainer).toBeInTheDocument();
+    const childTestIds = Array.from(gridContainer!.children).map((el) => el.getAttribute('data-testid'));
+    expect(childTestIds).toEqual([
+      'team-board-card-1',
+      'team-board-empty-slot-5',
+      'team-board-card-2',
+      'team-board-empty-slot-6',
+      'team-board-card-3',
+      'team-board-empty-slot-7',
+      'team-board-card-4',
+      'team-board-empty-slot-8',
+    ]);
+  });
 });

@@ -557,4 +557,42 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
 
     vi.useRealTimers();
   });
+
+  it('always renders exactly 8 slots counted vertically (1 5 / 2 6 / 3 7 / 4 8) on the survey board', () => {
+    // baseSnapshot has 3 answers (keys, phone, wallet) in BUZZER_ACTIVE
+    renderBoard({
+      snapshot: {
+        ...baseSnapshot,
+        phase: 'BUZZER_ACTIVE',
+      },
+    });
+
+    // Ranks 1, 2, 3 are concealed cards
+    expect(screen.getByTestId('face-off-card-concealed-1')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-card-concealed-2')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-card-concealed-3')).toBeInTheDocument();
+
+    // Ranks 4, 5, 6, 7, 8 are empty slot placeholders
+    expect(screen.getByTestId('face-off-empty-slot-4')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-empty-slot-5')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-empty-slot-6')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-empty-slot-7')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-empty-slot-8')).toBeInTheDocument();
+
+    // Verify vertical counting order in DOM grid: 1, 5, 2, 6, 3, 7, 4, 8
+    const surveyBoard = screen.getByTestId('face-off-survey-board');
+    const gridContainer = surveyBoard.querySelector('.grid');
+    expect(gridContainer).toBeInTheDocument();
+    const childTestIds = Array.from(gridContainer!.children).map((el) => el.getAttribute('data-testid'));
+    expect(childTestIds).toEqual([
+      'face-off-card-concealed-1',
+      'face-off-empty-slot-5',
+      'face-off-card-concealed-2',
+      'face-off-empty-slot-6',
+      'face-off-card-concealed-3',
+      'face-off-empty-slot-7',
+      'face-off-empty-slot-4',
+      'face-off-empty-slot-8',
+    ]);
+  });
 });

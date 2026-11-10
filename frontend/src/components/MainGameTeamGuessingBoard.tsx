@@ -88,6 +88,10 @@ export interface MainGameTeamGuessingBoardProps {
   onTogglePause?: () => void;
 }
 
+// 8-slot vertical counting layout on host TV board:
+// Row 1: 1, 5 | Row 2: 2, 6 | Row 3: 3, 7 | Row 4: 4, 8
+const HOST_SLOT_RANKS = [1, 5, 2, 6, 3, 7, 4, 8];
+
 export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps> = ({
   snapshot,
   timerTick,
@@ -565,12 +569,13 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       (snapshot.phase === 'TEAM_GUESSING' || snapshot.phase === 'STEAL_PHASE')
   );
 
-  // Total answer count for card grid
-  const totalSlots = Math.max(
-    snapshot.totalAnswersCount,
-    snapshot.question.answerCount,
+  // Total survey answer count for card grid
+  const totalAnswers = Math.max(
+    snapshot.totalAnswersCount || 0,
+    snapshot.question.answerCount || 0,
+    snapshot.question.answers?.length || 0,
     revealedMap.size,
-    4
+    overrideOptionMap.size
   );
 
   const isStealSuccess = Boolean(
@@ -921,11 +926,10 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       )}
 
-      {/* Answer Board Card Grid (4 to 8 Flip Cards) with Steal Match & Board Clearance Highlighting */}
+      {/* Answer Board Card Grid (Always 8 Flip Card Slots counted vertically: 1,5 / 2,6 / 3,7 / 4,8) */}
       <main className="relative z-10 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex-1 min-h-0 flex flex-col overflow-hidden py-0.5 sm:py-1">
-        <div className="flex-1 min-h-0 w-full h-full max-h-full grid grid-cols-1 md:grid-cols-2 auto-rows-fr gap-2 sm:gap-2.5 2xl:gap-3.5 p-2 sm:p-2.5 2xl:p-4 bg-slate-900/85 border-2 border-blue-900/60 rounded-2xl sm:rounded-3xl shadow-2xl backdrop-blur-sm overflow-hidden">
-          {Array.from({ length: totalSlots }).map((_, idx) => {
-            const rankOrder = idx + 1;
+        <div className="flex-1 min-h-0 w-full h-full max-h-full grid grid-cols-2 grid-rows-4 auto-rows-fr gap-2 sm:gap-2.5 2xl:gap-3.5 p-2 sm:p-2.5 2xl:p-4 bg-slate-900/85 border-2 border-blue-900/60 rounded-2xl sm:rounded-3xl shadow-2xl backdrop-blur-sm overflow-hidden">
+          {HOST_SLOT_RANKS.map((rankOrder) => {
             const revealedItem = revealedMap.get(rankOrder);
             const isRevealed =
               Boolean(revealedItem) &&
@@ -933,6 +937,17 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
             const isRemaining = Boolean(revealedItem?.isRemainingReveal);
             const isStealMatch = Boolean(revealedItem?.isStealMatch);
             const candidateOption = overrideOptionMap.get(rankOrder);
+            const hasAnswer = rankOrder <= totalAnswers || Boolean(revealedItem) || Boolean(candidateOption);
+
+            if (!hasAnswer) {
+              return (
+                <div
+                  key={`empty-slot-${rankOrder}`}
+                  data-testid={`team-board-empty-slot-${rankOrder}`}
+                  className="h-full rounded-xl sm:rounded-2xl border border-slate-800/40 bg-slate-950/30 select-none"
+                />
+              );
+            }
 
             return (
               <div

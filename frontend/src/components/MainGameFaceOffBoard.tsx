@@ -64,6 +64,10 @@ export interface MainGameFaceOffBoardProps {
   onTogglePause?: () => void;
 }
 
+// 8-slot vertical counting layout on host TV board:
+// Row 1: 1, 5 | Row 2: 2, 6 | Row 3: 3, 7 | Row 4: 4, 8
+const HOST_SLOT_RANKS = [1, 5, 2, 6, 3, 7, 4, 8];
+
 export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   snapshot,
   timerTick,
@@ -288,6 +292,22 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     snapshot.phase === 'DEADLOCK_RESET' || timeoutResult?.type === 'DEADLOCK_RESET';
 
   const answers = snapshot.question?.answers || [];
+  const answerByRank = new Map<number, (typeof answers)[0]>();
+  answers.forEach((a) => answerByRank.set(a.rankOrder, a));
+  snapshot.revealedAnswers?.forEach((a) => {
+    if (!answerByRank.has(a.rankOrder)) {
+      answerByRank.set(a.rankOrder, {
+        id: a.id,
+        answerText: a.answerText,
+        points: a.points,
+        rankOrder: a.rankOrder,
+      });
+    }
+  });
+  const totalAnswers = Math.max(
+    answers.length,
+    answerByRank.size
+  );
   const revealedCount =
     revealedRanks.length || (showDeadlockBoard ? answers.length : 0);
 
@@ -788,17 +808,30 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             </span>
           </div>
 
-          <div className="flex-1 min-h-0 w-full h-full max-h-full grid grid-cols-1 sm:grid-cols-2 auto-rows-fr gap-2 sm:gap-2.5 overflow-hidden">
-            {answers.map((answer) => {
-              const isRevealed =
-                revealedRanks.includes(answer.rankOrder) ||
-                showDeadlockBoard;
-              const isNumberOne = answer.rankOrder === 1;
+          <div className="flex-1 min-h-0 w-full h-full max-h-full grid grid-cols-2 grid-rows-4 auto-rows-fr gap-2 sm:gap-2.5 overflow-hidden">
+            {HOST_SLOT_RANKS.map((rankOrder) => {
+              const answer = answerByRank.get(rankOrder);
+              const hasAnswer = Boolean(answer) || rankOrder <= totalAnswers;
 
-              return isRevealed ? (
+              if (!hasAnswer) {
+                return (
+                  <div
+                    key={`face-off-empty-slot-${rankOrder}`}
+                    data-testid={`face-off-empty-slot-${rankOrder}`}
+                    className="h-full rounded-xl border border-slate-800/40 bg-slate-950/30 select-none"
+                  />
+                );
+              }
+
+              const isRevealed =
+                revealedRanks.includes(rankOrder) ||
+                showDeadlockBoard;
+              const isNumberOne = rankOrder === 1;
+
+              return isRevealed && answer ? (
                 <div
-                  key={answer.id}
-                  data-testid={`face-off-card-${answer.rankOrder}`}
+                  key={answer.id || rankOrder}
+                  data-testid={`face-off-card-${rankOrder}`}
                   className={`h-full flex items-center justify-between p-2 sm:p-2.5 2xl:p-3 rounded-xl transition-all duration-300 min-h-[42px] sm:min-h-[50px] ${
                     isNumberOne
                       ? 'bg-gradient-to-r from-amber-500/25 via-yellow-500/20 to-feud-gold/30 border-2 border-feud-gold shadow-[0_0_20px_rgba(234,179,8,0.4)]'
@@ -813,7 +846,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                           : 'bg-blue-600/30 text-blue-300 border border-blue-400/30'
                       }`}
                     >
-                      {answer.rankOrder}
+                      {rankOrder}
                     </span>
                     <div className="min-w-0">
                       <span className="font-black text-white uppercase text-xs sm:text-sm md:text-base tracking-wide block truncate">
@@ -831,7 +864,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                     </div>
                   </div>
                   <span
-                    data-testid={`face-off-points-${answer.rankOrder}`}
+                    data-testid={`face-off-points-${rankOrder}`}
                     className={`font-black text-xs sm:text-sm md:text-base px-2.5 sm:px-3 py-1 rounded-lg shadow-md shrink-0 ${
                       isNumberOne
                         ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950'
@@ -843,12 +876,12 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                 </div>
               ) : (
                 <div
-                  key={answer.id}
-                  data-testid={`face-off-card-concealed-${answer.rankOrder}`}
+                  key={`concealed-${rankOrder}`}
+                  data-testid={`face-off-card-concealed-${rankOrder}`}
                   className="h-full flex items-center justify-between p-2 sm:p-2.5 2xl:p-3 rounded-xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-blue-950/40 border border-slate-800/80 shadow-inner group min-h-[42px] sm:min-h-[50px]"
                 >
                   <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 border border-slate-700 font-extrabold text-xs sm:text-sm text-slate-400 flex items-center justify-center shrink-0">
-                    {answer.rankOrder}
+                    {rankOrder}
                   </span>
                   <div className="flex-1 mx-3 h-2.5 bg-slate-800/50 rounded-full border border-dashed border-slate-700/60" />
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest shrink-0">
