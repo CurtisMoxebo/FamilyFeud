@@ -387,3 +387,33 @@ export function speakSurveySaid(
   const text = SURVEY_SAID_PHRASES[norm] || SURVEY_SAID_PHRASES.EN;
   speakQuestion(text, language, onComplete);
 }
+
+export const PLAYER_SAID_SURVEY_SAID_PHRASES: Record<string, (player: string, answer: string) => string> = {
+  EN: (player: string, answer: string) => `${player} said ${answer}, survey said...`,
+  FR: (player: string, answer: string) => `${player} a dit ${answer}, le sondage dit...`,
+  ES: (player: string, answer: string) => `${player} dijo ${answer}, la encuesta dice...`,
+};
+
+export function getPlayerSaidSurveySaidPhrase(
+  player: string,
+  answer: string,
+  language: string = 'EN'
+): string {
+  const norm = language.toUpperCase();
+  const fn = PLAYER_SAID_SURVEY_SAID_PHRASES[norm] || PLAYER_SAID_SURVEY_SAID_PHRASES.EN;
+  return fn(player, answer);
+}
+
+/**
+ * Host Speech Synthesis for Player Answer Survey Reveal (US-28)
+ * Announces: "{Player} said {Answer}, survey said..." then triggers the callback to reveal the card.
+ */
+export function speakPlayerAnswerSurveySaid(
+  player: string,
+  answer: string,
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
+  const phrase = getPlayerSaidSurveySaidPhrase(player, answer, language);
+  speakQuestion(phrase, language, onComplete);
+}

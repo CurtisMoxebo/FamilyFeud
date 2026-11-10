@@ -454,6 +454,7 @@ export interface FaceOffBoardRevealPayload {
   playerNickname: string;
   playerTeam: 'TEAM_1' | 'TEAM_2';
   isNumberOneAnswer: boolean;
+  rawAnswer?: string;
 }
 
 // US-14: Team Guessing Turn, Board Flips & 3-Strike System Payloads
@@ -587,6 +588,7 @@ export interface MainGameBoardRevealPayload {
   isAllRevealed?: boolean;
   isStealMatch?: boolean;
   isRemainingReveal?: boolean;
+  rawAnswer?: string;
 }
 
 // US-15: 3-Strike Steal Phase & Round Resolution Payloads

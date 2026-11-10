@@ -251,6 +251,7 @@ export const es: TranslationDictionary = {
     buzzerRejected: 'Pulsador rechazado.',
     designatedContenderNotice: '¡Eres el contendiente designado para esta ronda!',
     contender: 'Contendiente',
+    playerSaidSurveySaid: '{player} dijo {answer}, la encuesta dice...',
   },
   admin: {
     pauseTimer: 'Pausar temporizador',

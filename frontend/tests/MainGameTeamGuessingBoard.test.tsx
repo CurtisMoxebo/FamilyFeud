@@ -26,6 +26,9 @@ vi.mock('../src/utils/tts', () => ({
   speakStealPhase: vi.fn(),
   speakStealSuccess: vi.fn(),
   speakStealFailed: vi.fn(),
+  speakPlayerAnswerSurveySaid: vi.fn((_player, _answer, _lang, onComplete) => {
+    onComplete?.();
+  }),
   cancelSpeech: vi.fn(),
   isTtsMuted: vi.fn(() => false),
   setTtsMuted: vi.fn(),
@@ -656,5 +659,128 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       baseSnapshot.question.questionText,
       'EN'
     );
+  });
+
+  it('satisfies US-28: announces player answer and survey said before revealing matched board card', () => {
+    let capturedCallback: (() => void) | undefined;
+    vi.mocked(tts.speakPlayerAnswerSurveySaid).mockImplementation(
+      (_player, _answer, _lang, onComplete) => {
+        capturedCallback = onComplete;
+      }
+    );
+
+    const { rerender } = renderComponent();
+
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={baseSnapshot}
+          roomName="Championship Feud"
+          roomCode="FEUD-9999"
+          boardReveal={{
+            roomCode: 'FEUD-9999',
+            rankOrder: 2,
+            answerText: 'WALLET',
+            points: 25,
+            roundBank: 80,
+            playerId: 'p1',
+            playerNickname: 'Alice',
+            playerTeam: 'TEAM_1',
+            rawAnswer: 'wallet',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakPlayerAnswerSurveySaid).toHaveBeenCalledWith(
+      'Alice',
+      'wallet',
+      'EN',
+      expect.any(Function)
+    );
+
+    // Suspense banner is rendered
+    expect(screen.getByTestId('survey-said-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent(/Alice/i);
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent(/wallet/i);
+
+    // Card 2 is NOT revealed yet while speech is ongoing
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('2');
+    expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('WALLET');
+
+    // Speech finishes: trigger callback
+    act(() => {
+      capturedCallback?.();
+    });
+
+    // Banner dismissed, card 2 revealed with text and points, ding and chime played
+    expect(screen.queryByTestId('survey-said-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('WALLET');
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('25');
+    expect(soundEffects.playCorrectDing).toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(soundEffects.playPointsChime).toHaveBeenCalled();
+  });
+
+  it('satisfies US-28: announces player answer and survey said before triggering strike overlay on miss', () => {
+    let capturedCallback: (() => void) | undefined;
+    vi.mocked(tts.speakPlayerAnswerSurveySaid).mockImplementation(
+      (_player, _answer, _lang, onComplete) => {
+        capturedCallback = onComplete;
+      }
+    );
+
+    const { rerender } = renderComponent();
+
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={baseSnapshot}
+          roomName="Championship Feud"
+          roomCode="FEUD-9999"
+          strikeIssued={{
+            roomCode: 'FEUD-9999',
+            team: 'TEAM_1',
+            strikeCount: 2,
+            maxStrikes: 3,
+            isDuplicate: false,
+            isTimeout: false,
+            player: {
+              id: 'p1',
+              nickname: 'Alice',
+            },
+            rawAnswer: 'Elephant',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakPlayerAnswerSurveySaid).toHaveBeenCalledWith(
+      'Alice',
+      'Elephant',
+      'EN',
+      expect.any(Function)
+    );
+
+    // Suspense banner rendered
+    expect(screen.getByTestId('survey-said-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent(/Alice/i);
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent(/Elephant/i);
+
+    // Strike overlay NOT shown yet while speech is running
+    expect(screen.queryByTestId('giant-strike-overlay')).not.toBeInTheDocument();
+    expect(soundEffects.playStrikeBuzzer).not.toHaveBeenCalled();
+
+    // Speech completes
+    act(() => {
+      capturedCallback?.();
+    });
+
+    // Strike overlay and buzzer now activate
+    expect(screen.queryByTestId('survey-said-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('giant-strike-overlay')).toBeInTheDocument();
+    expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(2);
   });
 });

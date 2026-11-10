@@ -248,6 +248,7 @@ export interface TranslationDictionary {
     buzzerRejected: string;
     designatedContenderNotice: string;
     contender: string;
+    playerSaidSurveySaid: string;
   };
   admin: {
     pauseTimer: string;

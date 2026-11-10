@@ -14,6 +14,7 @@ vi.mock('../src/utils/tts', () => ({
   getPlayOrPassPhrase: vi.fn(),
   isTtsMuted: vi.fn(() => false),
   setTtsMuted: vi.fn(),
+  speakPlayerAnswerSurveySaid: vi.fn((_p, _a, _l, cb) => cb?.()),
 }));
 
 vi.mock('../src/utils/soundEffects', () => ({

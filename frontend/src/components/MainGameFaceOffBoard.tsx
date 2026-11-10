@@ -16,6 +16,7 @@ import {
   speakQuestion,
   cancelSpeech,
   speakPlayOrPassDecision,
+  speakPlayerAnswerSurveySaid,
   isTtsMuted,
   setTtsMuted,
 } from '../utils/tts';
@@ -241,6 +242,77 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   const contender1 = snapshot.team1Contender;
   const contender2 = snapshot.team2Contender;
 
+  const [revealedRanks, setRevealedRanks] = useState<number[]>(() =>
+    snapshot.revealedAnswers?.map((r) => r.rankOrder) || []
+  );
+  const [surveySaidAnnouncement, setSurveySaidAnnouncement] = useState<{
+    player: string;
+    answer: string;
+  } | null>(null);
+
+  const handledGuessesRef = useRef<Set<string>>(new Set());
+
+  // Re-sync revealedRanks on initial load or if snapshot answers already revealed
+  useEffect(() => {
+    const answers = snapshot.revealedAnswers;
+    if (answers && answers.length > 0) {
+      if (!surveySaidAnnouncement) {
+        setRevealedRanks((prev) => {
+          const incoming = answers.map((r) => r.rankOrder);
+          const hasAll = incoming.every((r) => prev.includes(r));
+          return hasAll ? prev : Array.from(new Set([...prev, ...incoming]));
+        });
+      }
+    }
+  }, [snapshot.revealedAnswers, surveySaidAnnouncement]);
+
+  // US-28: "{Player} said {Answer}, survey said..." before revealing answer
+  useEffect(() => {
+    const checkContenderGuess = (
+      guess: typeof snapshot.firstGuessResult,
+      defaultContender?: typeof contender1
+    ) => {
+      if (!guess) return;
+      const key = `${guess.playerId}-${guess.rawAnswer}`;
+      if (handledGuessesRef.current.has(key)) return;
+      handledGuessesRef.current.add(key);
+
+      const playerName = guess.playerNickname || defaultContender?.nickname || 'Contender';
+      const playerAnswer = guess.rawAnswer;
+
+      setSurveySaidAnnouncement({ player: playerName, answer: playerAnswer });
+
+      const onReveal = () => {
+        setSurveySaidAnnouncement(null);
+        if (guess.rankOrder) {
+          setRevealedRanks((prev) =>
+            prev.includes(guess.rankOrder!) ? prev : [...prev, guess.rankOrder!]
+          );
+          playCorrectDing();
+        } else {
+          playBuzzerHit();
+        }
+      };
+
+      if (audioEnabled) {
+        speakPlayerAnswerSurveySaid(playerName, playerAnswer, language, onReveal);
+      } else {
+        const timer = setTimeout(onReveal, 600);
+        return () => clearTimeout(timer);
+      }
+    };
+
+    checkContenderGuess(snapshot.firstGuessResult, contender1);
+    checkContenderGuess(snapshot.secondGuessResult, contender2);
+  }, [
+    snapshot.firstGuessResult,
+    snapshot.secondGuessResult,
+    contender1,
+    contender2,
+    audioEnabled,
+    language,
+  ]);
+
   const isC1Winner = activeWinnerId === contender1?.id;
   const isC2Winner = activeWinnerId === contender2?.id;
 
@@ -252,7 +324,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
 
   const answers = snapshot.question?.answers || [];
   const revealedCount =
-    snapshot.revealedAnswers?.length || (showDeadlockBoard ? answers.length : 0);
+    revealedRanks.length || (showDeadlockBoard ? answers.length : 0);
 
   return (
     <div
@@ -517,6 +589,24 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         </div>
       )}
 
+      {/* Survey Said Suspense Banner (US-28) */}
+      {surveySaidAnnouncement && (
+        <div
+          data-testid="survey-said-banner"
+          className="w-full max-w-xl p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/25 via-yellow-500/30 to-feud-gold/25 border-2 border-feud-gold text-center shadow-[0_0_35px_rgba(234,179,8,0.35)] animate-pulse"
+        >
+          <span className="text-xs font-black uppercase tracking-widest text-yellow-300 block mb-1">
+            {t.host.surveyQuestion}
+          </span>
+          <h3 className="text-xl sm:text-2xl font-black text-white">
+            <span className="text-feud-gold">{surveySaidAnnouncement.player}</span> said &ldquo;{surveySaidAnnouncement.answer}&rdquo;
+          </h3>
+          <p className="text-sm font-extrabold uppercase tracking-widest text-yellow-300 mt-1">
+            Survey said...!
+          </p>
+        </div>
+      )}
+
       {/* Survey Board Grid (US-13 Scenarios 1, 2, 3, 4) */}
       {snapshot.phase !== 'AWAITING_READY' && answers.length > 0 && (
         <div
@@ -536,7 +626,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             {answers.map((answer) => {
               const isRevealed =
-                snapshot.revealedAnswers?.some((r) => r.rankOrder === answer.rankOrder) ||
+                revealedRanks.includes(answer.rankOrder) ||
                 showDeadlockBoard;
               const isNumberOne = answer.rankOrder === 1;
 

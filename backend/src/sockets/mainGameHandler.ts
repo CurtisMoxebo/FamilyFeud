@@ -95,6 +95,7 @@ export interface FaceOffBoardRevealPayload {
   playerNickname: string;
   playerTeam: 'TEAM_1' | 'TEAM_2';
   isNumberOneAnswer: boolean;
+  rawAnswer?: string;
 }
 
 export interface SubmitTeamGuessPayload {
@@ -770,6 +771,7 @@ export function registerMainGameHandlers(
           playerNickname: evalResult.guessResult.playerNickname,
           playerTeam: evalResult.guessResult.playerTeam,
           isNumberOneAnswer: evalResult.guessResult.isNumberOneAnswer,
+          rawAnswer: evalResult.guessResult.rawAnswer,
         };
         io.to(`room:${normalizedCode}`).emit('board_reveal', boardRevealData);
         io.to(`room:${normalizedCode}`).emit('face_off_board_reveal', boardRevealData);
@@ -1091,6 +1093,7 @@ export function registerMainGameHandlers(
             playerId: evalResult.guessResult.playerId,
             playerNickname: evalResult.guessResult.playerNickname,
             playerTeam: evalResult.guessResult.playerTeam,
+            rawAnswer: evalResult.guessResult.rawAnswer,
             isAllRevealed: evalResult.outcome === 'ROUND_CLEARED',
           };
           io.to(`room:${normalizedCode}`).emit('board_reveal', revealData);

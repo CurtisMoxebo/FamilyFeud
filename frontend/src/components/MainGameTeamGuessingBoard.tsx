@@ -31,6 +31,7 @@ import {
   speakStealPhase,
   speakStealSuccess,
   speakStealFailed,
+  speakPlayerAnswerSurveySaid,
   cancelSpeech,
   isTtsMuted,
   setTtsMuted,
@@ -179,9 +180,17 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     }
   }, [snapshot.phase, transitionStealPhase, snapshot.question?.questionText, language, audioEnabled]);
 
+  const [surveySaidAnnouncement, setSurveySaidAnnouncement] = useState<{
+    player: string;
+    answer: string;
+    rankOrder?: number;
+  } | null>(null);
+  const surveySaidAnnouncementRef = useRef(surveySaidAnnouncement);
+  surveySaidAnnouncementRef.current = surveySaidAnnouncement;
+
   // Scenario 2: Cancel host reading on rapid guess submission or strike (US-17 Scenario 2)
   useEffect(() => {
-    if (snapshot.revealedAnswers.length > 0 || (strikeIssued && strikeIssued.strikeCount > 0)) {
+    if (!surveySaidAnnouncementRef.current && (snapshot.revealedAnswers.length > 0 || (strikeIssued && strikeIssued.strikeCount > 0))) {
       cancelSpeech();
     }
   }, [snapshot.revealedAnswers.length, strikeIssued]);
@@ -253,11 +262,16 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     snapshot.opposingTeamPlayers[0];
 
   // Scenario 2 & 4: Trigger Strike Buzzer & Overlay when strikeIssued arrives
+  const handledStrikesRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (strikeIssued && strikeIssued.strikeCount > 0) {
-      const now = Date.now();
-      if (!lastHandledStrikeTimestamp.current || now - lastHandledStrikeTimestamp.current > 300) {
-        lastHandledStrikeTimestamp.current = now;
+      const strikeKey = `${strikeIssued.strikeCount}-${strikeIssued.team || ''}-${strikeIssued.rawAnswer || ''}-${strikeIssued.player?.id || ''}`;
+      if (handledStrikesRef.current.has(strikeKey)) return;
+      handledStrikesRef.current.add(strikeKey);
+
+      lastHandledStrikeTimestamp.current = Date.now();
+
+      const showStrikeOverlayAndBuzzer = () => {
         setActiveStrikeOverlay({
           count: strikeIssued.strikeCount,
           message: strikeIssued.isDuplicate
@@ -274,13 +288,48 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         }, 2200);
 
         return () => clearTimeout(timer);
+      };
+
+      if (strikeIssued.rawAnswer && !strikeIssued.isTimeout && !strikeIssued.isPass) {
+        cancelSpeech();
+
+        const player =
+          strikeIssued.player?.nickname ||
+          snapshot.activePlayer?.nickname ||
+          t.mainGame.contender ||
+          'Player';
+        const answer = strikeIssued.rawAnswer;
+
+        setSurveySaidAnnouncement({ player, answer });
+
+        const onRevealStrike = () => {
+          setSurveySaidAnnouncement(null);
+          showStrikeOverlayAndBuzzer();
+        };
+
+        if (audioEnabled) {
+          speakPlayerAnswerSurveySaid(player, answer, language, onRevealStrike);
+        } else {
+          const timer = setTimeout(onRevealStrike, 600);
+          return () => clearTimeout(timer);
+        }
+      } else {
+        showStrikeOverlayAndBuzzer();
       }
     }
-  }, [strikeIssued, t.mainGame.duplicateAnswerWarning, t.mainGame.notOnBoard]);
+  }, [
+    strikeIssued,
+    audioEnabled,
+    language,
+    snapshot.activePlayer?.nickname,
+    t.mainGame.contender,
+    t.mainGame.duplicateAnswerWarning,
+    t.mainGame.notOnBoard,
+  ]);
 
-  // Scenario 1: Trigger Chime SFX when new cards are revealed
+  // Scenario 1: Trigger Chime SFX when new cards are revealed directly in snapshot (without boardReveal prop)
   useEffect(() => {
-    if (snapshot.revealedAnswers.length > lastRevealedAnswerCount.current || boardReveal) {
+    if (!boardReveal && snapshot.revealedAnswers.length > lastRevealedAnswerCount.current) {
       lastRevealedAnswerCount.current = snapshot.revealedAnswers.length;
       playCorrectDing();
       const chimeTimer = setTimeout(() => {
@@ -289,6 +338,64 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       return () => clearTimeout(chimeTimer);
     }
   }, [snapshot.revealedAnswers.length, boardReveal]);
+
+  // US-28: Announce "{Player} said {Answer}, survey said..." before revealing answer on boardReveal
+  const handledBoardRevealsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!boardReveal || !boardReveal.rankOrder) return;
+    const revealKey = `${boardReveal.rankOrder}-${boardReveal.rawAnswer || boardReveal.answerText}-${boardReveal.points}`;
+    if (handledBoardRevealsRef.current.has(revealKey)) return;
+    handledBoardRevealsRef.current.add(revealKey);
+
+    lastRevealedAnswerCount.current = Math.max(
+      lastRevealedAnswerCount.current,
+      snapshot.revealedAnswers.length
+    );
+
+    // If remaining reveal (e.g. end of round reveals), reveal immediately without announcement
+    if (boardReveal.isRemainingReveal) {
+      playCorrectDing();
+      return;
+    }
+
+    cancelSpeech();
+
+    const player =
+      boardReveal.playerNickname ||
+      snapshot.activePlayer?.nickname ||
+      t.mainGame.contender ||
+      'Player';
+    const answer = boardReveal.rawAnswer || boardReveal.answerText;
+
+    setSurveySaidAnnouncement({
+      player,
+      answer,
+      rankOrder: boardReveal.rankOrder,
+    });
+
+    const onReveal = () => {
+      setSurveySaidAnnouncement(null);
+      playCorrectDing();
+      const chimeTimer = setTimeout(() => {
+        playPointsChime();
+      }, 350);
+      return () => clearTimeout(chimeTimer);
+    };
+
+    if (audioEnabled) {
+      speakPlayerAnswerSurveySaid(player, answer, language, onReveal);
+    } else {
+      const timer = setTimeout(onReveal, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    boardReveal,
+    audioEnabled,
+    language,
+    snapshot.activePlayer?.nickname,
+    t.mainGame.contender,
+    snapshot.revealedAnswers.length,
+  ]);
 
   // Scenario 3: Board Cleared celebration & victory fanfare
   useEffect(() => {
@@ -739,13 +846,32 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </section>
       )}
 
+      {/* Survey Said Suspense Banner (US-28) */}
+      {surveySaidAnnouncement && (
+        <div
+          data-testid="survey-said-banner"
+          className="relative z-20 w-full max-w-xl mx-auto mb-3 sm:mb-4 p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/25 via-yellow-500/30 to-feud-gold/25 border-2 border-feud-gold text-center shadow-[0_0_35px_rgba(234,179,8,0.35)] animate-pulse"
+        >
+          <span className="text-xs font-black uppercase tracking-widest text-yellow-300 block mb-1">
+            {t.host.surveyQuestion}
+          </span>
+          <h3 className="text-xl sm:text-2xl font-black text-white">
+            <span className="text-feud-gold">{surveySaidAnnouncement.player}</span>{' '}
+            said &ldquo;{surveySaidAnnouncement.answer}&rdquo;...{' '}
+            <span className="text-yellow-300">Survey said!</span>
+          </h3>
+        </div>
+      )}
+
       {/* Answer Board Card Grid (4 to 8 Flip Cards) with Steal Match & Board Clearance Highlighting */}
       <main className="relative z-10 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex-1 flex flex-col justify-center">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 2xl:gap-5 p-4 md:p-6 2xl:p-8 bg-slate-900/80 border-2 border-blue-900/60 rounded-3xl shadow-2xl backdrop-blur-sm">
           {Array.from({ length: totalSlots }).map((_, idx) => {
             const rankOrder = idx + 1;
             const revealedItem = revealedMap.get(rankOrder);
-            const isRevealed = Boolean(revealedItem);
+            const isRevealed =
+              Boolean(revealedItem) &&
+              surveySaidAnnouncement?.rankOrder !== rankOrder;
             const isRemaining = Boolean(revealedItem?.isRemainingReveal);
             const isStealMatch = Boolean(revealedItem?.isStealMatch);
             const candidateOption = overrideOptionMap.get(rankOrder);

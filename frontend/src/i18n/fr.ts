@@ -251,6 +251,7 @@ export const fr: TranslationDictionary = {
     buzzerRejected: 'Buzzer refusé.',
     designatedContenderNotice: 'Vous êtes le candidat désigné pour cette manche !',
     contender: 'Candidat',
+    playerSaidSurveySaid: '{player} a dit {answer}, le sondage dit...',
   },
   admin: {
     pauseTimer: 'Mettre en pause',

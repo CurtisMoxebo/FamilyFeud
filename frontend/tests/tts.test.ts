@@ -28,6 +28,7 @@ import {
   STEAL_SUCCESS_PHRASES,
   speakStealFailed,
   STEAL_FAILED_PHRASES,
+  speakPlayerAnswerSurveySaid,
 } from '../src/utils/tts';
 
 describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
@@ -641,6 +642,24 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(STEAL_FAILED_PHRASES.EN('Team 1', 50)).toBe('Steal failed! Team 1 retains 50 points!');
       expect(STEAL_FAILED_PHRASES.FR('Équipe 1', 50)).toBe("Vol échoué ! L'Équipe 1 conserve 50 points !");
       expect(STEAL_FAILED_PHRASES.ES('Equipo 1', 50)).toBe('¡Robo fallido! ¡El Equipo 1 retiene 50 puntos!');
+    });
+
+    it('satisfies US-28: speaks "{Player} said {Answer}, survey said..." across languages', () => {
+      const onComplete = vi.fn();
+      mockSpeak.mockClear();
+
+      speakPlayerAnswerSurveySaid('Alice', 'Car', 'EN', onComplete);
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Alice said Car, survey said...');
+      mockSpeak.mock.calls[0][0].onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+
+      mockSpeak.mockClear();
+      speakPlayerAnswerSurveySaid('Alice', 'Voiture', 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Alice a dit Voiture, le sondage dit...');
+
+      mockSpeak.mockClear();
+      speakPlayerAnswerSurveySaid('Alice', 'Auto', 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Alice dijo Auto, la encuesta dice...');
     });
   });
 });
