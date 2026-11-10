@@ -668,9 +668,10 @@ function _useSocketInternal(options?: UseSocketOptions) {
       setGameOver(payload);
     });
 
-    // Main Game Face-Off Listeners (US-12)
+    // Main Game Face-Off Listeners (US-12 & US-28)
     socket.on('face_off_state', (state: FaceOffSessionState) => {
       setFaceOffState(state);
+      setTeamGuessingState(null);
     });
 
     socket.on('buzzer_locked', (payload: BuzzerLockedPayload) => {
@@ -763,6 +764,13 @@ function _useSocketInternal(options?: UseSocketOptions) {
 
     socket.on('next_round_started', (payload: NextRoundStartedPayload) => {
       setNextRoundStarted(payload);
+      setTeamGuessingState(null);
+      setRoundWinner(null);
+      setRoundCleared(null);
+      setStealResolved(null);
+      setMainGameBoardReveal(null);
+      setStrikeIssued(null);
+      setTransitionStealPhase(null);
       setGamePaused(null);
       setHostOverrideOptions([]);
       setAnswerOverrideAck(null);

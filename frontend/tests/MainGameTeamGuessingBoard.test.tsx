@@ -599,4 +599,62 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       'EN'
     );
   });
+
+  it('satisfies US-28: re-speaks survey question when the next player has to answer', () => {
+    const { rerender } = render(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'TEAM_GUESSING',
+            revealedAnswers: [],
+            activePlayer: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+          }}
+          timerTick={null}
+          strikeIssued={null}
+          roundCleared={null}
+          transitionStealPhase={null}
+          boardReveal={null}
+          stealResolved={null}
+          roundWinner={null}
+          language="EN"
+          roomName="Test Room"
+          roomCode="FEUD-9999"
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakQuestion).toHaveBeenCalledTimes(1);
+
+    // Turn advances to Player 2
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'TEAM_GUESSING',
+            revealedAnswers: [],
+            activePlayer: { id: 'p2', nickname: 'David', team: 'TEAM_1', battingOrder: 2 },
+          }}
+          timerTick={null}
+          strikeIssued={null}
+          roundCleared={null}
+          transitionStealPhase={null}
+          boardReveal={null}
+          stealResolved={null}
+          roundWinner={null}
+          language="EN"
+          roomName="Test Room"
+          roomCode="FEUD-9999"
+        />
+      </LanguageProvider>
+    );
+
+    // Speaks question again for the next player
+    expect(tts.speakQuestion).toHaveBeenCalledTimes(2);
+    expect(tts.speakQuestion).toHaveBeenLastCalledWith(
+      baseSnapshot.question.questionText,
+      'EN'
+    );
+  });
 });

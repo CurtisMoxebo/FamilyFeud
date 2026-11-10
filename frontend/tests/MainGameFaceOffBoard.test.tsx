@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import React from 'react';
 import { MainGameFaceOffBoard } from '../src/components/MainGameFaceOffBoard';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
@@ -125,9 +125,9 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     // Armed cue visible
     expect(screen.getByTestId('buzzers-armed-cue')).toBeInTheDocument();
 
-    // TTS initiated
+    // TTS initiated with Top N answers announcement (US-28)
     expect(ttsModule.speakQuestion).toHaveBeenCalledWith(
-      'Name something people often lose',
+      'Top 3 answers on the board. Name something people often lose',
       'EN'
     );
   });
@@ -472,5 +472,44 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     fireEvent.click(toggleBtn);
     expect(ttsModule.setTtsMuted).toHaveBeenCalledWith(false);
     expect(toggleBtn).toHaveAttribute('title', 'Mute Sounds & TTS');
+  });
+
+  it('satisfies US-28: reads question aloud when contender is answering and when opponent is prompted', async () => {
+    vi.useFakeTimers();
+
+    const answeringSnapshot: FaceOffSessionState = {
+      ...baseSnapshot,
+      phase: 'ANSWERING',
+      buzzerLocked: true,
+      buzzedPlayerId: 'p1',
+      activeRespondentId: 'p1',
+    };
+
+    renderBoard({ snapshot: answeringSnapshot });
+    vi.advanceTimersByTime(200);
+
+    expect(ttsModule.speakQuestion).toHaveBeenCalledWith(
+      'Name something people often lose',
+      'EN'
+    );
+
+    cleanup();
+
+    const opponentSnapshot: FaceOffSessionState = {
+      ...baseSnapshot,
+      phase: 'OPPONENT_GUESS',
+      buzzerLocked: true,
+      activeRespondentId: 'p2',
+    };
+
+    renderBoard({ snapshot: opponentSnapshot });
+    vi.advanceTimersByTime(200);
+
+    expect(ttsModule.speakQuestion).toHaveBeenCalledWith(
+      'Name something people often lose',
+      'EN'
+    );
+
+    vi.useRealTimers();
   });
 });

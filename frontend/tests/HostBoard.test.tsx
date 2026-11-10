@@ -1028,4 +1028,85 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     expect(resumeSpy).toHaveBeenCalled();
   });
+
+  it('satisfies US-28: shows MainGameTeamsStage when teamsAssigned is received and advances to Face-Off when Proceed is clicked', async () => {
+    const user = userEvent.setup();
+    const mainGameRoomEN: Room = {
+      id: 'room-main-showcase',
+      roomCode: 'FEUD-9999',
+      roomName: 'Family Feud US-28',
+      language: 'EN',
+      gameMode: 'MAIN_GAME',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    };
+
+    const mockTeamsPayload: TeamsAssignedPayload = {
+      roomCode: 'FEUD-9999',
+      team1: [
+        { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+        { id: 'p2', nickname: 'Bob', team: 'TEAM_1', battingOrder: 2 },
+      ],
+      team2: [
+        { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        { id: 'p4', nickname: 'David', team: 'TEAM_2', battingOrder: 2 },
+      ],
+    };
+
+    const mockFaceOffState: FaceOffSessionState = {
+      roomCode: 'FEUD-9999',
+      gameId: 'game-9999',
+      roundNumber: 1,
+      language: 'EN',
+      phase: 'BUZZER_ACTIVE',
+      question: {
+        id: 'q-99',
+        questionText: 'Name something in your fridge',
+        answers: [{ id: 'a1', answerText: 'MILK', points: 40, rankOrder: 1 }],
+      },
+      team1Players: mockTeamsPayload.team1,
+      team2Players: mockTeamsPayload.team2,
+      team1Contender: { ...mockTeamsPayload.team1[0], isReady: true },
+      team2Contender: { ...mockTeamsPayload.team2[0], isReady: true },
+      buzzerLocked: false,
+      buzzedPlayerId: null,
+      buzzedPlayerNickname: null,
+      buzzedPlayerTeam: null,
+      buzzedAtTimestamp: null,
+      activeRespondentId: null,
+      attemptedPlayerIds: [],
+      initialBuzzerWinnerId: null,
+      timerDurationSeconds: 15,
+      firstGuessResult: null,
+      secondGuessResult: null,
+      winningContenderId: null,
+      winningContenderTeam: null,
+      passOrPlayChoice: null,
+      controllingTeam: null,
+      revealedAnswers: [],
+    };
+
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      teamsAssigned: mockTeamsPayload,
+      faceOffState: mockFaceOffState,
+    } as any);
+
+    cleanup();
+    renderWithProviders(<HostBoard roomCode="FEUD-9999" initialRoom={mainGameRoomEN} />, '/host/FEUD-9999');
+
+    // 1. Teams stage is displayed first
+    expect(screen.getByTestId('main-game-teams-stage')).toBeInTheDocument();
+    expect(screen.getByTestId('teams-assigned-title')).toBeInTheDocument();
+    expect(screen.queryByTestId('main-game-face-off-board')).not.toBeInTheDocument();
+
+    // 2. Click Start Face-Off button
+    const startFaceOffBtn = screen.getByTestId('start-face-off-btn');
+    expect(startFaceOffBtn).toBeInTheDocument();
+    await user.click(startFaceOffBtn);
+
+    // 3. Transitions to Face-Off board
+    expect(screen.getByTestId('main-game-face-off-board')).toBeInTheDocument();
+    expect(screen.queryByTestId('main-game-teams-stage')).not.toBeInTheDocument();
+  });
 });

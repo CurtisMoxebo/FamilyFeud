@@ -169,6 +169,8 @@ export interface TranslationDictionary {
     versus: string;
     teamRoster: string;
     readyForFaceOff: string;
+    startFaceOffBtn: string;
+    topAnswersOnBoard: string;
     faceOffTitle: string;
     roundNumber: string;
     faceOffContenders: string;

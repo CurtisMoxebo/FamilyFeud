@@ -172,6 +172,8 @@ export const fr: TranslationDictionary = {
     versus: 'VS',
     teamRoster: 'Composition {team}',
     readyForFaceOff: 'Préparez-vous pour le Face-à-face !',
+    startFaceOffBtn: 'Démarrer le Face-à-Face',
+    topAnswersOnBoard: 'Les {count} meilleures réponses sur le tableau.',
     faceOffTitle: 'Duel du Face-à-face',
     roundNumber: 'Manche {round}',
     faceOffContenders: 'Candidats au Face-à-face',

@@ -137,20 +137,47 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     };
   }, []);
 
-  // Scenario 1 & US-17: Trigger TTS reading of question when team guessing phase begins
-  const lastSpokenQuestionId = useRef<string | null>(null);
+  // Scenario 1, US-17 & US-28: Trigger TTS reading of question when team guessing phase begins
+  // and every time a player has to answer the question (subsequent teammates)
+  const lastSpokenPlayerTurn = useRef<string | null>(null);
   useEffect(() => {
-    if (
-      snapshot.phase === 'TEAM_GUESSING' &&
-      snapshot.question?.id &&
-      lastSpokenQuestionId.current !== snapshot.question.id
-    ) {
-      lastSpokenQuestionId.current = snapshot.question.id;
-      if (audioEnabled) {
-        speakQuestion(snapshot.question.questionText, language);
+    if (snapshot.phase === 'TEAM_GUESSING' && snapshot.question?.questionText) {
+      const playerId = snapshot.activePlayer?.id || 'initial';
+      const turnKey = `${snapshot.question.id}-${playerId}-${snapshot.strikes}`;
+      if (lastSpokenPlayerTurn.current !== turnKey) {
+        lastSpokenPlayerTurn.current = turnKey;
+        if (audioEnabled) {
+          speakQuestion(snapshot.question.questionText, language);
+        }
       }
     }
-  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, language, audioEnabled]);
+  }, [
+    snapshot.phase,
+    snapshot.question?.id,
+    snapshot.question?.questionText,
+    snapshot.activePlayer?.id,
+    snapshot.strikes,
+    language,
+    audioEnabled,
+  ]);
+
+  // Steal phase: speak question for the steal spokesperson
+  const hasSpokenStealQuestion = useRef<boolean>(false);
+  useEffect(() => {
+    if (
+      (snapshot.phase === 'STEAL_PHASE' || Boolean(transitionStealPhase)) &&
+      snapshot.question?.questionText &&
+      !hasSpokenStealQuestion.current
+    ) {
+      hasSpokenStealQuestion.current = true;
+      if (audioEnabled) {
+        const timer = setTimeout(() => {
+          speakQuestion(snapshot.question.questionText, language);
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [snapshot.phase, transitionStealPhase, snapshot.question?.questionText, language, audioEnabled]);
 
   // Scenario 2: Cancel host reading on rapid guess submission or strike (US-17 Scenario 2)
   useEffect(() => {
@@ -402,14 +429,14 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
   return (
     <div
-      className="w-full min-h-screen min-h-dvh-safe bg-slate-950 text-white flex flex-col p-4 md:p-6 2xl:px-10 3xl:px-14 rounded-3xl select-none relative overflow-hidden"
+      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto bg-slate-950 text-white flex flex-col p-3 sm:p-4 md:p-5 2xl:px-10 3xl:px-14 rounded-2xl sm:rounded-3xl select-none relative overflow-hidden"
       data-testid="main-game-team-guessing-board"
     >
       {/* Dynamic Background Glow */}
       <div className="absolute inset-0 bg-radial-gradient from-blue-900/20 via-transparent to-transparent pointer-events-none" />
 
       {/* Persistent Grand Total Header (US-16 Scenario 1 & 2) */}
-      <div className="relative z-20 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto mb-4">
+      <div className="relative z-20 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto mb-2.5 sm:mb-3">
         <MainGameScoreboardHeader
           team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
           team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
@@ -421,7 +448,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       </div>
 
       {/* Top TV Stage Navigation Bar */}
-      <header className="relative z-10 flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+      <header className="relative z-10 flex items-center justify-between border-b border-slate-800 pb-2.5 mb-2.5 sm:pb-3 sm:mb-3">
         <div className="flex items-center gap-3">
           {onLeave && (
             <button
@@ -525,17 +552,17 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       </header>
 
       {/* Prominent Survey Question Display */}
-      <section className="relative z-10 w-full max-w-4xl 2xl:max-w-6xl 3xl:max-w-[1440px] 4k:max-w-[1800px] mx-auto mb-6">
-        <div className="p-4 md:p-6 2xl:p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/40 shadow-2xl text-center relative overflow-hidden">
+      <section className="relative z-10 w-full max-w-4xl 2xl:max-w-6xl 3xl:max-w-[1440px] 4k:max-w-[1800px] mx-auto mb-3 sm:mb-4">
+        <div className="p-3 sm:p-4 2xl:p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/40 shadow-2xl text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-80" />
-          <h2 className="text-xl md:text-3xl 2xl:text-4xl 3xl:text-5xl font-black text-yellow-300 tracking-wide drop-shadow-md">
+          <h2 className="text-xl md:text-2xl 2xl:text-3xl 3xl:text-4xl font-black text-yellow-300 tracking-wide drop-shadow-md">
             "{snapshot.question.questionText}"
           </h2>
         </div>
       </section>
 
       {/* Main Game Stage Scoreboard & Centerpieces */}
-      <div className="relative z-10 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+      <div className="relative z-10 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
         {/* Active Guesser / Steal Spokesperson & Timer */}
         <div className="flex items-center gap-4 bg-slate-900/90 border border-slate-700 px-5 py-3 rounded-2xl shadow-lg w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-3">

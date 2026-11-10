@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AssignedTeamPlayer } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
-import { Tv, Swords, ArrowLeft, Sparkles, Shield } from 'lucide-react';
+import { Tv, Swords, ArrowLeft, Sparkles, Shield, Play } from 'lucide-react';
 
 export interface MainGameTeamsStageProps {
   roomCode: string;
@@ -9,6 +9,7 @@ export interface MainGameTeamsStageProps {
   team1: AssignedTeamPlayer[];
   team2: AssignedTeamPlayer[];
   onLeave?: () => void;
+  onProceedToFaceOff?: () => void;
 }
 
 export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
@@ -17,20 +18,37 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
   team1,
   team2,
   onLeave,
+  onProceedToFaceOff,
 }) => {
   const { t } = useTranslation();
+  const [countdown, setCountdown] = useState<number>(10);
+
+  useEffect(() => {
+    if (!onProceedToFaceOff) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          onProceedToFaceOff();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [onProceedToFaceOff]);
 
   return (
     <div
       data-testid="main-game-teams-stage"
-      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-8 animate-fadeIn"
+      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-3 sm:gap-4 2xl:gap-5 animate-fadeIn"
     >
       {/* Stage Header Banner */}
-      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-feud-slate-border/80 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-feud-blue-light/50 border border-feud-blue-glow/30 text-feud-gold">
-              <Tv className="w-7 h-7" />
+      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 2xl:p-6 shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-feud-slate-border/80 pb-3 sm:pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 sm:p-2.5 rounded-xl bg-feud-blue-light/50 border border-feud-blue-glow/30 text-feud-gold">
+              <Tv className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -47,7 +65,7 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
                   {roomCode}
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5">
                 {roomName}
               </h1>
             </div>
@@ -58,7 +76,7 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
               type="button"
               onClick={onLeave}
               data-testid="teams-stage-back-btn"
-              className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>{t.lobby.leaveLobby}</span>
@@ -67,20 +85,20 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
         </div>
 
         {/* Stage Title and Announcement */}
-        <div className="mt-6 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-feud-gold/10 border border-feud-gold/30 text-feud-gold text-xs font-bold uppercase tracking-widest mb-3">
-            <Sparkles className="w-4 h-4" />
+        <div className="mt-3 sm:mt-4 text-center">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-feud-gold/10 border border-feud-gold/30 text-feud-gold text-[11px] font-bold uppercase tracking-widest mb-1.5">
+            <Sparkles className="w-3.5 h-3.5" />
             <span>{t.lobby.rosterTitle}</span>
           </div>
           <h2
             data-testid="teams-assigned-title"
-            className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-feud-gold-light via-feud-gold to-yellow-200 tracking-wide drop-shadow-md"
+            className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-feud-gold-light via-feud-gold to-yellow-200 tracking-wide drop-shadow-md"
           >
             {t.mainGame.teamsAssignedTitle}
           </h2>
           <p
             data-testid="teams-assigned-subtitle"
-            className="text-slate-300 text-sm sm:text-base mt-2 max-w-xl mx-auto"
+            className="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl mx-auto"
           >
             {t.mainGame.teamsAssignedSubtitle}
           </p>
@@ -88,11 +106,11 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
       </div>
 
       {/* Dual Column Teams Grid with VS Emblem */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-stretch gap-6">
+      <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-stretch gap-4 sm:gap-6">
         {/* Team 1 Column (Blue Accent) */}
         <div
           data-testid="team-1-column"
-          className="flex flex-col bg-slate-900/85 border-2 border-blue-500/40 rounded-3xl p-6 sm:p-7 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-xl relative overflow-hidden"
+          className="flex flex-col bg-slate-900/85 border-2 border-blue-500/40 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_0_30px_rgba(59,130,246,0.15)] backdrop-blur-xl relative overflow-hidden"
         >
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 via-sky-400 to-blue-500" />
           
@@ -161,7 +179,7 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
         {/* Team 2 Column (Red/Rose Accent) */}
         <div
           data-testid="team-2-column"
-          className="flex flex-col bg-slate-900/85 border-2 border-rose-500/40 rounded-3xl p-6 sm:p-7 shadow-[0_0_30px_rgba(244,63,94,0.15)] backdrop-blur-xl relative overflow-hidden"
+          className="flex flex-col bg-slate-900/85 border-2 border-rose-500/40 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_0_30px_rgba(244,63,94,0.15)] backdrop-blur-xl relative overflow-hidden"
         >
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-600 via-pink-400 to-rose-500" />
 
@@ -213,16 +231,30 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
         </div>
       </div>
 
-      {/* Footer Face-Off Banner */}
+      {/* Footer Face-Off Banner & Start Face-Off Action */}
       <div
         data-testid="face-off-banner"
-        className="w-full bg-gradient-to-r from-feud-blue via-feud-blue-dark to-feud-blue border border-feud-gold/40 rounded-2xl p-6 text-center shadow-2xl flex flex-col sm:flex-row items-center justify-center gap-4 animate-pulse"
+        className="w-full bg-gradient-to-r from-feud-blue via-feud-blue-dark to-feud-blue border border-feud-gold/40 rounded-2xl p-5 text-center shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4"
       >
-        <Swords className="w-7 h-7 text-feud-gold" />
-        <span className="text-lg sm:text-xl font-black text-white uppercase tracking-wider drop-shadow-md">
-          {t.mainGame.readyForFaceOff}
-        </span>
-        <Sparkles className="w-6 h-6 text-feud-gold" />
+        <div className="flex items-center gap-3">
+          <Swords className="w-6 h-6 text-feud-gold animate-pulse" />
+          <span className="text-base sm:text-lg font-black text-white uppercase tracking-wider drop-shadow-md">
+            {t.mainGame.readyForFaceOff}
+          </span>
+          <Sparkles className="w-5 h-5 text-feud-gold" />
+        </div>
+
+        {onProceedToFaceOff && (
+          <button
+            type="button"
+            data-testid="start-face-off-btn"
+            onClick={onProceedToFaceOff}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 font-extrabold text-sm sm:text-base uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-105 transition-all duration-200 cursor-pointer animate-pulse"
+          >
+            <Play className="w-4 h-4 fill-slate-950" />
+            <span>{t.mainGame.startFaceOffBtn} ({countdown}s)</span>
+          </button>
+        )}
       </div>
     </div>
   );
