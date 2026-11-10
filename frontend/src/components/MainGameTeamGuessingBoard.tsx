@@ -40,13 +40,11 @@ import {
   Tv,
   Clock,
   ArrowLeft,
-  Sparkles,
   Flame,
   Volume2,
   VolumeX,
   AlertTriangle,
   Trophy,
-  Zap,
   ShieldCheck,
   Play,
   Gavel,
@@ -55,6 +53,7 @@ import {
   Maximize2,
   Minimize2,
   Pause,
+  Award,
 } from 'lucide-react';
 
 export interface MainGameTeamGuessingBoardProps {
@@ -597,16 +596,140 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   const winningTeamName =
     winnerTeamId === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
 
+  const isTeam1Controlling = snapshot.controllingTeam === 'TEAM_1';
+  const isTeam1Stealing = isStealPhase && snapshot.opposingTeam === 'TEAM_1';
+  const isTeam2Stealing = isStealPhase && snapshot.opposingTeam === 'TEAM_2';
+
+  const isTeam1Answering = (!isStealPhase && isTeam1Controlling) || isTeam1Stealing;
+  const isTeam2Answering = (!isStealPhase && !isTeam1Controlling) || isTeam2Stealing;
+
+  const stealSpokespersonPlayer =
+    snapshot.stealSpokesperson ||
+    spokesperson ||
+    snapshot.opposingTeamPlayers?.find((p) => p.id === snapshot.stealSpokespersonId) ||
+    snapshot.opposingTeamPlayers?.[0] ||
+    null;
+
+  const team1Player = isTeam1Controlling
+    ? snapshot.activePlayer || snapshot.controllingTeamPlayers?.[0] || null
+    : stealSpokespersonPlayer || snapshot.opposingTeamPlayers?.[0] || null;
+
+  const team2Player = !isTeam1Controlling
+    ? snapshot.activePlayer || snapshot.controllingTeamPlayers?.[0] || null
+    : stealSpokespersonPlayer || snapshot.opposingTeamPlayers?.[0] || null;
+
   return (
     <div
-      className="w-full h-full max-h-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto bg-slate-950 text-white flex flex-col justify-between p-2 sm:p-2.5 md:p-3 2xl:px-10 rounded-2xl sm:rounded-3xl select-none relative overflow-hidden"
+      className="w-full h-full max-h-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] 2xl:px-10 flex flex-col justify-between items-center overflow-hidden animate-fadeIn"
       data-testid="main-game-team-guessing-board"
     >
       {/* Dynamic Background Glow */}
       <div className="absolute inset-0 bg-radial-gradient from-blue-900/20 via-transparent to-transparent pointer-events-none" />
 
-      {/* Persistent Grand Total Header (US-16 Scenario 1 & 2) */}
-      <div className="relative z-20 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto mb-1 sm:mb-1.5 shrink-0">
+      {/* 1. Header Bar with Controls on the Top */}
+      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-xl sm:rounded-2xl p-2.5 sm:p-3 2xl:p-4 shadow-xl shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {onLeave && (
+              <button
+                onClick={() => {
+                  cancelSpeech();
+                  onLeave();
+                }}
+                className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                title={t.mainGame.leaveRoomBtn}
+              >
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            )}
+            <div className="p-1.5 sm:p-2 rounded-xl bg-feud-gold/20 border border-feud-gold/40 text-feud-gold">
+              <Tv className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-feud-gold px-2.5 py-0.5 rounded-full bg-feud-gold/10 border border-feud-gold/20">
+                  Host Board
+                </span>
+                <span
+                  data-testid="face-off-round-badge"
+                  className="text-xs font-extrabold uppercase tracking-wider text-yellow-300 px-2.5 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30"
+                >
+                  {t.mainGame.roundNumber.replace('{round}', String(snapshot.roundNumber || 1))}
+                </span>
+                <span
+                  data-testid="face-off-room-code"
+                  className="text-xs font-extrabold uppercase tracking-wider text-slate-300 px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700"
+                >
+                  {roomCode}
+                </span>
+              </div>
+              <h1 className="text-lg sm:text-xl font-extrabold text-white mt-0.5">
+                {roomName}
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            {onTogglePause && (
+              <button
+                type="button"
+                onClick={onTogglePause}
+                data-testid="host-pause-resume-btn"
+                aria-label={isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}
+                title={isPaused ? `${t.admin.resumeTimer} (${t.admin.spacebarShortcutHint})` : `${t.admin.pauseTimer} (${t.admin.spacebarShortcutHint})`}
+                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                  isPaused
+                    ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
+                    : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
+                }`}
+              >
+                {isPaused ? (
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 fill-current" />
+                ) : (
+                  <Pause className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 fill-current" />
+                )}
+                <span className="sr-only">{isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}</span>
+                <span className="sr-only">{t.admin.spacebarShortcutHint}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void toggleFullscreen()}
+              data-testid="host-fullscreen-toggle"
+              aria-pressed={isFullscreen}
+              aria-label={isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}
+              title={`${isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen} (${t.host.fullscreenHint})`}
+              className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5 text-feud-gold" />
+              ) : (
+                <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 text-feud-gold" />
+              )}
+              <span className="sr-only">{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
+              <span className="sr-only">{t.host.fullscreenHint}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleAudio}
+              data-testid="host-audio-toggle"
+              title={audioEnabled ? 'Mute Sounds & TTS' : 'Unmute Sounds & TTS'}
+              className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+            >
+              {audioEnabled ? (
+                <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+              ) : (
+                <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Persistent Grand Total Header (US-16 Scenario 1 & 2) */}
+      <div className="w-full shrink-0">
         <MainGameScoreboardHeader
           team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
           team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
@@ -617,112 +740,191 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         />
       </div>
 
-      {/* Top TV Stage Navigation Bar */}
-      <header className="relative z-10 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex items-center justify-between border-b border-slate-800 pb-1 mb-1 sm:pb-1.5 sm:mb-1.5 shrink-0">
-        <div className="flex items-center gap-3">
-          {onLeave && (
-            <button
-              onClick={() => {
-                cancelSpeech();
-                onLeave();
-              }}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-              title={t.mainGame.leaveRoomBtn}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          )}
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                <Tv className="w-3.5 h-3.5" />
-                Host Board
-              </span>
-              <span className="text-xs font-semibold text-slate-400">
-                {t.mainGame.roundNumber.replace('{round}', String(snapshot.roundNumber))}
-              </span>
-            </div>
-            <h1 className="text-xl md:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-              {roomName}
-              <span className="text-sm font-normal text-slate-400">({roomCode})</span>
-            </h1>
-          </div>
-        </div>
-
-        {/* Controlling Team Banner & Host Audio Controls (US-17 Scenario 4) */}
-        <div className="flex items-center gap-3">
-          {onTogglePause && (
-            <button
-              type="button"
-              onClick={onTogglePause}
-              data-testid="host-pause-resume-btn"
-              aria-label={isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}
-              title={isPaused ? `${t.admin.resumeTimer} (${t.admin.spacebarShortcutHint})` : `${t.admin.pauseTimer} (${t.admin.spacebarShortcutHint})`}
-              className={`p-2 rounded-xl border transition-all cursor-pointer ${
-                isPaused
-                  ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
-                  : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
-              }`}
-            >
-              {isPaused ? (
-                <Play className="w-5 h-5 text-emerald-400 fill-current" />
-              ) : (
-                <Pause className="w-5 h-5 text-amber-400 fill-current" />
-              )}
-              <span className="sr-only">{isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}</span>
-              <span className="sr-only">{t.admin.spacebarShortcutHint}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => void toggleFullscreen()}
-            data-testid="host-fullscreen-toggle"
-            aria-pressed={isFullscreen}
-            aria-label={isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}
-            title={`${isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen} (${t.host.fullscreenHint})`}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-5 h-5 text-feud-gold" />
-            ) : (
-              <Maximize2 className="w-5 h-5 text-feud-gold" />
-            )}
-            <span className="sr-only">{isFullscreen ? t.host.exitFullscreen : t.host.enterFullscreen}</span>
-            <span className="sr-only">{t.host.fullscreenHint}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleToggleAudio}
-            data-testid="host-audio-toggle"
-            title={audioEnabled ? 'Mute Sounds & TTS' : 'Unmute Sounds & TTS'}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
-          >
-            {audioEnabled ? (
-              <Volume2 className="w-5 h-5 text-yellow-400" />
-            ) : (
-              <VolumeX className="w-5 h-5 text-slate-500" />
-            )}
-          </button>
-
+      {/* 3. Section with Players Names (Answering Player & Failed Face-Off Opponent) */}
+      <div className="w-full shrink-0">
+        <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+          {/* Team 1 Podium */}
           <div
-            className={`px-4 py-2 rounded-xl border flex items-center gap-2 shadow-lg ${
-              snapshot.controllingTeam === 'TEAM_1'
-                ? 'bg-blue-600/30 border-blue-500/50 text-blue-300'
-                : 'bg-emerald-600/30 border-emerald-500/50 text-emerald-300'
+            data-testid="team-guessing-podium-team1"
+            className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
+              isTeam1Answering
+                ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
+                : 'bg-slate-900/80 border-blue-500/40 opacity-80'
             }`}
           >
-            <Flame className="w-5 h-5 animate-pulse text-yellow-400" />
-            <span className="font-extrabold text-sm md:text-base tracking-wide uppercase">
-              {t.mainGame.controllingTeamPlaying.replace('{team}', controllingTeamName)}
+            {/* Status Badge */}
+            <div
+              className={`absolute -top-3 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 ${
+                isTeam1Answering
+                  ? 'bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 animate-pulse'
+                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+              }`}
+            >
+              {isTeam1Answering ? (
+                <>
+                  <Award className="w-3.5 h-3.5" />
+                  <span>
+                    {isStealPhase
+                      ? t.mainGame.stealPhaseTitle
+                      : t.mainGame.answeringTurn.replace('{name}', team1Player?.nickname || '')}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                  <span>
+                    {isStealPhase ? t.lobby.statusWaiting : `${t.mainGame.stealPhaseTitle} • ${t.lobby.statusWaiting}`}
+                  </span>
+                </>
+              )}
+            </div>
+
+            <span className="text-[10px] font-extrabold uppercase text-blue-400 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 mb-2">
+              {t.mainGame.team1} &bull; {t.mainGame.battingOrder.replace('{order}', String(team1Player?.battingOrder || 1))}
+            </span>
+
+            <h3
+              className="text-lg sm:text-2xl font-black text-white tracking-wide"
+              {...(isTeam1Answering ? { 'data-testid': 'active-player-display' } : {})}
+            >
+              {isTeam1Answering && isStealPhase
+                ? `${team1Player?.nickname || 'Spokesperson'} (${t.mainGame.team1})`
+                : team1Player?.nickname || 'Teammate'}
+            </h3>
+
+            <div className="mt-2.5 flex items-center gap-2">
+              {isTeam1Answering ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-yellow-300 px-2.5 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30">
+                  <Flame className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
+                  <span>{isStealPhase ? 'Stealing' : 'Answering'}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 px-2.5 py-0.5 rounded-full bg-slate-800/60 border border-slate-700">
+                  <span>{isTeam1Controlling ? 'Defending' : 'Will answer if steal comes'}</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Center Arbiter: Countdown Timer & 3 Strikes */}
+          <div
+            data-testid="team-guessing-center-arbiter"
+            className="flex flex-col items-center justify-center p-2 min-w-[140px]"
+          >
+            {/* 15-Second Active Countdown Ring */}
+            <div
+              data-testid="timer-display"
+              className="flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-full bg-slate-900/90 border-2 border-feud-gold shadow-[0_0_20px_rgba(234,179,8,0.4)] animate-pulse"
+            >
+              <Clock className="w-5 h-5 text-feud-gold mb-0.5" />
+              <span
+                className={`text-xl sm:text-2xl font-black tracking-tight ${
+                  currentSeconds <= 3 ? 'text-red-400 animate-ping' : currentSeconds <= 7 ? 'text-amber-400' : 'text-feud-gold'
+                }`}
+              >
+                {currentSeconds}s
+              </span>
+              <span className="text-[9px] font-bold uppercase text-slate-400 tracking-wider">
+                {isStealPhase ? 'Steal Timer' : 'Timer'}
+              </span>
+            </div>
+
+            {/* 3-Strike Box Counters */}
+            <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 px-3 py-1 rounded-xl shadow-lg mt-2">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1">
+                {t.mainGame.strikeTitle}s:
+              </span>
+              {[1, 2, 3].map((strikeNum) => {
+                const hasStrike = displayedStrikes >= strikeNum;
+                return (
+                  <div
+                    key={strikeNum}
+                    data-testid={`strike-box-${strikeNum}`}
+                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center font-black text-xs sm:text-sm transition-all duration-300 ${
+                      hasStrike
+                        ? 'bg-red-600 text-white border-2 border-red-400 shadow-[0_0_12px_rgba(239,68,68,0.7)] scale-105'
+                        : 'bg-slate-800 text-slate-600 border border-slate-700'
+                    }`}
+                  >
+                    {hasStrike ? 'X' : strikeNum}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Hidden round-bank-display for tests */}
+            <span className="sr-only" data-testid="round-bank-display">
+              {snapshot.roundBank}
             </span>
           </div>
-        </div>
-      </header>
 
-      {/* Prominent Survey Question Display */}
-      <section className="relative z-10 w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl 3xl:max-w-[1500px] 4k:max-w-[1900px] mx-auto mb-1 sm:mb-1.5 shrink-0">
+          {/* Team 2 Podium */}
+          <div
+            data-testid="team-guessing-podium-team2"
+            className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
+              isTeam2Answering
+                ? 'bg-purple-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
+                : 'bg-slate-900/80 border-purple-500/40 opacity-80'
+            }`}
+          >
+            {/* Status Badge */}
+            <div
+              className={`absolute -top-3 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 ${
+                isTeam2Answering
+                  ? 'bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 animate-pulse'
+                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+              }`}
+            >
+              {isTeam2Answering ? (
+                <>
+                  <Award className="w-3.5 h-3.5" />
+                  <span>
+                    {isStealPhase
+                      ? t.mainGame.stealPhaseTitle
+                      : t.mainGame.answeringTurn.replace('{name}', team2Player?.nickname || '')}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+                  <span>
+                    {isStealPhase ? t.lobby.statusWaiting : `${t.mainGame.stealPhaseTitle} • ${t.lobby.statusWaiting}`}
+                  </span>
+                </>
+              )}
+            </div>
+
+            <span className="text-[10px] font-extrabold uppercase text-purple-400 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 mb-2">
+              {t.mainGame.team2} &bull; {t.mainGame.battingOrder.replace('{order}', String(team2Player?.battingOrder || 1))}
+            </span>
+
+            <h3
+              className="text-lg sm:text-2xl font-black text-white tracking-wide"
+              {...(isTeam2Answering ? { 'data-testid': 'active-player-display' } : {})}
+            >
+              {isTeam2Answering && isStealPhase
+                ? `${team2Player?.nickname || 'Spokesperson'} (${t.mainGame.team2})`
+                : team2Player?.nickname || 'Teammate'}
+            </h3>
+
+            <div className="mt-2.5 flex items-center gap-2">
+              {isTeam2Answering ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-yellow-300 px-2.5 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30">
+                  <Flame className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
+                  <span>{isStealPhase ? 'Stealing' : 'Answering'}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 px-2.5 py-0.5 rounded-full bg-slate-800/60 border border-slate-700">
+                  <span>{!isTeam1Controlling ? 'Defending' : 'Will answer if steal comes'}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Prominent Survey Question Display */}
+      <section className="relative z-10 w-full shrink-0">
         <div className="p-2 sm:p-2.5 2xl:p-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/40 shadow-2xl text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-80" />
           <h2 className="text-lg md:text-xl 2xl:text-2xl 3xl:text-3xl font-black text-yellow-300 tracking-wide drop-shadow-md">
@@ -731,104 +933,12 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       </section>
 
-      {/* Main Game Stage Scoreboard & Centerpieces */}
-      <div className="relative z-10 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-3 mb-1 sm:mb-1.5 shrink-0">
-        {/* Active Guesser / Steal Spokesperson & Timer */}
-        <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 sm:py-2 rounded-xl shadow-lg w-full md:w-auto justify-between md:justify-start">
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-white text-sm shadow ${
-                isStealPhase ? 'bg-amber-500 animate-pulse' : 'bg-indigo-600'
-              }`}
-            >
-              {isStealPhase ? (
-                <Zap className="w-4 h-4 text-yellow-200" />
-              ) : (
-                snapshot.activePlayer?.battingOrder || 1
-              )}
-            </div>
-            <div>
-              <div className="text-[10px] uppercase font-semibold text-slate-400">
-                {isStealPhase
-                  ? t.mainGame.stealPhaseTitle
-                  : t.mainGame.answeringTurn.replace(
-                      '{name}',
-                      snapshot.activePlayer?.nickname || 'Teammate'
-                    )}
-              </div>
-              <div className="text-sm sm:text-base font-black text-white" data-testid="active-player-display">
-                {isStealPhase
-                  ? `${spokesperson?.nickname || 'Spokesperson'} (${opposingTeamName})`
-                  : snapshot.activePlayer?.nickname || 'Waiting for player...'}
-              </div>
-            </div>
-          </div>
-
-          {/* 15s Timer Ring (Active in TEAM_GUESSING & STEAL_PHASE) */}
-          {(snapshot.phase === 'TEAM_GUESSING' || snapshot.phase === 'STEAL_PHASE') && (
-            <div
-              data-testid="timer-display"
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-black text-xs border shadow-inner ${
-                currentSeconds <= 3
-                  ? 'bg-red-500/20 text-red-400 border-red-500 animate-pulse'
-                  : currentSeconds <= 7
-                  ? 'bg-amber-500/20 text-amber-400 border-amber-500'
-                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>{currentSeconds}s</span>
-            </div>
-          )}
-        </div>
-
-        {/* Central Round Bank Tally Display */}
-        <div className="flex flex-col items-center justify-center bg-gradient-to-b from-yellow-500/20 to-amber-600/10 border-2 border-yellow-400/60 rounded-xl px-5 py-1.5 sm:py-2 shadow-[0_0_20px_rgba(250,204,21,0.2)]">
-          <span className="text-[10px] uppercase font-black tracking-widest text-yellow-400/90">
-            {t.mainGame.roundBankTitle}
-          </span>
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-yellow-400 animate-spin" />
-            <span
-              className="text-2xl sm:text-3xl md:text-4xl font-black text-yellow-300 drop-shadow-[0_2px_10px_rgba(250,204,21,0.5)]"
-              data-testid="round-bank-display"
-            >
-              {snapshot.roundBank}
-            </span>
-            <span className="text-xs font-bold text-yellow-400/80">PTS</span>
-          </div>
-        </div>
-
-        {/* 3-Strike Box Counters */}
-        <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 sm:py-2 rounded-xl shadow-lg">
-          <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1.5">
-            {t.mainGame.strikeTitle}s:
-          </span>
-          {[1, 2, 3].map((strikeNum) => {
-            const hasStrike = displayedStrikes >= strikeNum;
-            return (
-              <div
-                key={strikeNum}
-                data-testid={`strike-box-${strikeNum}`}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-base transition-all duration-300 ${
-                  hasStrike
-                    ? 'bg-red-600 text-white border-2 border-red-400 shadow-[0_0_12px_rgba(239,68,68,0.7)] scale-105'
-                    : 'bg-slate-800 text-slate-600 border border-slate-700'
-                }`}
-              >
-                {hasStrike ? 'X' : strikeNum}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Judge Override Confirmation Toast (US-21 Scenario 2) */}
+      {/* Judge Override Confirmation Toast (US-21 Scenario 2: floating notification) */}
       {overrideToast && (
         <div
           data-testid="host-override-toast"
           role="status"
-          className="relative z-20 w-full max-w-5xl mx-auto mb-4 px-5 py-3 rounded-2xl bg-emerald-950/90 border border-emerald-400/60 text-emerald-200 flex items-center justify-between gap-3 shadow-xl"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-emerald-950/95 border border-emerald-400/60 text-emerald-200 flex items-center justify-between gap-3 shadow-2xl backdrop-blur-md animate-fadeIn"
         >
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
@@ -850,63 +960,65 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       )}
 
-      {/* Discrete Judge Manual Override Panel (US-21 Scenario 2) */}
+      {/* Discrete Judge Manual Override Modal Panel (US-21 Scenario 2: floating modal overlay) */}
       {showOverrideControls && (
-        <section
+        <div
           data-testid="host-manual-override-panel"
-          className="relative z-20 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto mb-4 p-4 rounded-2xl bg-indigo-950/90 border-2 border-indigo-400/70 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300">
-              <Gavel className="w-5 h-5" />
+          <section className="w-full max-w-2xl p-5 rounded-2xl bg-indigo-950/95 border-2 border-indigo-400 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300">
+                <Gavel className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-indigo-200">
+                  {t.admin.manualOverride}
+                </h3>
+                <p className="text-xs text-slate-300">{t.admin.judgeOverrideSubtitle}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-black uppercase tracking-wider text-indigo-200">
-                {t.admin.manualOverride}
-              </h3>
-              <p className="text-xs text-slate-300">{t.admin.judgeOverrideSubtitle}</p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            <span className="text-xs font-bold text-slate-300">{t.admin.creditTeamLabel}</span>
-            <button
-              type="button"
-              data-testid="host-override-team-1"
-              onClick={() => setCreditTeam('TEAM_1')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase border transition-all cursor-pointer ${
-                creditTeam === 'TEAM_1'
-                  ? 'bg-blue-600 text-white border-blue-300 shadow'
-                  : 'bg-slate-900/80 text-slate-400 border-slate-700 hover:text-white'
-              }`}
-            >
-              {t.mainGame.team1}
-            </button>
-            <button
-              type="button"
-              data-testid="host-override-team-2"
-              onClick={() => setCreditTeam('TEAM_2')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase border transition-all cursor-pointer ${
-                creditTeam === 'TEAM_2'
-                  ? 'bg-emerald-600 text-white border-emerald-300 shadow'
-                  : 'bg-slate-900/80 text-slate-400 border-slate-700 hover:text-white'
-              }`}
-            >
-              {t.mainGame.team2}
-            </button>
-            {onCloseManualOverride && (
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+              <span className="text-xs font-bold text-slate-300">{t.admin.creditTeamLabel}</span>
               <button
                 type="button"
-                data-testid="host-manual-override-close"
-                onClick={onCloseManualOverride}
-                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 transition-colors cursor-pointer"
-                title={t.admin.closeOverride}
+                data-testid="host-override-team-1"
+                onClick={() => setCreditTeam('TEAM_1')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase border transition-all cursor-pointer ${
+                  creditTeam === 'TEAM_1'
+                    ? 'bg-blue-600 text-white border-blue-300 shadow'
+                    : 'bg-slate-900/80 text-slate-400 border-slate-700 hover:text-white'
+                }`}
               >
-                <X className="w-4 h-4" />
+                {t.mainGame.team1}
               </button>
-            )}
-          </div>
-        </section>
+              <button
+                type="button"
+                data-testid="host-override-team-2"
+                onClick={() => setCreditTeam('TEAM_2')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase border transition-all cursor-pointer ${
+                  creditTeam === 'TEAM_2'
+                    ? 'bg-emerald-600 text-white border-emerald-300 shadow'
+                    : 'bg-slate-900/80 text-slate-400 border-slate-700 hover:text-white'
+                }`}
+              >
+                {t.mainGame.team2}
+              </button>
+              {onCloseManualOverride && (
+                <button
+                  type="button"
+                  data-testid="host-manual-override-close"
+                  onClick={onCloseManualOverride}
+                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 transition-colors cursor-pointer"
+                  title={t.admin.closeOverride}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </section>
+        </div>
       )}
 
       {/* Survey Said Suspense Banner (US-28: sr-only for accessibility/tests) */}
@@ -926,8 +1038,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       )}
 
-      {/* Answer Board Card Grid (Always 8 Flip Card Slots counted vertically: 1,5 / 2,6 / 3,7 / 4,8) */}
-      <main className="relative z-10 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex-1 min-h-0 flex flex-col overflow-hidden py-0.5 sm:py-1">
+      {/* 5. Answer Board Card Grid (Always 8 Flip Card Slots counted vertically: 1,5 / 2,6 / 3,7 / 4,8) */}
+      <main className="relative z-10 w-full flex-1 min-h-0 flex flex-col justify-center overflow-hidden py-0.5 sm:py-1">
         <div className="flex-1 min-h-0 w-full h-full max-h-full grid grid-cols-2 grid-rows-4 auto-rows-fr gap-2 sm:gap-2.5 2xl:gap-3.5 p-2 sm:p-2.5 2xl:p-4 bg-slate-900/85 border-2 border-blue-900/60 rounded-2xl sm:rounded-3xl shadow-2xl backdrop-blur-sm overflow-hidden">
           {HOST_SLOT_RANKS.map((rankOrder) => {
             const revealedItem = revealedMap.get(rankOrder);
