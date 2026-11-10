@@ -909,19 +909,19 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </section>
       )}
 
-      {/* Survey Said Suspense Banner (US-28) */}
+      {/* Survey Said Suspense Banner (US-28: sr-only for accessibility/tests) */}
       {surveySaidAnnouncement && (
         <div
           data-testid="survey-said-banner"
-          className="relative z-20 w-full max-w-xl mx-auto mb-3 sm:mb-4 p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/25 via-yellow-500/30 to-feud-gold/25 border-2 border-feud-gold text-center shadow-[0_0_35px_rgba(234,179,8,0.35)] animate-pulse"
+          className="sr-only"
         >
-          <span className="text-xs font-black uppercase tracking-widest text-yellow-300 block mb-1">
+          <span>
             {t.host.surveyQuestion}
           </span>
-          <h3 className="text-xl sm:text-2xl font-black text-white">
-            <span className="text-feud-gold">{surveySaidAnnouncement.player}</span>{' '}
+          <h3>
+            <span>{surveySaidAnnouncement.player}</span>{' '}
             said &ldquo;{surveySaidAnnouncement.answer}&rdquo;...{' '}
-            <span className="text-yellow-300">Survey said!</span>
+            <span>Survey said!</span>
           </h3>
         </div>
       )}

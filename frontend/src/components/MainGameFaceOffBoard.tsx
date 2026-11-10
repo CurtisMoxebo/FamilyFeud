@@ -37,7 +37,6 @@ import {
   AlertTriangle,
   Award,
   Sparkles,
-  Flame,
   Maximize2,
   Minimize2,
   Play,
@@ -706,89 +705,88 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             </div>
           </div>
 
-      {/* Opponent Challenge Banner (US-13 Scenarios 2 & 4) */}
+      {/* Opponent Challenge Banner (US-13 Scenarios 2 & 4: sr-only for accessibility/tests) */}
       {snapshot.phase === 'OPPONENT_GUESS' && (
         <div
           data-testid="face-off-opponent-challenge-banner"
-          className="w-full p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-950/90 via-slate-900 to-blue-950/90 border-2 border-blue-400/70 text-center shadow-xl animate-fadeIn"
+          className="sr-only"
         >
-          <div className="flex items-center justify-center gap-2 text-blue-300 font-extrabold text-sm sm:text-base">
-            <Flame className="w-5 h-5 text-amber-400 animate-bounce" />
-            <span>
-              {snapshot.firstGuessResult?.isMatched && snapshot.firstGuessResult.points > 0
-                ? t.mainGame.canYouBeat
-                    .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
-                    .replace('{points}', String(snapshot.firstGuessResult.points))
-                : t.mainGame.opponentChance.replace('{contender}', snapshot.firstGuessResult?.playerNickname || contender1?.nickname || 'Contender')}
-            </span>
-          </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mt-1 block">
+          <span>
+            {snapshot.firstGuessResult?.isMatched && snapshot.firstGuessResult.points > 0
+              ? t.mainGame.canYouBeat
+                  .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
+                  .replace('{points}', String(snapshot.firstGuessResult.points))
+              : t.mainGame.opponentChance.replace('{contender}', snapshot.firstGuessResult?.playerNickname || contender1?.nickname || 'Contender')}
+          </span>
+          <span>
             {contender2?.nickname} has 15 seconds to buzz in and steal control!
           </span>
         </div>
       )}
 
-      {/* Pass or Play Prompt Banner (US-13 Scenarios 1, 3, 4) */}
+      {/* Pass or Play Prompt Modal Overlay (US-13 Scenarios 1, 3, 4) */}
       {snapshot.phase === 'PASS_OR_PLAY' && (
         <div
           data-testid="face-off-pass-play-banner"
-          className="w-full p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/25 to-yellow-500/20 border-2 border-feud-gold text-center shadow-[0_0_35px_rgba(234,179,8,0.3)] animate-pulse"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
         >
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Sparkles className="w-5 h-5 text-feud-gold" />
-            <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wider">
-              {t.mainGame.passOrPlayTitle}
-            </h2>
-            <Sparkles className="w-5 h-5 text-feud-gold" />
+          <div className="w-full max-w-xl p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/25 to-yellow-500/20 border-2 border-feud-gold text-center shadow-[0_0_50px_rgba(234,179,8,0.4)] backdrop-blur-xl">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Sparkles className="w-6 h-6 text-feud-gold" />
+              <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-wider">
+                {t.mainGame.passOrPlayTitle}
+              </h2>
+              <Sparkles className="w-6 h-6 text-feud-gold" />
+            </div>
+            <p className="text-base sm:text-lg font-bold text-yellow-200">
+              {t.mainGame.waitingForWinnerChoice.replace(
+                '{winner}',
+                snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName
+              )}
+            </p>
           </div>
-          <p className="text-sm sm:text-base font-bold text-yellow-200">
-            {t.mainGame.waitingForWinnerChoice.replace(
-              '{winner}',
-              snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName
-            )}
-          </p>
         </div>
       )}
 
-      {/* Round Control Assigned Banner (US-13 Scenarios 6 & 7) */}
+      {/* Round Control Assigned Modal Overlay (US-13 Scenarios 6 & 7) */}
       {(snapshot.phase === 'ROUND_CONTROL_ASSIGNED' || roundControlAssigned) && (
         <div
           data-testid="face-off-control-assigned-banner"
-          className={`w-full p-5 sm:p-6 rounded-3xl border-2 text-center shadow-2xl animate-fadeIn ${
-            (snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
-              ? 'bg-gradient-to-r from-green-950/90 via-slate-900 to-green-950/90 border-green-400 shadow-[0_0_30px_rgba(34,197,94,0.35)]'
-              : 'bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.35)]'
-          }`}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
         >
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Award className="w-6 h-6 text-feud-gold animate-bounce" />
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-wide">
-              {(snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
-                ? t.mainGame.teamChosePlay.replace('{team}', controllingTeam === 'TEAM_2' ? '2' : '1')
-                : t.mainGame.controlPassesTo.replace('{team}', controllingTeam === 'TEAM_2' ? '2' : '1')}
-            </h2>
+          <div
+            className={`w-full max-w-xl p-6 sm:p-8 rounded-3xl border-2 text-center shadow-[0_0_50px_rgba(34,197,94,0.4)] backdrop-blur-xl ${
+              (snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
+                ? 'bg-gradient-to-r from-green-950/95 via-slate-900 to-green-950/95 border-green-400'
+                : 'bg-gradient-to-r from-amber-950/95 via-slate-900 to-amber-950/95 border-amber-400'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Award className="w-7 h-7 text-feud-gold animate-bounce" />
+              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-wide">
+                {(snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
+                  ? t.mainGame.teamChosePlay.replace('{team}', controllingTeam === 'TEAM_2' ? '2' : '1')
+                  : t.mainGame.controlPassesTo.replace('{team}', controllingTeam === 'TEAM_2' ? '2' : '1')}
+              </h2>
+            </div>
+            <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-slate-300 mt-1">
+              Transitioning to Team Guessing Round...
+            </p>
           </div>
-          <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-slate-300 mt-1">
-            Transitioning to Team Guessing Round...
-          </p>
         </div>
       )}
 
-      {/* Survey Said Suspense Banner (US-28) */}
+      {/* Survey Said Suspense Banner (US-28: sr-only for accessibility/tests) */}
       {surveySaidAnnouncement && (
         <div
           data-testid="survey-said-banner"
-          className="w-full max-w-xl p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/25 via-yellow-500/30 to-feud-gold/25 border-2 border-feud-gold text-center shadow-[0_0_35px_rgba(234,179,8,0.35)] animate-pulse"
+          className="sr-only"
         >
-          <span className="text-xs font-black uppercase tracking-widest text-yellow-300 block mb-1">
-            {t.host.surveyQuestion}
-          </span>
-          <h3 className="text-xl sm:text-2xl font-black text-white">
-            <span className="text-feud-gold">{surveySaidAnnouncement.player}</span> said &ldquo;{surveySaidAnnouncement.answer}&rdquo;
+          <span>{t.host.surveyQuestion}</span>
+          <h3>
+            <span>{surveySaidAnnouncement.player}</span> said &ldquo;{surveySaidAnnouncement.answer}&rdquo;
           </h3>
-          <p className="text-sm font-extrabold uppercase tracking-widest text-yellow-300 mt-1">
-            Survey said...!
-          </p>
+          <p>Survey said...!</p>
         </div>
       )}
 
@@ -894,16 +892,16 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         </div>
       )}
 
-      {/* Answer Submission / Resolved Stage */}
+      {/* Answer Submission / Resolved Stage (sr-only for accessibility/tests) */}
       {snapshot.submittedAnswer && (
         <div
           data-testid="face-off-submitted-answer"
-          className="w-full max-w-lg p-5 rounded-3xl bg-slate-900/90 border-2 border-feud-gold text-center shadow-2xl animate-fadeIn"
+          className="sr-only"
         >
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+          <span>
             {activeWinnerName}&apos;s Submitted Answer
           </span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-white mt-1 text-feud-gold uppercase">
+          <div>
             &ldquo;{snapshot.submittedAnswer}&rdquo;
           </div>
         </div>
