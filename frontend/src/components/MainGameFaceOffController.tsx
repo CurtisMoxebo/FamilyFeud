@@ -226,8 +226,8 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
     <div
       data-testid="main-game-face-off-controller"
       data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
-      className={`max-w-md w-full max-w-[100%] overflow-x-hidden bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl ${
-        isKeyboardOpen ? 'p-3 gap-2.5' : 'p-4 sm:p-8 gap-4 sm:gap-6'
+      className={`max-w-md w-full max-w-[100%] overflow-x-hidden bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl ${
+        isKeyboardOpen ? 'p-2.5 gap-2' : 'h-full max-h-full justify-between p-3 sm:p-5 gap-2 sm:gap-3 overflow-hidden'
       } pb-safe shadow-2xl animate-fadeIn flex flex-col items-center text-center`}
     >
       {/* Persistent Grand Total Header (US-16 Scenario 1 Mobile) */}
@@ -245,7 +245,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       </div>
 
       {/* Header Info */}
-      <div className="w-full flex items-center justify-between border-b border-feud-slate-border/80 pb-4">
+      <div className="w-full flex items-center justify-between border-b border-feud-slate-border/80 pb-2 sm:pb-3">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-feud-gold px-2.5 py-0.5 rounded-full bg-feud-gold/10 border border-feud-gold/20">
             {t.mainGame.faceOffTitle}
@@ -430,7 +430,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
             /* Giant Mobile Tactile Buzzer Button (US-22 Scenarios 2 & 3) */
             <div
               data-testid="face-off-buzzer-zone"
-              className="w-full flex-1 min-h-[260px] flex flex-col items-center justify-center gap-3 my-2"
+              className="w-full flex-1 min-h-[260px] flex flex-col items-center justify-center gap-2 my-1"
             >
               <button
                 type="button"
@@ -450,12 +450,12 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                     if (onBuzz) onBuzz();
                   }
                 }}
-                className="w-56 h-56 sm:w-64 sm:h-64 max-w-[75vw] max-h-[75vw] min-w-touch min-h-touch touch-target touch-manipulation rounded-full bg-gradient-to-b from-red-500 via-feud-red to-red-800 border-8 border-yellow-400 shadow-[0_0_50px_rgba(239,68,68,0.6)] text-white font-black text-3xl sm:text-4xl uppercase tracking-widest flex flex-col items-center justify-center gap-2 transform active:scale-90 hover:brightness-110 transition-all cursor-pointer select-none animate-pulse disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-56 h-56 max-w-[75vw] max-h-[75vw] min-w-touch min-h-touch touch-target touch-manipulation rounded-full bg-gradient-to-b from-red-500 via-feud-red to-red-800 border-8 border-yellow-400 shadow-[0_0_40px_rgba(239,68,68,0.6)] text-white font-black text-2xl sm:text-3xl uppercase tracking-widest flex flex-col items-center justify-center gap-1.5 transform active:scale-90 hover:brightness-110 transition-all cursor-pointer select-none animate-pulse disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Zap className="w-12 h-12 text-yellow-300" />
+                <Zap className="w-9 h-9 text-yellow-300" />
                 <span>{t.mainGame.buzzerBtn}</span>
               </button>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                 Tap to Buzz In First!
               </span>
             </div>

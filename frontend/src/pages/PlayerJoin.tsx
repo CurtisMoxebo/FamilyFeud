@@ -389,7 +389,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     if (isFastMoney && fastMoneyP1State && isPlayer1) {
       const activePlayerId = currentPlayer?.id || 'player-1';
       return (
-        <div className="w-full flex flex-col items-center">
+        <div className="w-full h-full max-h-full flex flex-col items-center justify-between overflow-hidden">
           {renderPausedBanner()}
           <FastMoneyController
             snapshot={fastMoneyP1State}
@@ -431,7 +431,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     ) {
       const activePlayerId = currentPlayer?.id || 'player-2';
       return (
-        <div className="w-full flex flex-col items-center">
+        <div className="w-full h-full max-h-full flex flex-col items-center justify-between overflow-hidden">
           {renderPausedBanner()}
           <FastMoneyController
             snapshot={fastMoneyP2State as any}
@@ -499,7 +499,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     // Main Game Team Guessing Controller (US-14)
     if (!isFastMoney && teamGuessingState) {
       return (
-        <div className="w-full flex flex-col items-center">
+        <div className="w-full h-full max-h-full flex flex-col items-center justify-between overflow-hidden">
           {renderPausedBanner()}
           <MainGameTeamController
             snapshot={teamGuessingState}
@@ -536,7 +536,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     // Main Game Face-Off Controller (US-12 & US-13)
     if (!isFastMoney && faceOffState) {
       return (
-        <div className="w-full flex flex-col items-center">
+        <div className="w-full h-full max-h-full flex flex-col items-center justify-between overflow-hidden">
           {renderPausedBanner()}
           <MainGameFaceOffController
             snapshot={faceOffState}
@@ -645,44 +645,44 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     return (
       <div
         data-testid="player-waiting-lobby"
-        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/90 backdrop-blur-xl border border-green-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl animate-fade-in text-center"
+        className="max-w-md w-full max-w-[100%] max-h-full flex flex-col justify-between overflow-hidden pb-safe bg-feud-slate-card/90 backdrop-blur-xl border border-green-500/30 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl animate-fade-in text-center"
       >
-        <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-400 mx-auto flex items-center justify-center mb-4">
-          <CheckCircle2 className="w-10 h-10" />
+        <div className="w-12 h-12 rounded-full bg-green-500/20 text-green-400 mx-auto flex items-center justify-center mb-2">
+          <CheckCircle2 className="w-7 h-7" />
         </div>
-        <h2 className="text-2xl font-extrabold text-white mb-1">
+        <h2 className="text-xl font-extrabold text-white mb-0.5">
           Welcome, {nickname.trim()}!
         </h2>
-        <p className="text-slate-300 text-sm mb-4">
+        <p className="text-slate-300 text-xs mb-2">
           You are connected to <span className="font-bold text-feud-gold">{room.roomName}</span>.
         </p>
 
         {/* Live Status Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-700/80 text-xs font-semibold text-slate-300 mb-6">
-          <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-ping" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-700/80 text-[11px] font-semibold text-slate-300 mb-3 mx-auto">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-ping" />
           <span data-testid="player-waiting-status">{t.lobby.waitingForHost}</span>
         </div>
 
         {/* Live Lobby Roster */}
         {playersList.length > 0 && (
-          <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-4 mb-6 text-left">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+          <div className="w-full bg-slate-900/60 border border-slate-800 rounded-xl p-3 mb-3 text-left flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
               <span>{t.lobby.rosterTitle}</span>
               <span data-testid="player-roster-count">
                 {roomState?.playerCount ?? playersList.length} /{' '}
                 {roomState?.maxPlayers ?? (isFastMoney ? 2 : 10)}
               </span>
             </div>
-            <div data-testid="player-roster-list" className="flex flex-col gap-2">
+            <div data-testid="player-roster-list" className="flex flex-col gap-1.5 overflow-y-auto max-h-[160px] sm:max-h-[220px]">
               {playersList.map((p) => (
                 <div
                   key={p.id}
                   data-testid={`player-roster-item-${p.nickname}`}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs text-white"
+                  className="flex items-center justify-between p-2 rounded-lg bg-slate-800/70 border border-slate-700/60 text-xs text-white"
                 >
-                  <span className="font-semibold">{p.nickname}</span>
+                  <span className="font-semibold truncate mr-2">{p.nickname}</span>
                   <span
-                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                    className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
                       p.isConnected
                         ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                         : 'bg-red-500/10 text-red-400 border border-red-500/20'
@@ -700,7 +700,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           type="button"
           data-testid="player-lobby-leave-btn"
           onClick={() => navigate('/')}
-          className="touch-target min-h-touch inline-flex items-center justify-center gap-2 text-xs font-semibold text-slate-400 hover:text-white px-4 py-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors cursor-pointer"
+          className="touch-target min-h-touch inline-flex items-center justify-center gap-2 text-xs font-semibold text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>{t.lobby.backHome}</span>

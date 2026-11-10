@@ -294,7 +294,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   return (
     <div
       data-testid="main-game-face-off-board"
-      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-3 sm:gap-4 2xl:gap-5 animate-fadeIn"
+      className="w-full h-full max-h-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col justify-between items-center overflow-hidden animate-fadeIn"
     >
       {/* Persistent Grand Total Header (US-16 Scenario 1) */}
       <div className="w-full">
@@ -309,11 +309,11 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       </div>
 
       {/* Header Bar */}
-      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 2xl:p-6 shadow-2xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-feud-slate-border/80 pb-3 sm:pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 sm:p-2.5 rounded-xl bg-feud-gold/20 border border-feud-gold/40 text-feud-gold">
-              <Tv className="w-6 h-6" />
+      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-xl sm:rounded-2xl p-2.5 sm:p-3 2xl:p-4 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-feud-slate-border/80 pb-2 sm:pb-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="p-1.5 sm:p-2 rounded-xl bg-feud-gold/20 border border-feud-gold/40 text-feud-gold">
+              <Tv className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -333,7 +333,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                   {roomCode}
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5">
+              <h1 className="text-lg sm:text-xl font-extrabold text-white mt-0.5">
                 {roomName}
               </h1>
             </div>
@@ -410,16 +410,16 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         </div>
 
         {/* Survey Question Banner */}
-        <div className="mt-3 sm:mt-4">
+        <div className="mt-2 sm:mt-2.5">
           {snapshot.phase === 'AWAITING_READY' ? (
             <div
               data-testid="face-off-awaiting-banner"
-              className="p-4 sm:p-5 rounded-2xl bg-slate-800/60 border border-dashed border-slate-700 text-center"
+              className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-800/60 border border-dashed border-slate-700 text-center"
             >
-              <h2 className="text-lg sm:text-xl font-bold text-slate-200">
+              <h2 className="text-base sm:text-lg font-bold text-slate-200">
                 {t.mainGame.readyForFaceOff}
               </h2>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
                 {t.mainGame.faceOffContenders}: {contender1?.nickname} {t.mainGame.versus}{' '}
                 {contender2?.nickname}
               </p>
@@ -427,28 +427,28 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           ) : (
             <div
               data-testid="face-off-question-banner"
-              className="p-4 sm:p-5 2xl:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-blue-950/80 via-slate-900/90 to-slate-950 border-2 border-feud-gold/60 shadow-[0_0_35px_rgba(234,179,8,0.2)] text-center relative overflow-hidden"
+              className="p-2.5 sm:p-3.5 2xl:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-b from-blue-950/80 via-slate-900/90 to-slate-950 border-2 border-feud-gold/60 shadow-[0_0_25px_rgba(234,179,8,0.2)] text-center relative overflow-hidden"
             >
-              <div className="absolute top-2 right-4 flex items-center gap-1.5 text-[11px] font-bold text-feud-gold uppercase tracking-wider">
+              <div className="absolute top-1.5 right-3 flex items-center gap-1.5 text-[10px] font-bold text-feud-gold uppercase tracking-wider">
                 {audioEnabled ? (
                   <>
-                    <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+                    <Volume2 className="w-3 h-3 animate-pulse" />
                     <span>{t.host.hostTts}</span>
                   </>
                 ) : (
                   <>
-                    <VolumeX className="w-3.5 h-3.5 text-slate-500" />
+                    <VolumeX className="w-3 h-3 text-slate-500" />
                     <span className="text-slate-500">{t.host.hostTtsMuted}</span>
                   </>
                 )}
               </div>
 
-              <span className="text-[11px] font-extrabold text-feud-gold-light uppercase tracking-widest block mb-1">
+              <span className="text-[10px] font-extrabold text-feud-gold-light uppercase tracking-widest block mb-0.5">
                 {t.host.surveyQuestion}
               </span>
               <h2
                 data-testid="face-off-question-text"
-                className="text-xl sm:text-2xl lg:text-3xl 2xl:text-4xl font-extrabold text-white leading-tight drop-shadow-md"
+                className="text-lg sm:text-xl lg:text-2xl 2xl:text-3xl font-extrabold text-white leading-tight drop-shadow-md"
               >
                 &ldquo;{snapshot.question?.questionText}&rdquo;
               </h2>
@@ -576,11 +576,11 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       {snapshot.phase !== 'AWAITING_READY' && answers.length > 0 && (
         <div
           data-testid="face-off-survey-board"
-          className="w-full bg-slate-950/80 border-2 border-feud-gold/40 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-md"
+          className="w-full bg-slate-950/80 border-2 border-feud-gold/40 rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 shadow-xl backdrop-blur-md"
         >
-          <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
+          <div className="flex items-center justify-between mb-2 border-b border-slate-800 pb-2">
             <span className="text-xs font-black uppercase tracking-widest text-feud-gold flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-feud-gold" />
+              <Sparkles className="w-3.5 h-3.5 text-feud-gold" />
               Survey Board
             </span>
             <span className="text-xs font-semibold text-slate-400">
@@ -588,7 +588,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
             {answers.map((answer) => {
               const isRevealed =
                 revealedRanks.includes(answer.rankOrder) ||
@@ -599,15 +599,15 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                 <div
                   key={answer.id}
                   data-testid={`face-off-card-${answer.rankOrder}`}
-                  className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl transition-all duration-300 ${
+                  className={`flex items-center justify-between p-2 sm:p-2.5 rounded-xl transition-all duration-300 ${
                     isNumberOne
-                      ? 'bg-gradient-to-r from-amber-500/25 via-yellow-500/20 to-feud-gold/30 border-2 border-feud-gold shadow-[0_0_25px_rgba(234,179,8,0.4)]'
+                      ? 'bg-gradient-to-r from-amber-500/25 via-yellow-500/20 to-feud-gold/30 border-2 border-feud-gold shadow-[0_0_20px_rgba(234,179,8,0.4)]'
                       : 'bg-slate-800/90 border border-blue-500/40 shadow-md'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <span
-                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full font-black text-xs sm:text-sm flex items-center justify-center shadow-inner ${
+                      className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full font-black text-xs flex items-center justify-center shadow-inner ${
                         isNumberOne
                           ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 ring-2 ring-yellow-300'
                           : 'bg-blue-600/30 text-blue-300 border border-blue-400/30'
@@ -616,15 +616,15 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                       {answer.rankOrder}
                     </span>
                     <div>
-                      <span className="font-black text-white uppercase text-sm sm:text-base tracking-wide block">
+                      <span className="font-black text-white uppercase text-xs sm:text-sm tracking-wide block">
                         {answer.answerText}
                       </span>
                       {isNumberOne && (
                         <span
                           data-testid="number-one-badge"
-                          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-yellow-300 bg-yellow-500/20 px-2 py-0.5 rounded-full border border-yellow-400/40"
+                          className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-yellow-300 bg-yellow-500/20 px-1.5 py-0.5 rounded-full border border-yellow-400/40"
                         >
-                          <Award className="w-3 h-3" />
+                          <Award className="w-2.5 h-2.5" />
                           {t.mainGame.numberOneAnswerFound || '#1 ANSWER'}
                         </span>
                       )}
@@ -632,7 +632,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                   </div>
                   <span
                     data-testid={`face-off-points-${answer.rankOrder}`}
-                    className={`font-black text-sm sm:text-base px-3 py-1 rounded-xl shadow-md ${
+                    className={`font-black text-xs sm:text-sm px-2.5 py-0.5 rounded-lg shadow-md ${
                       isNumberOne
                         ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950'
                         : 'bg-feud-gold/20 text-feud-gold border border-feud-gold/40'
@@ -645,13 +645,13 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                 <div
                   key={answer.id}
                   data-testid={`face-off-card-concealed-${answer.rankOrder}`}
-                  className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-blue-950/40 border border-slate-800/80 shadow-inner group"
+                  className="flex items-center justify-between p-2 sm:p-2.5 rounded-xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-blue-950/40 border border-slate-800/80 shadow-inner group"
                 >
-                  <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 border border-slate-700 font-extrabold text-xs sm:text-sm text-slate-400 flex items-center justify-center">
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-800 border border-slate-700 font-extrabold text-xs text-slate-400 flex items-center justify-center">
                     {answer.rankOrder}
                   </span>
-                  <div className="flex-1 mx-4 h-3 bg-slate-800/50 rounded-full border border-dashed border-slate-700/60" />
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <div className="flex-1 mx-3 h-2.5 bg-slate-800/50 rounded-full border border-dashed border-slate-700/60" />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                     --
                   </span>
                 </div>
@@ -662,13 +662,13 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       )}
 
       {/* Duel Podiums & Center Arbiter */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-6">
+      <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
         {/* Contender 1 Podium (Team 1) */}
         <div
           data-testid="face-off-podium-team1"
-          className={`relative flex flex-col items-center p-4 sm:p-5 2xl:p-6 rounded-2xl sm:rounded-3xl backdrop-blur-xl border-2 transition-all duration-300 ${
+          className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
             isC1Winner
-              ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_40px_rgba(234,179,8,0.35)] scale-105'
+              ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
               : isC1LockedOut
               ? 'bg-slate-900/60 border-red-500/60 opacity-80'
               : 'bg-slate-900/80 border-blue-500/40'
@@ -678,9 +678,9 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           {isC1Winner && (
             <div
               data-testid="c1-winner-badge"
-              className="absolute -top-4 px-4 py-1 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-1.5 animate-pulse"
+              className="absolute -top-3 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse"
             >
-              <Award className="w-4 h-4" />
+              <Award className="w-3.5 h-3.5" />
               <span>{t.mainGame.buzzerWinner.replace('{name}', contender1?.nickname || '')}</span>
             </div>
           )}
@@ -689,38 +689,38 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           {isC1LockedOut && (
             <div
               data-testid="c1-lockout-badge"
-              className="absolute -top-4 px-4 py-1 rounded-full bg-red-600 text-white text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-1.5"
+              className="absolute -top-3 px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1"
             >
-              <Lock className="w-3.5 h-3.5" />
+              <Lock className="w-3 h-3" />
               <span>{t.mainGame.buzzerLocked}</span>
             </div>
           )}
 
-          <span className="text-xs font-extrabold uppercase text-blue-400 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 mb-3">
+          <span className="text-[10px] font-extrabold uppercase text-blue-400 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 mb-2">
             {t.mainGame.team1} &bull; {t.mainGame.battingOrder.replace('{order}', String(contender1?.battingOrder || 1))}
           </span>
 
           <h3
             data-testid="c1-nickname"
-            className="text-2xl sm:text-3xl font-black text-white tracking-wide"
+            className="text-lg sm:text-2xl font-black text-white tracking-wide"
           >
             {contender1?.nickname}
           </h3>
 
           {/* Readiness State */}
-          <div className="mt-4 flex items-center gap-2">
+          <div className="mt-2.5 flex items-center gap-2">
             {contender1?.isReady ? (
               <span
                 data-testid="c1-ready-badge"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-green-400 px-3 py-1 rounded-full bg-green-500/15 border border-green-500/30"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-green-400 px-2.5 py-0.5 rounded-full bg-green-500/15 border border-green-500/30"
               >
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>{t.mainGame.imReady}</span>
               </span>
             ) : (
               <span
                 data-testid="c1-waiting-badge"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 animate-pulse"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 animate-pulse"
               >
                 <span>{t.lobby.statusWaiting}</span>
               </span>
@@ -731,46 +731,46 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         {/* Center Buzzer & Countdown Arbiter */}
         <div
           data-testid="face-off-center-arbiter"
-          className="flex flex-col items-center justify-center p-4 min-w-[180px]"
+          className="flex flex-col items-center justify-center p-2 min-w-[140px]"
         >
           {isBuzzerLocked ? (
             /* 15-Second Active Countdown Ring */
             <div
               data-testid="face-off-timer-ring"
-              className="flex flex-col items-center justify-center p-6 rounded-full bg-slate-900/90 border-4 border-feud-gold shadow-[0_0_35px_rgba(234,179,8,0.4)] animate-pulse"
+              className="flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-full bg-slate-900/90 border-3 border-feud-gold shadow-[0_0_25px_rgba(234,179,8,0.4)] animate-pulse"
             >
-              <Clock className="w-8 h-8 text-feud-gold mb-1" />
+              <Clock className="w-6 h-6 text-feud-gold mb-0.5" />
               <span
                 data-testid="face-off-seconds"
-                className={`text-4xl font-black tracking-tight ${
+                className={`text-2xl sm:text-3xl font-black tracking-tight ${
                   currentSeconds <= 5 ? 'text-red-400 animate-ping' : 'text-feud-gold'
                 }`}
               >
                 {currentSeconds}s
               </span>
-              <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                Authoritative Timer
+              <span className="text-[9px] font-bold uppercase text-slate-400 tracking-wider">
+                Timer
               </span>
             </div>
           ) : snapshot.phase === 'BUZZER_ACTIVE' ? (
             /* Armed Buzzers Active State */
             <div
               data-testid="buzzers-armed-cue"
-              className="flex flex-col items-center justify-center p-6 rounded-full bg-yellow-500/10 border-2 border-feud-gold/70 text-center animate-pulse"
+              className="flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-full bg-yellow-500/10 border-2 border-feud-gold/70 text-center animate-pulse"
             >
-              <Zap className="w-10 h-10 text-feud-gold animate-bounce mb-1" />
-              <span className="text-sm font-black text-feud-gold uppercase tracking-wider">
+              <Zap className="w-7 h-7 text-feud-gold animate-bounce mb-0.5" />
+              <span className="text-xs font-black text-feud-gold uppercase tracking-wider">
                 {t.mainGame.buzzerBtn}
               </span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                 Ready to Buzz
               </span>
             </div>
           ) : (
             /* Waiting for Readiness */
-            <div className="flex flex-col items-center text-center p-4">
-              <span className="text-2xl font-black text-slate-600 tracking-wider">VS</span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+            <div className="flex flex-col items-center text-center p-2">
+              <span className="text-xl sm:text-2xl font-black text-slate-600 tracking-wider">VS</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                 {t.mainGame.faceOffTitle}
               </span>
             </div>
@@ -780,9 +780,9 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         {/* Contender 2 Podium (Team 2) */}
         <div
           data-testid="face-off-podium-team2"
-          className={`relative flex flex-col items-center p-4 sm:p-5 2xl:p-6 rounded-2xl sm:rounded-3xl backdrop-blur-xl border-2 transition-all duration-300 ${
+          className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
             isC2Winner
-              ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_40px_rgba(234,179,8,0.35)] scale-105'
+              ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
               : isC2LockedOut
               ? 'bg-slate-900/60 border-red-500/60 opacity-80'
               : 'bg-slate-900/80 border-purple-500/40'
@@ -792,9 +792,9 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           {isC2Winner && (
             <div
               data-testid="c2-winner-badge"
-              className="absolute -top-4 px-4 py-1 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-1.5 animate-pulse"
+              className="absolute -top-3 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse"
             >
-              <Award className="w-4 h-4" />
+              <Award className="w-3.5 h-3.5" />
               <span>{t.mainGame.buzzerWinner.replace('{name}', contender2?.nickname || '')}</span>
             </div>
           )}
@@ -803,38 +803,38 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           {isC2LockedOut && (
             <div
               data-testid="c2-lockout-badge"
-              className="absolute -top-4 px-4 py-1 rounded-full bg-red-600 text-white text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-1.5"
+              className="absolute -top-3 px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1"
             >
-              <Lock className="w-3.5 h-3.5" />
+              <Lock className="w-3 h-3" />
               <span>{t.mainGame.buzzerLocked}</span>
             </div>
           )}
 
-          <span className="text-xs font-extrabold uppercase text-purple-400 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 mb-3">
+          <span className="text-[10px] font-extrabold uppercase text-purple-400 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 mb-2">
             {t.mainGame.team2} &bull; {t.mainGame.battingOrder.replace('{order}', String(contender2?.battingOrder || 1))}
           </span>
 
           <h3
             data-testid="c2-nickname"
-            className="text-2xl sm:text-3xl font-black text-white tracking-wide"
+            className="text-lg sm:text-2xl font-black text-white tracking-wide"
           >
             {contender2?.nickname}
           </h3>
 
           {/* Readiness State */}
-          <div className="mt-4 flex items-center gap-2">
+          <div className="mt-2.5 flex items-center gap-2">
             {contender2?.isReady ? (
               <span
                 data-testid="c2-ready-badge"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-green-400 px-3 py-1 rounded-full bg-green-500/15 border border-green-500/30"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-green-400 px-2.5 py-0.5 rounded-full bg-green-500/15 border border-green-500/30"
               >
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>{t.mainGame.imReady}</span>
               </span>
             ) : (
               <span
                 data-testid="c2-waiting-badge"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 animate-pulse"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 animate-pulse"
               >
                 <span>{t.lobby.statusWaiting}</span>
               </span>

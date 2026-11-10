@@ -221,7 +221,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="fast-money-game-over-screen"
-        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] max-h-full flex flex-col justify-between overflow-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center shadow-2xl animate-fade-in"
       >
         {isVic ? (
           <div data-testid="player-victory-view" className="flex flex-col items-center">
@@ -302,7 +302,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid={isPlayer2 ? 'p2-ready-screen' : 'p1-ready-screen'}
-        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] max-h-full flex flex-col justify-between overflow-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-gold/40 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500/20 to-yellow-400/30 text-feud-gold mx-auto flex items-center justify-center mb-5 ring-4 ring-feud-gold/30 shadow-lg shadow-feud-gold/20">
           <Zap className="w-10 h-10 animate-bounce" />
@@ -367,7 +367,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="p1-reveal-screen"
-        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe flex flex-col gap-4 animate-fade-in"
+        className="max-w-md w-full max-w-[100%] max-h-full flex flex-col justify-between overflow-hidden pb-safe gap-2.5 sm:gap-3.5 animate-fade-in"
       >
         {/* Header: Synchronized Cumulative Total Score */}
         <div className="flex items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-feud-gold/30 shadow-lg">
@@ -488,7 +488,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="p2-reveal-spectator-screen"
-        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] max-h-full flex flex-col justify-between overflow-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-16 h-16 rounded-full bg-feud-gold/20 text-feud-gold mx-auto flex items-center justify-center mb-4">
           <Sparkles className="w-10 h-10 text-feud-gold animate-spin" />
@@ -538,7 +538,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
     return (
       <div
         data-testid="fast-money-turn-complete"
-        className="max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-fade-in"
+        className="max-w-md w-full max-w-[100%] max-h-full flex flex-col justify-between overflow-hidden pb-safe bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center shadow-2xl animate-fade-in"
       >
         <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-400 mx-auto flex items-center justify-center mb-4">
           <CheckCircle2 className="w-10 h-10" />
@@ -589,7 +589,7 @@ export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({
       data-testid="fast-money-playing-screen"
       data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
       className={`max-w-md w-full max-w-[100%] overflow-x-hidden pb-safe flex flex-col ${
-        isKeyboardOpen ? 'gap-2' : 'gap-4'
+        isKeyboardOpen ? 'min-h-0 gap-2' : 'h-full max-h-full justify-between gap-3 overflow-hidden'
       } animate-fade-in`}
     >
       {/* Inline styles for shake animation */}

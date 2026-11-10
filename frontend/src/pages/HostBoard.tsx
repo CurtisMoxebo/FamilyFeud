@@ -551,7 +551,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     const p2Nickname = connectedPlayers[1]?.nickname ?? players[1]?.nickname;
 
     return (
-      <div className="w-full flex flex-col items-center justify-center">
+      <div className="w-full h-full max-h-full flex flex-col items-center justify-center overflow-hidden">
         {renderAlert()}
         {renderAdminControls()}
         {renderPausedBanner()}
@@ -613,7 +613,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Main Game Team Guessing Stage (US-14)
   if (!isFastMoney && teamGuessingState) {
     return (
-      <div className="w-full flex flex-col items-center">
+      <div className="w-full h-full max-h-full flex flex-col items-center justify-center overflow-hidden">
         {renderAlert()}
         {renderAdminControls()}
         {renderPausedBanner()}
@@ -657,7 +657,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Main Game Team Showcase Stage (US-28)
   if (!isFastMoney && activeTeams && !teamsShowcased) {
     return (
-      <div className="w-full flex flex-col items-center">
+      <div className="w-full h-full max-h-full flex flex-col items-center justify-center overflow-hidden">
         {renderAlert()}
         {renderAdminControls()}
         <MainGameTeamsStage
@@ -675,7 +675,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Main Game Face-Off Stage (US-12)
   if (!isFastMoney && faceOffState) {
     return (
-      <div className="relative w-full flex flex-col items-center">
+      <div className="relative w-full h-full max-h-full flex flex-col items-center justify-center overflow-hidden">
         {renderAlert()}
         {renderAdminControls()}
         {renderPausedBanner()}
@@ -728,11 +728,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   return (
     <div
       data-testid="host-widescreen-container"
-      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-3 sm:gap-4 2xl:gap-5"
+      className="w-full h-full max-h-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center justify-between gap-2.5 sm:gap-3 2xl:gap-4 overflow-hidden"
     >
       {renderAlert()}
       {/* Host TV Header Banner */}
-      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 2xl:p-6 shadow-2xl">
+      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-3 sm:p-4 2xl:p-5 shadow-2xl shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-feud-slate-border/80 pb-3 sm:pb-4">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="p-2 sm:p-2.5 rounded-xl bg-feud-blue-light/50 border border-feud-blue-glow/30 text-feud-gold">
@@ -870,11 +870,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       </div>
 
       {/* Responsive Side-by-Side Lobby (Left: Players List, Right: QR Code) */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 items-stretch">
+      <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-stretch overflow-hidden">
         {/* Left Section: Connected Players Roster & Capacity Control */}
-        <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 2xl:p-6 shadow-2xl flex flex-col justify-between">
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-feud-slate-border/80 pb-3 mb-3 sm:mb-4">
+        <div className="w-full h-full max-h-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 2xl:p-5 shadow-2xl flex flex-col justify-between overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-feud-slate-border/80 pb-2.5 mb-2.5 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-feud-gold/20 text-feud-gold border border-feud-gold/30">
                   <Users className="w-5 h-5" />
@@ -900,16 +900,14 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             {players.length === 0 ? (
               <div
                 data-testid="host-empty-roster"
-                className="text-center py-5 sm:py-6 text-slate-400 text-xs sm:text-sm italic border border-dashed border-slate-700/60 rounded-xl mb-4"
+                className="text-center py-4 text-slate-400 text-xs sm:text-sm italic border border-dashed border-slate-700/60 rounded-xl mb-2"
               >
                 {t.host.waitingPlayers}
               </div>
             ) : (
               <div
                 data-testid="host-player-roster"
-                className={`flex flex-col gap-2.5 mb-4 ${
-                  players.length > 5 ? 'max-h-[280px] sm:max-h-[320px] 2xl:max-h-[420px] overflow-y-auto pr-1' : ''
-                }`}
+                className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto pr-1 mb-2"
               >
                 {players.map((p) => (
                   <div
@@ -1006,28 +1004,28 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         </div>
 
         {/* Right Section: Lobby Invitation & QR Code Screen */}
-        <div className="w-full bg-feud-slate-card/70 backdrop-blur-md border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 2xl:p-6 text-center shadow-xl flex flex-col items-center justify-center">
+        <div className="w-full h-full max-h-full bg-feud-slate-card/70 backdrop-blur-md border border-feud-slate-border rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 2xl:p-5 text-center shadow-xl flex flex-col items-center justify-center overflow-hidden">
           <h3 className="text-lg sm:text-xl font-bold text-white mb-1">{t.host.waitingPlayers}</h3>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-xs mx-auto mb-3">
+          <p className="text-xs sm:text-sm text-slate-400 max-w-xs mx-auto mb-2">
             {t.joinRoom.subtitle}
           </p>
 
           {/* High-Contrast QR Code Card */}
-          <div className="p-2.5 sm:p-3 bg-white rounded-xl shadow-xl border-2 sm:border-3 border-feud-gold/40 flex flex-col items-center justify-center transition-transform hover:scale-105 duration-200">
+          <div className="p-2 sm:p-2.5 bg-white rounded-xl shadow-xl border-2 sm:border-3 border-feud-gold/40 flex flex-col items-center justify-center transition-transform hover:scale-105 duration-200">
             <QRCodeSVG
               value={joinUrl}
-              size={140}
+              size={130}
               level="H"
               includeMargin={false}
               fgColor="#0f172a"
               bgColor="#ffffff"
               data-testid="host-qr-code"
-              className="w-28 h-28 sm:w-32 sm:h-32 2xl:w-36 2xl:h-36"
+              className="w-24 h-24 sm:w-28 sm:h-28 2xl:w-36 2xl:h-36"
             />
           </div>
 
           {/* Scan to Join Instruction */}
-          <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-feud-gold px-3 py-1 rounded-full bg-feud-gold/10 border border-feud-gold/20">
+          <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-feud-gold px-3 py-1 rounded-full bg-feud-gold/10 border border-feud-gold/20 shrink-0">
             <Smartphone className="w-3.5 h-3.5 text-feud-gold" />
             <span data-testid="host-scan-instruction">{t.joinRoom.scanToJoin}</span>
           </div>

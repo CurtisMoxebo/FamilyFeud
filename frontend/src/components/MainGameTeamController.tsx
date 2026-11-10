@@ -272,19 +272,19 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   return (
     <div
       className={`w-full max-w-lg max-w-[100%] overflow-x-hidden mx-auto flex flex-col ${
-        isKeyboardOpen ? 'min-h-0 pb-2' : 'min-h-[85dvh] pb-6'
+        isKeyboardOpen ? 'min-h-0 pb-2' : 'h-full max-h-full justify-between pb-2 overflow-hidden'
       } text-white select-none relative pb-safe`}
       data-testid="main-game-team-controller"
       data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
     >
       {/* Top Mobile Bar */}
-      <header className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+      <header className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
         <div className="flex items-center gap-2">
           {onLeave && (
             <button
               type="button"
               onClick={onLeave}
-              className="touch-target min-h-touch min-w-touch flex items-center justify-center p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+              className="touch-target min-h-touch min-w-touch flex items-center justify-center p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
               title={t.mainGame.leaveRoomBtn}
             >
               <ArrowLeft className="w-4 h-4" />
@@ -308,7 +308,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
 
         {/* Player Roster Badge */}
         <div
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-bold uppercase ${
+          className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl border text-xs font-bold uppercase ${
             isControllingTeam
               ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
               : 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
@@ -320,7 +320,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       </header>
 
       {/* Persistent Grand Total Header (US-16 Scenario 1 Mobile) */}
-      <div className="w-full mb-3">
+      <div className="w-full mb-2">
         <MainGameScoreboardHeader
           team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
           team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
@@ -337,28 +337,28 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       <div
         data-testid="team-controller-question-card"
         className={`${
-          isKeyboardOpen ? 'p-2.5 mb-2' : 'p-4 mb-4'
-        } rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/40 shadow-xl text-center transition-all`}
+          isKeyboardOpen ? 'p-2 mb-1.5' : 'p-2.5 sm:p-3 mb-2'
+        } rounded-xl sm:rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/40 shadow-xl text-center transition-all`}
       >
-        <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-300/80 block mb-1">
+        <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-300/80 block mb-0.5">
           Survey Question
         </span>
-        <h2 className="text-base sm:text-lg font-black text-yellow-300 tracking-wide">
+        <h2 className="text-sm sm:text-base font-black text-yellow-300 tracking-wide">
           "{snapshot.question.questionText}"
         </h2>
       </div>
 
       {/* Round Bank & Strikes Row */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-2">
         {/* Round Bank */}
-        <div className="bg-gradient-to-b from-yellow-500/15 to-amber-600/10 border border-yellow-400/50 rounded-2xl p-3 flex flex-col items-center justify-center shadow-md">
+        <div className="bg-gradient-to-b from-yellow-500/15 to-amber-600/10 border border-yellow-400/50 rounded-xl p-2 flex flex-col items-center justify-center shadow-md">
           <span className="text-[10px] uppercase font-black tracking-wider text-yellow-400/90">
             {t.mainGame.roundBankTitle}
           </span>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <Sparkles className="w-4 h-4 text-yellow-400 animate-spin" />
+            <Sparkles className="w-3.5 h-3.5 text-yellow-400 animate-spin" />
             <span
-              className="text-2xl font-black text-yellow-300"
+              className="text-xl font-black text-yellow-300"
               data-testid="player-round-bank"
             >
               {snapshot.roundBank}
@@ -368,8 +368,8 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         </div>
 
         {/* 3-Strike Indicators */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex flex-col items-center justify-center shadow-md">
-          <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 mb-1">
+        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center shadow-md">
+          <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 mb-0.5">
             {t.mainGame.strikeTitle}s
           </span>
           <div className="flex items-center gap-1.5">
@@ -379,7 +379,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                 <div
                   key={strikeNum}
                   data-testid={`player-strike-box-${strikeNum}`}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm transition-all ${
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs transition-all ${
                     hasStrike
                       ? 'bg-red-600 text-white border-2 border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.7)] scale-105'
                       : 'bg-slate-800 text-slate-500 border border-slate-700'
@@ -394,20 +394,20 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       </div>
 
       {/* Active Turn Status Banner (Scenario 4) */}
-      <div className="mb-4">
+      <div className="mb-2">
         {isStealPhase ? (
           isSpokesperson ? (
             /* Scenario 4: Spokesperson Mobile View */
             <div
               data-testid="spokesperson-steal-banner"
-              className="p-4 rounded-2xl bg-gradient-to-r from-amber-600/30 via-yellow-600/30 to-amber-600/30 border-2 border-yellow-400 shadow-xl flex items-center justify-between animate-pulse"
+              className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-600/30 via-yellow-600/30 to-amber-600/30 border-2 border-yellow-400 shadow-xl flex items-center justify-between animate-pulse"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-yellow-400 text-slate-950 flex items-center justify-center font-black shadow shrink-0">
-                  <Zap className="w-6 h-6 fill-slate-950" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-yellow-400 text-slate-950 flex items-center justify-center font-black shadow shrink-0">
+                  <Zap className="w-4 h-4 fill-slate-950" />
                 </div>
                 <div>
-                  <span className="text-xs font-black uppercase text-yellow-300 block">
+                  <span className="text-[10px] font-black uppercase text-yellow-300 block">
                     {t.mainGame.stealPhaseTitle}
                   </span>
                   <span className="text-xs text-white font-extrabold">
@@ -418,7 +418,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
 
               {/* 15s Countdown Badge */}
               <div
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-full font-black text-sm border shrink-0 ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-black text-xs border shrink-0 ${
                   currentSeconds <= 3
                     ? 'bg-red-500/20 text-red-400 border-red-500 animate-ping'
                     : currentSeconds <= 7
@@ -427,7 +427,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                 }`}
                 data-testid="player-turn-timer"
               >
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3 h-3" />
                 <span>{currentSeconds}s</span>
               </div>
             </div>
@@ -435,10 +435,10 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             /* Scenario 4: Non-Spokesperson Stealing Teammate View */
             <div
               data-testid="teammate-consult-banner"
-              className="p-4 rounded-2xl bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-purple-900/40 border-2 border-indigo-400/60 shadow-xl flex items-center justify-between"
+              className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-purple-900/40 border-2 border-indigo-400/60 shadow-xl flex items-center justify-between"
             >
-              <div className="flex items-center gap-3">
-                <Users className="w-7 h-7 text-indigo-300 shrink-0 animate-pulse" />
+              <div className="flex items-center gap-2.5">
+                <Users className="w-5 h-5 text-indigo-300 shrink-0 animate-pulse" />
                 <div>
                   <span className="text-xs font-bold text-indigo-300 block">
                     {t.mainGame.teammateConsultPrompt.replace(
@@ -446,14 +446,14 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                       stealSpokesperson?.nickname || 'Spokesperson'
                     )}
                   </span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[10px] text-slate-400">
                     Talk together to find the best unrevealed answer!
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold shrink-0">
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3 h-3" />
                 <span>{currentSeconds}s</span>
               </div>
             </div>
@@ -461,22 +461,22 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             /* Scenario 4: Defending Team (3-Strike) Fingers Crossed View */
             <div
               data-testid="defending-team-banner"
-              className="p-4 rounded-2xl bg-slate-900/95 border-2 border-slate-700 shadow-xl flex items-center justify-between text-slate-300"
+              className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900/95 border-2 border-slate-700 shadow-xl flex items-center justify-between text-slate-300"
             >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl shrink-0">🤞</span>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl shrink-0">🤞</span>
                 <div>
                   <span className="text-xs font-extrabold text-slate-200 block">
                     {t.mainGame.defendingTeamFingersCrossed}
                   </span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[10px] text-slate-400">
                     If they miss, your team keeps all {snapshot.roundBank} points!
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold shrink-0">
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3 h-3" />
                 <span>{currentSeconds}s</span>
               </div>
             </div>
@@ -485,24 +485,24 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           /* Standard Guesser Active Banner */
           <div
             data-testid="active-guesser-banner"
-            className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-600/30 via-blue-600/30 to-indigo-600/30 border-2 border-indigo-400/60 shadow-lg flex items-center justify-between animate-pulse"
+            className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-600/30 via-blue-600/30 to-indigo-600/30 border-2 border-indigo-400/60 shadow-lg flex items-center justify-between animate-pulse"
           >
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center font-black text-white text-sm shadow">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center font-black text-white text-xs shadow">
                 {snapshot.activePlayer?.battingOrder || 1}
               </div>
               <div>
-                <span className="text-xs font-black uppercase text-indigo-300 block">
+                <span className="text-[10px] font-black uppercase text-indigo-300 block">
                   {t.mainGame.yourTurnToGuess}
                 </span>
-                <span className="text-xs text-slate-300">{t.mainGame.submitOrPassPrompt}</span>
+                <span className="text-[11px] text-slate-300">{t.mainGame.submitOrPassPrompt}</span>
               </div>
             </div>
 
             {/* Countdown Badge */}
             {snapshot.phase === 'TEAM_GUESSING' && (
               <div
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-full font-black text-sm border ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-black text-xs border ${
                   currentSeconds <= 3
                     ? 'bg-red-500/20 text-red-400 border-red-500 animate-ping'
                     : currentSeconds <= 7
@@ -511,7 +511,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                 }`}
                 data-testid="player-turn-timer"
               >
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3 h-3" />
                 <span>{currentSeconds}s</span>
               </div>
             )}
@@ -520,10 +520,10 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           /* Waiting Teammate Banner */
           <div
             data-testid="waiting-teammate-banner"
-            className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between"
+            className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between"
           >
-            <div className="flex items-center gap-2.5">
-              <Flame className="w-5 h-5 text-amber-400 animate-pulse" />
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
               <div>
                 <span className="text-xs font-bold text-slate-300 block">
                   {t.mainGame.waitingForTeammate.replace(
@@ -531,7 +531,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                     snapshot.activePlayer?.nickname || 'Teammate'
                   )}
                 </span>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[10px] text-slate-500">
                   Player #{snapshot.activePlayer?.battingOrder || 1} is guessing...
                 </span>
               </div>
@@ -539,7 +539,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
 
             {snapshot.phase === 'TEAM_GUESSING' && (
               <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold">
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3 h-3" />
                 <span>{currentSeconds}s</span>
               </div>
             )}
@@ -548,14 +548,14 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           /* Opposing Team Waiting Banner */
           <div
             data-testid="opposing-team-banner"
-            className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-3 text-slate-300"
+            className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-2.5 text-slate-300"
           >
-            <Users className="w-5 h-5 text-emerald-400" />
+            <Users className="w-4 h-4 text-emerald-400 shrink-0" />
             <div>
               <span className="text-xs font-bold block">
                 {t.mainGame.controllingTeamPlaying.replace('{team}', controllingTeamName)}
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[10px] text-slate-400">
                 Stand by! If they get 3 strikes, your team can STEAL!
               </span>
             </div>
@@ -567,7 +567,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       {localStrikeAlert && (
         <div
           data-testid="mobile-strike-alert"
-          className="mb-4 p-3.5 rounded-2xl bg-red-950/90 border-2 border-red-500 shadow-xl flex items-center justify-between animate-shake"
+          className="mb-2 p-2.5 rounded-xl bg-red-950/90 border-2 border-red-500 shadow-xl flex items-center justify-between animate-shake"
         >
           <div className="flex items-center gap-3">
             <div className="flex items-center text-red-400 font-black text-2xl tracking-tight">
@@ -595,15 +595,15 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           data-testid="mobile-my-team-roster"
           className={`${
             isKeyboardOpen ? 'hidden' : 'flex flex-col'
-          } w-full mb-4 gap-2 transition-all`}
+          } w-full mb-2 gap-1 transition-all`}
         >
-          <div className="flex items-center justify-between px-1 mb-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+          <div className="flex items-center justify-between px-1 mb-0.5">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
               {myTeamName} ({myTeamPlayers.length} Members)
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             {myTeamPlayers.map((player) => {
               const isMe =
                 (currentPlayerId && player.id === currentPlayerId) ||
@@ -615,7 +615,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                 <div
                   key={player.id}
                   data-testid={`mobile-team-player-${player.id}`}
-                  className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs border transition-all ${
+                  className={`flex items-center justify-between px-2 py-1 rounded-lg text-xs border transition-all ${
                     isTurn
                       ? 'bg-amber-500/25 border-amber-400/70 text-amber-200 font-extrabold shadow-[0_0_12px_rgba(245,158,11,0.35)] animate-pulse'
                       : isSpokesperson
@@ -629,7 +629,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                 >
                   <div className="flex items-center gap-1.5 truncate mr-1">
                     <span
-                      className={`w-5 h-5 rounded-full font-black flex items-center justify-center text-[10px] shrink-0 ${
+                      className={`w-4 h-4 rounded-full font-black flex items-center justify-center text-[9px] shrink-0 ${
                         playerTeam === 'TEAM_1'
                           ? 'bg-blue-500/30 text-blue-300'
                           : 'bg-emerald-500/30 text-emerald-300'
@@ -637,20 +637,20 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                     >
                       {player.battingOrder}
                     </span>
-                    <span className="truncate font-bold">{player.nickname}</span>
+                    <span className="truncate font-bold text-xs">{player.nickname}</span>
                     {isMe && (
-                      <span className="text-[9px] text-yellow-300 uppercase font-black shrink-0">
+                      <span className="text-[8px] text-yellow-300 uppercase font-black shrink-0">
                         (You)
                       </span>
                     )}
                   </div>
                   {isTurn && (
-                    <span className="text-[9px] uppercase tracking-wider font-black text-amber-300 shrink-0">
+                    <span className="text-[8px] uppercase tracking-wider font-black text-amber-300 shrink-0">
                       Turn
                     </span>
                   )}
                   {isSpokesperson && !isTurn && (
-                    <span className="text-[9px] uppercase tracking-wider font-black text-purple-300 shrink-0">
+                    <span className="text-[8px] uppercase tracking-wider font-black text-purple-300 shrink-0">
                       Steal
                     </span>
                   )}
@@ -666,9 +666,9 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         <form
           ref={formAnchorRef}
           onSubmit={handleSubmit}
-          className={`mt-auto flex flex-col gap-2 ${
-            isKeyboardOpen ? 'p-3 sticky bottom-0 z-20' : 'p-4'
-          } rounded-2xl bg-slate-900/95 border border-indigo-500/50 shadow-2xl`}
+          className={`mt-auto flex flex-col gap-1.5 ${
+            isKeyboardOpen ? 'p-2 sticky bottom-0 z-20' : 'p-2.5 sm:p-3'
+          } rounded-xl sm:rounded-2xl bg-slate-900/95 border border-indigo-500/50 shadow-2xl`}
           data-testid="player-guess-form"
         >
           <div className="relative">
@@ -684,7 +684,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               disabled={isPaused || isSubmitting}
               maxLength={40}
               data-testid="player-guess-input"
-              className="w-full min-h-touch bg-slate-950 border border-indigo-500/40 rounded-xl px-4 py-3 text-white placeholder-slate-500 text-base font-semibold focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30 transition-all uppercase disabled:opacity-50"
+              className="w-full min-h-touch bg-slate-950 border border-indigo-500/40 rounded-xl px-3 py-2 text-white placeholder-slate-500 text-base font-semibold focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30 transition-all uppercase disabled:opacity-50"
             />
           </div>
 
@@ -693,9 +693,9 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               type="submit"
               disabled={isPaused || isSubmitting || !guessInput.trim()}
               data-testid="player-submit-guess-btn"
-              className="col-span-2 touch-target min-h-touch py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 text-slate-950 font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
+              className="col-span-2 touch-target min-h-touch py-2.5 px-3 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wide flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-3.5 h-3.5" />
               <span>{t.mainGame.submitAnswer}</span>
             </button>
 
@@ -704,9 +704,9 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               onClick={handlePass}
               disabled={isPaused || isSubmitting}
               data-testid="player-pass-turn-btn"
-              className="col-span-1 touch-target min-h-touch py-3 px-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase flex items-center justify-center gap-1 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="col-span-1 touch-target min-h-touch py-2.5 px-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase flex items-center justify-center gap-1 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <SkipForward className="w-3.5 h-3.5" />
+              <SkipForward className="w-3 h-3" />
               <span>{t.mainGame.passTurnBtn}</span>
             </button>
           </div>
@@ -718,9 +718,9 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         <form
           ref={formAnchorRef}
           onSubmit={handleStealSubmit}
-          className={`mt-auto flex flex-col gap-2 ${
-            isKeyboardOpen ? 'p-3 sticky bottom-0 z-20' : 'p-4'
-          } rounded-2xl bg-gradient-to-r from-amber-950/95 via-yellow-950/95 to-amber-950/95 border-2 border-yellow-400 shadow-2xl animate-fade-in`}
+          className={`mt-auto flex flex-col gap-1.5 ${
+            isKeyboardOpen ? 'p-2 sticky bottom-0 z-20' : 'p-2.5 sm:p-3'
+          } rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-950/95 via-yellow-950/95 to-amber-950/95 border-2 border-yellow-400 shadow-2xl animate-fade-in`}
           data-testid="spokesperson-steal-form"
         >
           <div className="relative">
@@ -736,7 +736,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               disabled={isPaused || isSubmitting}
               maxLength={40}
               data-testid="spokesperson-steal-input"
-              className="w-full min-h-touch bg-slate-950 border-2 border-yellow-400/80 rounded-xl px-4 py-3.5 text-white placeholder-slate-400 text-base font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-all uppercase shadow-inner disabled:opacity-50"
+              className="w-full min-h-touch bg-slate-950 border-2 border-yellow-400/80 rounded-xl px-3 py-2 text-white placeholder-slate-400 text-base font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-all uppercase shadow-inner disabled:opacity-50"
             />
           </div>
 
@@ -744,9 +744,9 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             type="submit"
             disabled={isPaused || isSubmitting || !guessInput.trim()}
             data-testid="spokesperson-submit-steal-btn"
-            className="w-full touch-target min-h-touch py-3.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-slate-950 font-black text-base uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full touch-target min-h-touch py-2.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wide flex items-center justify-center gap-2 shadow-xl hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Zap className="w-5 h-5 fill-slate-950" />
+            <Zap className="w-4 h-4 fill-slate-950" />
             <span>{t.mainGame.submitStealAnswer}</span>
           </button>
         </form>
