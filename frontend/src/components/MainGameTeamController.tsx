@@ -257,13 +257,6 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     }, 600);
   };
 
-  const totalSlots = Math.max(
-    snapshot.totalAnswersCount,
-    snapshot.question.answerCount,
-    snapshot.revealedAnswers.length,
-    4
-  );
-
   const isStealSuccess = stealResolved
     ? stealResolved.success
     : Boolean(snapshot.phase === 'RESOLVED' && snapshot.winningTeam === snapshot.opposingTeam);
@@ -590,55 +583,6 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           </div>
         </div>
       )}
-
-      {/* Answer Board Slots (Compact Mobile Card Grid) */}
-      <div
-        data-testid="mobile-survey-board-summary"
-        className={`${
-          isKeyboardOpen ? 'mb-2 p-2 max-h-24 overflow-y-auto' : 'mb-4 p-3'
-        } rounded-2xl bg-slate-900/60 border border-slate-800/80 transition-all`}
-      >
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2 px-1">
-          Survey Board ({snapshot.revealedAnswers.length} / {totalSlots} Revealed)
-        </span>
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: totalSlots }).map((_, idx) => {
-            const rankOrder = idx + 1;
-            const item = snapshot.revealedAnswers.find((ra) => ra.rankOrder === rankOrder);
-            const isRevealed = Boolean(item);
-
-            return (
-              <div
-                key={rankOrder}
-                data-testid={`player-card-slot-${rankOrder}`}
-                className={`min-h-[44px] rounded-xl px-2.5 py-1.5 flex items-center justify-between border text-xs transition-all ${
-                  isRevealed
-                    ? 'bg-blue-950/80 border-yellow-400/70 text-white shadow-sm'
-                    : 'bg-slate-900/80 border-slate-800 text-slate-500'
-                }`}
-              >
-                {isRevealed && item ? (
-                  <>
-                    <div className="flex items-center gap-1.5 truncate mr-1">
-                      <span className="w-5 h-5 rounded-full bg-yellow-400 text-slate-950 font-black flex items-center justify-center text-[10px] shrink-0">
-                        {rankOrder}
-                      </span>
-                      <span className="font-bold uppercase truncate">{item.answerText}</span>
-                    </div>
-                    <span className="font-black text-yellow-400 shrink-0">{item.points}</span>
-                  </>
-                ) : (
-                  <div className="w-full flex items-center justify-center">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 font-bold flex items-center justify-center text-[10px] text-slate-400">
-                      {rankOrder}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
       {/* Interactive Answer Submission / Pass Form for Active Guesser during TEAM_GUESSING */}
       {isActiveGuesser && snapshot.phase === 'TEAM_GUESSING' ? (

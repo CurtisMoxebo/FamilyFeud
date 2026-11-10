@@ -473,7 +473,7 @@ describe('US-22 Step 4: Virtual Soft-Keyboard Awareness on Mobile Inputs (Scenar
     const teamRoot = screen.getByTestId('main-game-team-controller');
     expect(teamRoot).toHaveAttribute('data-keyboard-open', 'true');
     expect(teamRoot.className).toContain('min-h-0');
-    expect(screen.getByTestId('mobile-survey-board-summary').className).toContain('max-h-24');
+    expect(screen.queryByTestId('mobile-survey-board-summary')).not.toBeInTheDocument();
     expect(screen.getByTestId('player-guess-form').className).toContain('sticky');
     expect(screen.getByTestId('player-guess-input')).toBeVisible();
     expect(screen.getByTestId('player-submit-guess-btn')).toBeVisible();
