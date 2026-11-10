@@ -647,15 +647,15 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           data-testid="face-off-pending-players-section"
           className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-4 sm:gap-6 my-auto"
         >
-          {/* Awaiting Ready Announcement Banner */}
+          {/* Awaiting Ready Announcement Banner (sr-only for accessibility/tests) */}
           <div
             data-testid="face-off-awaiting-banner"
-            className="w-full max-w-2xl p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-slate-800/60 border border-dashed border-slate-700 text-center shadow-lg shrink-0"
+            className="sr-only"
           >
-            <h2 className="text-base sm:text-xl font-bold text-slate-200">
+            <h2>
               {t.mainGame.readyForFaceOff}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            <p>
               {t.mainGame.faceOffContenders}: {contender1?.nickname} {t.mainGame.versus}{' '}
               {contender2?.nickname}
             </p>
