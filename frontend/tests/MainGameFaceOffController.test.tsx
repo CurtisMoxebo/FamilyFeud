@@ -527,5 +527,24 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       expect(screen.queryByTestId('face-off-team-player-p2')).not.toBeInTheDocument();
       expect(screen.queryByTestId('face-off-team-player-p4')).not.toBeInTheDocument();
     });
+
+    it('displays a 5-second countdown timer on the controller screen when both face-off contenders are ready before game starts', () => {
+      renderController({
+        snapshot: {
+          ...baseSnapshot,
+          team1Contender: { ...baseSnapshot.team1Contender, isReady: true },
+          team2Contender: { ...baseSnapshot.team2Contender, isReady: true },
+        },
+        initialReadyCountdown: 5,
+      });
+
+      // 5-second countdown card displayed
+      expect(screen.getByTestId('face-off-ready-countdown')).toBeInTheDocument();
+      expect(screen.getByTestId('face-off-ready-seconds')).toHaveTextContent('5');
+      expect(screen.getByText(/Game starts in 5s\.\.\./i)).toBeInTheDocument();
+
+      // Buzzer button is not visible / armed during countdown
+      expect(screen.queryByTestId('face-off-buzzer-btn')).not.toBeInTheDocument();
+    });
   });
 });

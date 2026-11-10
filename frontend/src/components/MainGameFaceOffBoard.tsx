@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ScoreboardUpdatePayload,
   FaceOffSessionState,
+  FaceOffPhase,
   TimerTickPayload,
   BuzzerLockedPayload,
   FaceOffTimeoutPayload,
@@ -46,6 +47,7 @@ import {
 export interface MainGameFaceOffBoardProps {
   snapshot: FaceOffSessionState;
   timerTick?: TimerTickPayload | null;
+  initialReadyCountdown?: number | null;
   isPaused?: boolean;
   pausedRemainingSeconds?: number;
   buzzerLocked?: BuzzerLockedPayload | null;
@@ -70,6 +72,7 @@ const HOST_SLOT_RANKS = [1, 5, 2, 6, 3, 7, 4, 8];
 export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   snapshot,
   timerTick,
+  initialReadyCountdown,
   isPaused = false,
   pausedRemainingSeconds,
   buzzerLocked,
@@ -101,6 +104,48 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       cancelSpeech();
     }
   };
+
+  // 5-second countdown timer when both face-off contenders are ready
+  const isBothReady = Boolean(snapshot.team1Contender?.isReady && snapshot.team2Contender?.isReady);
+  const [readyCountdown, setReadyCountdown] = useState<number | null>(() =>
+    initialReadyCountdown !== undefined ? initialReadyCountdown : null
+  );
+  const previousBothReadyRef = useRef<boolean>(
+    initialReadyCountdown !== undefined ? false : isBothReady
+  );
+  const previousPhaseRef = useRef<FaceOffPhase>(snapshot.phase);
+
+  useEffect(() => {
+    if (initialReadyCountdown !== undefined) {
+      setReadyCountdown(initialReadyCountdown);
+    }
+  }, [initialReadyCountdown]);
+
+  useEffect(() => {
+    const wasNotBothReady = !previousBothReadyRef.current;
+    const wasAwaitingReady = previousPhaseRef.current === 'AWAITING_READY';
+    previousBothReadyRef.current = isBothReady;
+    previousPhaseRef.current = snapshot.phase;
+
+    if (isBothReady && (wasNotBothReady || (wasAwaitingReady && snapshot.phase === 'BUZZER_ACTIVE'))) {
+      setReadyCountdown(5);
+    }
+  }, [isBothReady, snapshot.phase]);
+
+  useEffect(() => {
+    if (readyCountdown === null) return;
+    if (readyCountdown <= 0) {
+      setReadyCountdown(null);
+      return;
+    }
+    if (isPaused) return;
+
+    const timer = setTimeout(() => {
+      setReadyCountdown((prev) => (prev !== null && prev > 1 ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [readyCountdown, isPaused]);
 
   // Track the last question read by TTS to avoid re-speaking on every tick
   const lastSpokenQuestionId = useRef<string | null>(null);
@@ -135,9 +180,9 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     roundControlAssigned?.controllingTeamName ||
     (controllingTeam === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2);
 
-  // Scenario 1: Trigger TTS reading of question when buzzers activate
+  // Scenario 1: Trigger TTS reading of question when buzzers activate (after 5s countdown completes)
   useEffect(() => {
-    if (snapshot.phase === 'BUZZER_ACTIVE' && snapshot.question?.id) {
+    if (snapshot.phase === 'BUZZER_ACTIVE' && snapshot.question?.id && readyCountdown === null) {
       if (lastSpokenQuestionId.current !== snapshot.question.id) {
         lastSpokenQuestionId.current = snapshot.question.id;
         if (audioEnabled) {
@@ -149,7 +194,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         }
       }
     }
-  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, snapshot.question?.answers?.length, language, audioEnabled, t.mainGame.topAnswersOnBoard]);
+  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, snapshot.question?.answers?.length, language, audioEnabled, t.mainGame.topAnswersOnBoard, readyCountdown]);
 
   // Scenario 2: Atomic Buzzer Lockout cuts off ongoing TTS and sounds sharp buzzer cue
   useEffect(() => {
@@ -382,7 +427,24 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         data-testid="face-off-center-arbiter"
         className="flex flex-col items-center justify-center p-2 min-w-[140px]"
       >
-        {isBuzzerLocked ? (
+        {readyCountdown !== null ? (
+          /* 5-Second Ready Countdown Ring */
+          <div
+            data-testid="face-off-ready-countdown"
+            className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-full bg-slate-900/90 border-3 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.5)] animate-pulse"
+          >
+            <Clock className="w-6 h-6 text-feud-gold mb-0.5 animate-spin" />
+            <span
+              data-testid="face-off-ready-seconds"
+              className="text-2xl sm:text-3xl font-black text-feud-gold tracking-tight"
+            >
+              {readyCountdown}s
+            </span>
+            <span className="text-[9px] font-bold uppercase text-amber-300 tracking-wider">
+              {t.mainGame.startsIn}
+            </span>
+          </div>
+        ) : isBuzzerLocked ? (
           /* 15-Second Active Countdown Ring */
           <div
             data-testid="face-off-timer-ring"
@@ -642,7 +704,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       )}
 
       {/* 3. Middle of Remaining Space */}
-      {snapshot.phase === 'AWAITING_READY' ? (
+      {snapshot.phase === 'AWAITING_READY' && readyCountdown === null ? (
         <div
           data-testid="face-off-pending-players-section"
           className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-4 sm:gap-6 my-auto"
@@ -694,13 +756,15 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
               </div>
 
               <span className="text-[10px] font-extrabold text-feud-gold-light uppercase tracking-widest block mb-0.5">
-                {t.host.surveyQuestion}
+                {readyCountdown !== null ? t.mainGame.bothReady : t.host.surveyQuestion}
               </span>
               <h2
                 data-testid="face-off-question-text"
                 className="text-lg sm:text-xl lg:text-2xl 2xl:text-3xl font-extrabold text-white leading-tight drop-shadow-md"
               >
-                &ldquo;{snapshot.question?.questionText}&rdquo;
+                {readyCountdown !== null
+                  ? t.mainGame.gameStartsIn.replace('{seconds}', String(readyCountdown))
+                  : `\u201C${snapshot.question?.questionText}\u201D`}
               </h2>
             </div>
           </div>

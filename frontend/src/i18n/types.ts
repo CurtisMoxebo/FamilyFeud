@@ -249,6 +249,8 @@ export interface TranslationDictionary {
     designatedContenderNotice: string;
     contender: string;
     playerSaidSurveySaid: string;
+    startsIn: string;
+    gameStartsIn: string;
   };
   admin: {
     pauseTimer: string;

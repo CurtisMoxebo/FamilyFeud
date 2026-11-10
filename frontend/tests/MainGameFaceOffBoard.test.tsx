@@ -595,4 +595,25 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
       'face-off-empty-slot-8',
     ]);
   });
+
+  it('triggers a 5-second countdown timer on the host board when both face-off players are ready before game starts', () => {
+    renderBoard({
+      snapshot: {
+        ...baseSnapshot,
+        team1Contender: { ...baseSnapshot.team1Contender, isReady: true },
+        team2Contender: { ...baseSnapshot.team2Contender, isReady: true },
+      },
+      initialReadyCountdown: 5,
+    });
+
+    // 5-second countdown timer ring displayed in center arbiter
+    expect(screen.getByTestId('face-off-ready-countdown')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-ready-seconds')).toHaveTextContent('5s');
+
+    // Question banner displays countdown notice
+    expect(screen.getByTestId('face-off-question-text')).toHaveTextContent('Game starts in 5s...');
+
+    // Host TTS has not fired yet during the 5-second countdown
+    expect(ttsModule.speakQuestion).not.toHaveBeenCalled();
+  });
 });

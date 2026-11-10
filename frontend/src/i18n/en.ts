@@ -252,6 +252,8 @@ export const en: TranslationDictionary = {
     designatedContenderNotice: 'You are the designated contender for this round!',
     contender: 'Contender',
     playerSaidSurveySaid: '{player} said {answer}, survey said...',
+    startsIn: 'Starts In',
+    gameStartsIn: 'Game starts in {seconds}s...',
   },
   admin: {
     pauseTimer: 'Pause Timer',

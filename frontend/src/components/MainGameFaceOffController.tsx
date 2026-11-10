@@ -3,6 +3,7 @@ import { MainGameScoreboardHeader } from './MainGameScoreboardHeader';
 import {
   ScoreboardUpdatePayload,
   FaceOffSessionState,
+  FaceOffPhase,
   TimerTickPayload,
   BuzzerLockedPayload,
   BuzzerRejectedPayload,
@@ -32,6 +33,7 @@ import {
 export interface MainGameFaceOffControllerProps {
   snapshot: FaceOffSessionState;
   timerTick?: TimerTickPayload | null;
+  initialReadyCountdown?: number | null;
   isPaused?: boolean;
   pausedRemainingSeconds?: number;
   buzzerLocked?: BuzzerLockedPayload | null;
@@ -55,6 +57,7 @@ export interface MainGameFaceOffControllerProps {
 export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps> = ({
   snapshot,
   timerTick,
+  initialReadyCountdown,
   isPaused = false,
   pausedRemainingSeconds,
   buzzerLocked,
@@ -97,6 +100,33 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   const c1 = snapshot.team1Contender;
   const c2 = snapshot.team2Contender;
 
+  // 5-second countdown timer when both contenders are ready
+  const isBothReady = Boolean(c1?.isReady && c2?.isReady);
+  const [readyCountdown, setReadyCountdown] = useState<number | null>(() =>
+    initialReadyCountdown !== undefined ? initialReadyCountdown : null
+  );
+  const previousBothReadyRef = useRef<boolean>(
+    initialReadyCountdown !== undefined ? false : isBothReady
+  );
+  const previousPhaseRef = useRef<FaceOffPhase>(snapshot.phase);
+
+  useEffect(() => {
+    if (initialReadyCountdown !== undefined) {
+      setReadyCountdown(initialReadyCountdown);
+    }
+  }, [initialReadyCountdown]);
+
+  useEffect(() => {
+    const wasNotBothReady = !previousBothReadyRef.current;
+    const wasAwaitingReady = previousPhaseRef.current === 'AWAITING_READY';
+    previousBothReadyRef.current = isBothReady;
+    previousPhaseRef.current = snapshot.phase;
+
+    if (isBothReady && (wasNotBothReady || (wasAwaitingReady && snapshot.phase === 'BUZZER_ACTIVE'))) {
+      setReadyCountdown(5);
+    }
+  }, [isBothReady, snapshot.phase]);
+
   const isC1 =
     (currentPlayerId && c1?.id === currentPlayerId) ||
     c1?.nickname?.toLowerCase() === trimmedNick;
@@ -106,6 +136,24 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
     c2?.nickname?.toLowerCase() === trimmedNick;
 
   const isContender = isC1 || isC2;
+
+  useEffect(() => {
+    if (readyCountdown === null) return;
+    if (readyCountdown <= 0) {
+      setReadyCountdown(null);
+      if (isContender) {
+        triggerHaptic('buzz');
+      }
+      return;
+    }
+    if (isPaused) return;
+
+    const timer = setTimeout(() => {
+      setReadyCountdown((prev) => (prev !== null && prev > 1 ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [readyCountdown, isPaused, isContender]);
   const isSpectator = !isContender;
   const myContender = isC1 ? c1 : isC2 ? c2 : null;
   const opponentContender = isC1 ? c2 : isC2 ? c1 : null;
@@ -304,7 +352,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       </div>
 
       {/* Question Card (Visible once buzzers active or answering) */}
-      {snapshot.phase !== 'AWAITING_READY' && snapshot.question && (
+      {snapshot.phase !== 'AWAITING_READY' && snapshot.question && readyCountdown === null && (
         <div
           data-testid="controller-question-card"
           className="w-full p-4 rounded-2xl bg-slate-900/90 border border-feud-gold/40 text-left"
@@ -359,9 +407,41 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       )}
 
       {/* ===================================================================== */}
+      {/* 5-SECOND READY COUNTDOWN BEFORE GAME STARTS */}
+      {/* ===================================================================== */}
+      {readyCountdown !== null && (
+        <div
+          data-testid="face-off-ready-countdown"
+          className="w-full flex-1 min-h-[260px] flex flex-col items-center justify-center p-6 rounded-2xl bg-slate-900/90 border-2 border-feud-gold/60 text-center gap-4 animate-pulse my-auto"
+        >
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-feud-gold/20 border border-feud-gold/40 text-feud-gold text-xs font-bold uppercase tracking-wider">
+            <Clock className="w-4 h-4 animate-spin" />
+            <span>{t.mainGame.bothReady}</span>
+          </div>
+          <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-feud-gold flex flex-col items-center justify-center bg-slate-950/80 shadow-[0_0_35px_rgba(234,179,8,0.4)]">
+            <span
+              data-testid="face-off-ready-seconds"
+              className="text-5xl sm:text-6xl font-black text-feud-gold tracking-tight"
+            >
+              {readyCountdown}
+            </span>
+            <span className="text-[10px] font-black uppercase text-amber-300 tracking-wider">
+              {t.mainGame.startsIn}
+            </span>
+          </div>
+          <p className="text-base sm:text-lg font-extrabold text-white">
+            {t.mainGame.gameStartsIn.replace('{seconds}', String(readyCountdown))}
+          </p>
+          <p className="text-xs text-slate-400">
+            {isContender ? t.mainGame.readyForFaceOff : t.mainGame.spectatorRoundNotice}
+          </p>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
       {/* PHASE 1: AWAITING READY */}
       {/* ===================================================================== */}
-      {snapshot.phase === 'AWAITING_READY' && (
+      {snapshot.phase === 'AWAITING_READY' && readyCountdown === null && (
         <div className="w-full flex flex-col items-center gap-4">
           {isContender ? (
             myContender?.isReady ? (
@@ -424,7 +504,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {/* ===================================================================== */}
       {/* PHASE 2: BUZZER ACTIVE */}
       {/* ===================================================================== */}
-      {snapshot.phase === 'BUZZER_ACTIVE' && (
+      {snapshot.phase === 'BUZZER_ACTIVE' && readyCountdown === null && (
         <div className="w-full flex flex-col items-center gap-4">
           {isContender ? (
             /* Giant Mobile Tactile Buzzer Button (US-22 Scenarios 2 & 3) */
