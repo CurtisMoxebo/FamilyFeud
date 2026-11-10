@@ -163,41 +163,6 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     }
   }, [isBuzzerLocked, activeWinnerId]);
 
-  // US-28: Every time a player has to answer, the host first reads the question
-  // Contender 1 prompted after buzzing in (ANSWERING phase)
-  const lastSpokenAnsweringPhase = useRef<string | null>(null);
-  useEffect(() => {
-    if (snapshot.phase === 'ANSWERING' && snapshot.question?.questionText) {
-      const turnKey = `ANSWERING-${snapshot.question.id}-${activeWinnerId}`;
-      if (lastSpokenAnsweringPhase.current !== turnKey) {
-        lastSpokenAnsweringPhase.current = turnKey;
-        if (audioEnabled) {
-          const timer = setTimeout(() => {
-            speakQuestion(snapshot.question.questionText, language);
-          }, 150);
-          return () => clearTimeout(timer);
-        }
-      }
-    }
-  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, activeWinnerId, language, audioEnabled]);
-
-  // Contender 2 prompted on hand-off (OPPONENT_GUESS phase)
-  const lastSpokenOpponentGuessPhase = useRef<string | null>(null);
-  useEffect(() => {
-    if (snapshot.phase === 'OPPONENT_GUESS' && snapshot.question?.questionText) {
-      const turnKey = `OPPONENT_GUESS-${snapshot.question.id}`;
-      if (lastSpokenOpponentGuessPhase.current !== turnKey) {
-        lastSpokenOpponentGuessPhase.current = turnKey;
-        if (audioEnabled) {
-          const timer = setTimeout(() => {
-            speakQuestion(snapshot.question.questionText, language);
-          }, 150);
-          return () => clearTimeout(timer);
-        }
-      }
-    }
-  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, language, audioEnabled]);
-
   // Scenario 1, 2, 3: Ding sound cue when card flips open on the board
   const previousRevealedCount = useRef<number>(0);
   useEffect(() => {

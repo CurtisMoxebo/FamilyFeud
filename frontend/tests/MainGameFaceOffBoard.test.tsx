@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { MainGameFaceOffBoard } from '../src/components/MainGameFaceOffBoard';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
@@ -475,41 +475,63 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     expect(toggleBtn).toHaveAttribute('title', 'Mute Sounds & TTS');
   });
 
-  it('satisfies US-28: reads question aloud when contender is answering and when opponent is prompted', async () => {
+  it('satisfies US-28: reads question once when buzzers activate, but does NOT repeat the question after a player presses the buzzer', async () => {
     vi.useFakeTimers();
 
-    const answeringSnapshot: FaceOffSessionState = {
-      ...baseSnapshot,
-      phase: 'ANSWERING',
-      buzzerLocked: true,
-      buzzedPlayerId: 'p1',
-      activeRespondentId: 'p1',
-    };
+    const { rerender } = renderBoard({
+      snapshot: {
+        ...baseSnapshot,
+        phase: 'BUZZER_ACTIVE',
+      },
+    });
 
-    renderBoard({ snapshot: answeringSnapshot });
-    vi.advanceTimersByTime(200);
-
+    // Spoken once on BUZZER_ACTIVE
+    expect(ttsModule.speakQuestion).toHaveBeenCalledTimes(1);
     expect(ttsModule.speakQuestion).toHaveBeenCalledWith(
-      'Name something people often lose',
+      expect.stringContaining('Name something people often lose'),
       'EN'
     );
 
-    cleanup();
-
-    const opponentSnapshot: FaceOffSessionState = {
-      ...baseSnapshot,
-      phase: 'OPPONENT_GUESS',
-      buzzerLocked: true,
-      activeRespondentId: 'p2',
-    };
-
-    renderBoard({ snapshot: opponentSnapshot });
+    // Contender 1 presses buzzer -> ANSWERING phase
+    rerender(
+      <LanguageProvider>
+        <MainGameFaceOffBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'ANSWERING',
+            buzzerLocked: true,
+            buzzedPlayerId: 'p1',
+            activeRespondentId: 'p1',
+          }}
+          roomName="Family Feud Duel"
+          roomCode="FEUD-CTRL"
+        />
+      </LanguageProvider>
+    );
     vi.advanceTimersByTime(200);
 
-    expect(ttsModule.speakQuestion).toHaveBeenCalledWith(
-      'Name something people often lose',
-      'EN'
+    // Question is NOT repeated
+    expect(ttsModule.speakQuestion).toHaveBeenCalledTimes(1);
+
+    // Moves to OPPONENT_GUESS phase
+    rerender(
+      <LanguageProvider>
+        <MainGameFaceOffBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'OPPONENT_GUESS',
+            buzzerLocked: true,
+            activeRespondentId: 'p2',
+          }}
+          roomName="Family Feud Duel"
+          roomCode="FEUD-CTRL"
+        />
+      </LanguageProvider>
     );
+    vi.advanceTimersByTime(200);
+
+    // Question is still NOT repeated
+    expect(ttsModule.speakQuestion).toHaveBeenCalledTimes(1);
 
     vi.useRealTimers();
   });

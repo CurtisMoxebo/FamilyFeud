@@ -132,19 +132,30 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     }
   };
 
+  const [surveySaidAnnouncement, setSurveySaidAnnouncement] = useState<{
+    player: string;
+    answer: string;
+    rankOrder?: number;
+  } | null>(null);
+  const surveySaidAnnouncementRef = useRef(surveySaidAnnouncement);
+  surveySaidAnnouncementRef.current = surveySaidAnnouncement;
+
   useEffect(() => {
     return () => {
       cancelSpeech();
     };
   }, []);
 
-  // Scenario 1, US-17 & US-28: Trigger TTS reading of question when team guessing phase begins
-  // and every time a player has to answer the question (subsequent teammates)
+  // Scenario 1, US-17 & US-28: After Pass or Play is chosen, read the question to each player who has to answer
   const lastSpokenPlayerTurn = useRef<string | null>(null);
   useEffect(() => {
-    if (snapshot.phase === 'TEAM_GUESSING' && snapshot.question?.questionText) {
+    if (
+      snapshot.phase === 'TEAM_GUESSING' &&
+      snapshot.question?.questionText &&
+      !surveySaidAnnouncement
+    ) {
       const playerId = snapshot.activePlayer?.id || 'initial';
-      const turnKey = `${snapshot.question.id}-${playerId}-${snapshot.strikes}`;
+      const turnKey = `${snapshot.question.id}-${playerId}-${snapshot.strikes}-${snapshot.revealedAnswers.length}`;
       if (lastSpokenPlayerTurn.current !== turnKey) {
         lastSpokenPlayerTurn.current = turnKey;
         if (audioEnabled) {
@@ -158,6 +169,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     snapshot.question?.questionText,
     snapshot.activePlayer?.id,
     snapshot.strikes,
+    snapshot.revealedAnswers.length,
+    surveySaidAnnouncement,
     language,
     audioEnabled,
   ]);
@@ -179,14 +192,6 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       }
     }
   }, [snapshot.phase, transitionStealPhase, snapshot.question?.questionText, language, audioEnabled]);
-
-  const [surveySaidAnnouncement, setSurveySaidAnnouncement] = useState<{
-    player: string;
-    answer: string;
-    rankOrder?: number;
-  } | null>(null);
-  const surveySaidAnnouncementRef = useRef(surveySaidAnnouncement);
-  surveySaidAnnouncementRef.current = surveySaidAnnouncement;
 
   // Scenario 2: Cancel host reading on rapid guess submission or strike (US-17 Scenario 2)
   useEffect(() => {
