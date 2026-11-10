@@ -125,6 +125,8 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
         p.nickname.toLowerCase() === trimmedNick
     );
   const playerTeam: 'TEAM_1' | 'TEAM_2' | null = isTeam1 ? 'TEAM_1' : isTeam2 ? 'TEAM_2' : null;
+  const myTeamPlayers = isTeam2 ? snapshot.team2Players : snapshot.team1Players;
+  const myTeamName = isTeam2 ? t.mainGame.team2 : t.mainGame.team1;
 
   // Buzzer lockout arbiter
   const isBuzzerLocked = snapshot.buzzerLocked || Boolean(buzzerLocked);
@@ -840,6 +842,72 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           <p className="text-xs text-slate-400 mt-1">
             Host is verifying the answer on the survey board...
           </p>
+        </div>
+      )}
+
+      {/* My Team Roster: Members of My Team in 2 Columns */}
+      {myTeamPlayers && myTeamPlayers.length > 0 && (
+        <div
+          data-testid="face-off-my-team-roster"
+          className={`${
+            isKeyboardOpen ? 'hidden' : 'flex flex-col'
+          } w-full mt-4 gap-2 transition-all`}
+        >
+          <div className="flex items-center justify-between px-1 mb-1">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+              {myTeamName} ({myTeamPlayers.length} Members)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {myTeamPlayers.map((player) => {
+              const isMe =
+                (currentPlayerId && player.id === currentPlayerId) ||
+                player.nickname.toLowerCase() === trimmedNick;
+              const isContender =
+                (myContender?.id && myContender.id === player.id) ||
+                myContender?.nickname.toLowerCase() === player.nickname.toLowerCase();
+
+              return (
+                <div
+                  key={player.id}
+                  data-testid={`face-off-team-player-${player.id}`}
+                  className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs border transition-all ${
+                    isContender
+                      ? 'bg-amber-500/25 border-amber-400/60 text-amber-200 font-extrabold shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                      : isMe
+                      ? isTeam2
+                        ? 'bg-emerald-600/30 border-emerald-400/50 text-white font-bold'
+                        : 'bg-blue-600/30 border-blue-400/50 text-white font-bold'
+                      : 'bg-slate-900/80 border-slate-800 text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 truncate mr-1">
+                    <span
+                      className={`w-5 h-5 rounded-full font-black flex items-center justify-center text-[10px] shrink-0 ${
+                        isTeam2
+                          ? 'bg-emerald-500/30 text-emerald-300'
+                          : 'bg-blue-500/30 text-blue-300'
+                      }`}
+                    >
+                      {player.battingOrder}
+                    </span>
+                    <span className="truncate font-bold">{player.nickname}</span>
+                    {isMe && (
+                      <span className="text-[9px] text-yellow-300 uppercase font-black shrink-0">
+                        (You)
+                      </span>
+                    )}
+                  </div>
+                  {isContender && (
+                    <span className="text-[9px] uppercase tracking-wider font-black text-amber-300 shrink-0">
+                      Duel
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

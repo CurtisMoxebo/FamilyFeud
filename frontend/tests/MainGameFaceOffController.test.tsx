@@ -508,5 +508,24 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       expect(screen.getByTestId('your-team-badge')).toBeInTheDocument();
       expect(screen.getByTestId('team1-grand-total-card')).toHaveClass('ring-blue-400/40');
     });
+
+    it('renders only members of own team in 2 columns during face-off', () => {
+      renderController({
+        currentNickname: 'Alice',
+        currentPlayerId: 'p1',
+      });
+
+      expect(screen.getByTestId('face-off-my-team-roster')).toBeInTheDocument();
+
+      // Team 1 players Alice and Charlie
+      expect(screen.getByTestId('face-off-team-player-p1')).toHaveTextContent('Alice');
+      expect(screen.getByTestId('face-off-team-player-p1')).toHaveTextContent('(You)');
+      expect(screen.getByTestId('face-off-team-player-p1')).toHaveTextContent('Duel');
+      expect(screen.getByTestId('face-off-team-player-p3')).toHaveTextContent('Charlie');
+
+      // Team 2 players (Bob, Diana) are NOT in my team roster
+      expect(screen.queryByTestId('face-off-team-player-p2')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-team-player-p4')).not.toBeInTheDocument();
+    });
   });
 });

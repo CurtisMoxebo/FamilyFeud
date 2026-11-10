@@ -264,6 +264,11 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   const resolvedPoints =
     stealResolved?.pointsAwarded ?? snapshot.roundBank;
 
+  const myTeamPlayers = isControllingTeam
+    ? snapshot.controllingTeamPlayers
+    : snapshot.opposingTeamPlayers;
+  const myTeamName = isControllingTeam ? controllingTeamName : opposingTeamName;
+
   return (
     <div
       className={`w-full max-w-lg max-w-[100%] overflow-x-hidden mx-auto flex flex-col ${
@@ -580,6 +585,78 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
                 {localStrikeAlert.message}
               </span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* My Team Roster: Members of My Team in 2 Columns */}
+      {myTeamPlayers && myTeamPlayers.length > 0 && (
+        <div
+          data-testid="mobile-my-team-roster"
+          className={`${
+            isKeyboardOpen ? 'hidden' : 'flex flex-col'
+          } w-full mb-4 gap-2 transition-all`}
+        >
+          <div className="flex items-center justify-between px-1 mb-1">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+              {myTeamName} ({myTeamPlayers.length} Members)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {myTeamPlayers.map((player) => {
+              const isMe =
+                (currentPlayerId && player.id === currentPlayerId) ||
+                player.nickname.toLowerCase() === trimmedNick;
+              const isTurn = snapshot.activePlayer?.id === player.id;
+              const isSpokesperson = isStealPhase && stealSpokesperson?.id === player.id;
+
+              return (
+                <div
+                  key={player.id}
+                  data-testid={`mobile-team-player-${player.id}`}
+                  className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs border transition-all ${
+                    isTurn
+                      ? 'bg-amber-500/25 border-amber-400/70 text-amber-200 font-extrabold shadow-[0_0_12px_rgba(245,158,11,0.35)] animate-pulse'
+                      : isSpokesperson
+                      ? 'bg-purple-500/25 border-purple-400/60 text-purple-200 font-extrabold shadow-sm'
+                      : isMe
+                      ? playerTeam === 'TEAM_1'
+                        ? 'bg-blue-600/30 border-blue-400/50 text-white font-bold'
+                        : 'bg-emerald-600/30 border-emerald-400/50 text-white font-bold'
+                      : 'bg-slate-900/80 border-slate-800 text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 truncate mr-1">
+                    <span
+                      className={`w-5 h-5 rounded-full font-black flex items-center justify-center text-[10px] shrink-0 ${
+                        playerTeam === 'TEAM_1'
+                          ? 'bg-blue-500/30 text-blue-300'
+                          : 'bg-emerald-500/30 text-emerald-300'
+                      }`}
+                    >
+                      {player.battingOrder}
+                    </span>
+                    <span className="truncate font-bold">{player.nickname}</span>
+                    {isMe && (
+                      <span className="text-[9px] text-yellow-300 uppercase font-black shrink-0">
+                        (You)
+                      </span>
+                    )}
+                  </div>
+                  {isTurn && (
+                    <span className="text-[9px] uppercase tracking-wider font-black text-amber-300 shrink-0">
+                      Turn
+                    </span>
+                  )}
+                  {isSpokesperson && !isTurn && (
+                    <span className="text-[9px] uppercase tracking-wider font-black text-purple-300 shrink-0">
+                      Steal
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

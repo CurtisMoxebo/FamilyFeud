@@ -435,4 +435,24 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
     // Alice is on Team 1 (controlling team in baseSnapshot), so Team 1 is highlighted
     expect(screen.getByTestId('your-team-badge')).toBeInTheDocument();
   });
+
+  it('satisfies US-28: renders only members of own team in 2 columns instead of the survey board', () => {
+    renderComponent({
+      currentNickname: 'Alice',
+      currentPlayerId: 'p1',
+    });
+
+    // Survey board slots are not in document
+    expect(screen.queryByTestId('mobile-survey-board-summary')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-card-slot-1')).not.toBeInTheDocument();
+
+    // Only own team roster is rendered (Team 1) in 2 columns
+    expect(screen.getByTestId('mobile-my-team-roster')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-team-player-p1')).toHaveTextContent('Alice');
+    expect(screen.getByTestId('mobile-team-player-p1')).toHaveTextContent('(You)');
+    expect(screen.getByTestId('mobile-team-player-p2')).toHaveTextContent('Bob');
+
+    // Opposing team players (Charlie) are NOT rendered in team roster
+    expect(screen.queryByTestId('mobile-team-player-p3')).not.toBeInTheDocument();
+  });
 });
