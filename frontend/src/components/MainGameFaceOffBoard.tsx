@@ -291,26 +291,197 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   const revealedCount =
     revealedRanks.length || (showDeadlockBoard ? answers.length : 0);
 
+  const renderDuelPodiums = () => (
+    <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+      {/* Contender 1 Podium (Team 1) */}
+      <div
+        data-testid="face-off-podium-team1"
+        className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
+          isC1Winner
+            ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
+            : isC1LockedOut
+            ? 'bg-slate-900/60 border-red-500/60 opacity-80'
+            : 'bg-slate-900/80 border-blue-500/40'
+        }`}
+      >
+        {/* Winner Banner */}
+        {isC1Winner && (
+          <div
+            data-testid="c1-winner-badge"
+            className="absolute -top-3 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse"
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>{t.mainGame.buzzerWinner.replace('{name}', contender1?.nickname || '')}</span>
+          </div>
+        )}
+
+        {/* Locked Out Overlay */}
+        {isC1LockedOut && (
+          <div
+            data-testid="c1-lockout-badge"
+            className="absolute -top-3 px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1"
+          >
+            <Lock className="w-3 h-3" />
+            <span>{t.mainGame.buzzerLocked}</span>
+          </div>
+        )}
+
+        <span className="text-[10px] font-extrabold uppercase text-blue-400 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 mb-2">
+          {t.mainGame.team1} &bull; {t.mainGame.battingOrder.replace('{order}', String(contender1?.battingOrder || 1))}
+        </span>
+
+        <h3
+          data-testid="c1-nickname"
+          className="text-lg sm:text-2xl font-black text-white tracking-wide"
+        >
+          {contender1?.nickname}
+        </h3>
+
+        {/* Readiness State */}
+        <div className="mt-2.5 flex items-center gap-2">
+          {contender1?.isReady ? (
+            <span
+              data-testid="c1-ready-badge"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-green-400 px-2.5 py-0.5 rounded-full bg-green-500/15 border border-green-500/30"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{t.mainGame.imReady}</span>
+            </span>
+          ) : (
+            <span
+              data-testid="c1-waiting-badge"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 animate-pulse"
+            >
+              <span>{t.lobby.statusWaiting}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Center Buzzer & Countdown Arbiter */}
+      <div
+        data-testid="face-off-center-arbiter"
+        className="flex flex-col items-center justify-center p-2 min-w-[140px]"
+      >
+        {isBuzzerLocked ? (
+          /* 15-Second Active Countdown Ring */
+          <div
+            data-testid="face-off-timer-ring"
+            className="flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-full bg-slate-900/90 border-3 border-feud-gold shadow-[0_0_25px_rgba(234,179,8,0.4)] animate-pulse"
+          >
+            <Clock className="w-6 h-6 text-feud-gold mb-0.5" />
+            <span
+              data-testid="face-off-seconds"
+              className={`text-2xl sm:text-3xl font-black tracking-tight ${
+                currentSeconds <= 5 ? 'text-red-400 animate-ping' : 'text-feud-gold'
+              }`}
+            >
+              {currentSeconds}s
+            </span>
+            <span className="text-[9px] font-bold uppercase text-slate-400 tracking-wider">
+              Timer
+            </span>
+          </div>
+        ) : snapshot.phase === 'BUZZER_ACTIVE' ? (
+          /* Armed Buzzers Active State */
+          <div
+            data-testid="buzzers-armed-cue"
+            className="flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-full bg-yellow-500/10 border-2 border-feud-gold/70 text-center animate-pulse"
+          >
+            <Zap className="w-7 h-7 text-feud-gold animate-bounce mb-0.5" />
+            <span className="text-xs font-black text-feud-gold uppercase tracking-wider">
+              {t.mainGame.buzzerBtn}
+            </span>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              Ready to Buzz
+            </span>
+          </div>
+        ) : (
+          /* Waiting for Readiness */
+          <div className="flex flex-col items-center text-center p-2">
+            <span className="text-xl sm:text-2xl font-black text-slate-600 tracking-wider">VS</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              {t.mainGame.faceOffTitle}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Contender 2 Podium (Team 2) */}
+      <div
+        data-testid="face-off-podium-team2"
+        className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
+          isC2Winner
+            ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
+            : isC2LockedOut
+            ? 'bg-slate-900/60 border-red-500/60 opacity-80'
+            : 'bg-slate-900/80 border-purple-500/40'
+        }`}
+      >
+        {/* Winner Banner */}
+        {isC2Winner && (
+          <div
+            data-testid="c2-winner-badge"
+            className="absolute -top-3 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse"
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>{t.mainGame.buzzerWinner.replace('{name}', contender2?.nickname || '')}</span>
+          </div>
+        )}
+
+        {/* Locked Out Overlay */}
+        {isC2LockedOut && (
+          <div
+            data-testid="c2-lockout-badge"
+            className="absolute -top-3 px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1"
+          >
+            <Lock className="w-3 h-3" />
+            <span>{t.mainGame.buzzerLocked}</span>
+          </div>
+        )}
+
+        <span className="text-[10px] font-extrabold uppercase text-purple-400 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 mb-2">
+          {t.mainGame.team2} &bull; {t.mainGame.battingOrder.replace('{order}', String(contender2?.battingOrder || 1))}
+        </span>
+
+        <h3
+          data-testid="c2-nickname"
+          className="text-lg sm:text-2xl font-black text-white tracking-wide"
+        >
+          {contender2?.nickname}
+        </h3>
+
+        {/* Readiness State */}
+        <div className="mt-2.5 flex items-center gap-2">
+          {contender2?.isReady ? (
+            <span
+              data-testid="c2-ready-badge"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-green-400 px-2.5 py-0.5 rounded-full bg-green-500/15 border border-green-500/30"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{t.mainGame.imReady}</span>
+            </span>
+          ) : (
+            <span
+              data-testid="c2-waiting-badge"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 animate-pulse"
+            >
+              <span>{t.lobby.statusWaiting}</span>
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div
       data-testid="main-game-face-off-board"
       className="w-full h-full max-h-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col justify-between items-center overflow-hidden animate-fadeIn"
     >
-      {/* Persistent Grand Total Header (US-16 Scenario 1) */}
-      <div className="w-full">
-        <MainGameScoreboardHeader
-          team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
-          team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
-          activeRoundBank={scoreboardState?.activeRoundBank ?? 0}
-          currentRoundNumber={scoreboardState?.currentRoundNumber ?? snapshot.roundNumber ?? 1}
-          totalRounds={scoreboardState?.totalRounds ?? 3}
-          isSuddenDeath={scoreboardState?.isSuddenDeath ?? false}
-        />
-      </div>
-
-      {/* Header Bar */}
-      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-xl sm:rounded-2xl p-2.5 sm:p-3 2xl:p-4 shadow-xl">
-        <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-feud-slate-border/80 pb-2 sm:pb-2.5">
+      {/* 1. Header Bar with Controls on the Top */}
+      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-xl sm:rounded-2xl p-2.5 sm:p-3 2xl:p-4 shadow-xl shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2 sm:gap-2.5">
             <div className="p-1.5 sm:p-2 rounded-xl bg-feud-gold/20 border border-feud-gold/40 text-feud-gold">
               <Tv className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -396,65 +567,30 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             </button>
 
             {onLeave && (
-            <button
-              type="button"
-              onClick={onLeave}
-              data-testid="face-off-leave-btn"
-              className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>{t.lobby.leaveLobby}</span>
-            </button>
-          )}
+              <button
+                type="button"
+                onClick={onLeave}
+                data-testid="face-off-leave-btn"
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>{t.lobby.leaveLobby}</span>
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Survey Question Banner */}
-        <div className="mt-2 sm:mt-2.5">
-          {snapshot.phase === 'AWAITING_READY' ? (
-            <div
-              data-testid="face-off-awaiting-banner"
-              className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-800/60 border border-dashed border-slate-700 text-center"
-            >
-              <h2 className="text-base sm:text-lg font-bold text-slate-200">
-                {t.mainGame.readyForFaceOff}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-                {t.mainGame.faceOffContenders}: {contender1?.nickname} {t.mainGame.versus}{' '}
-                {contender2?.nickname}
-              </p>
-            </div>
-          ) : (
-            <div
-              data-testid="face-off-question-banner"
-              className="p-2.5 sm:p-3.5 2xl:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-b from-blue-950/80 via-slate-900/90 to-slate-950 border-2 border-feud-gold/60 shadow-[0_0_25px_rgba(234,179,8,0.2)] text-center relative overflow-hidden"
-            >
-              <div className="absolute top-1.5 right-3 flex items-center gap-1.5 text-[10px] font-bold text-feud-gold uppercase tracking-wider">
-                {audioEnabled ? (
-                  <>
-                    <Volume2 className="w-3 h-3 animate-pulse" />
-                    <span>{t.host.hostTts}</span>
-                  </>
-                ) : (
-                  <>
-                    <VolumeX className="w-3 h-3 text-slate-500" />
-                    <span className="text-slate-500">{t.host.hostTtsMuted}</span>
-                  </>
-                )}
-              </div>
-
-              <span className="text-[10px] font-extrabold text-feud-gold-light uppercase tracking-widest block mb-0.5">
-                {t.host.surveyQuestion}
-              </span>
-              <h2
-                data-testid="face-off-question-text"
-                className="text-lg sm:text-xl lg:text-2xl 2xl:text-3xl font-extrabold text-white leading-tight drop-shadow-md"
-              >
-                &ldquo;{snapshot.question?.questionText}&rdquo;
-              </h2>
-            </div>
-          )}
-        </div>
+      {/* 2. Team Scores directly underneath */}
+      <div className="w-full shrink-0">
+        <MainGameScoreboardHeader
+          team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
+          team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
+          activeRoundBank={scoreboardState?.activeRoundBank ?? 0}
+          currentRoundNumber={scoreboardState?.currentRoundNumber ?? snapshot.roundNumber ?? 1}
+          totalRounds={scoreboardState?.totalRounds ?? 3}
+          isSuddenDeath={scoreboardState?.isSuddenDeath ?? false}
+        />
       </div>
 
       {/* Timeout / Hand-off / Deadlock Alerts */}
@@ -485,6 +621,65 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           )}
         </div>
       )}
+
+      {/* 3. Middle of Remaining Space */}
+      {snapshot.phase === 'AWAITING_READY' ? (
+        <div
+          data-testid="face-off-pending-players-section"
+          className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-4 sm:gap-6 my-auto"
+        >
+          {/* Awaiting Ready Announcement Banner */}
+          <div
+            data-testid="face-off-awaiting-banner"
+            className="w-full max-w-2xl p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-slate-800/60 border border-dashed border-slate-700 text-center shadow-lg shrink-0"
+          >
+            <h2 className="text-base sm:text-xl font-bold text-slate-200">
+              {t.mainGame.readyForFaceOff}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              {t.mainGame.faceOffContenders}: {contender1?.nickname} {t.mainGame.versus}{' '}
+              {contender2?.nickname}
+            </p>
+          </div>
+
+          {/* Pending Players Duel Podiums */}
+          <div className="w-full max-w-4xl shrink-0">
+            {renderDuelPodiums()}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Survey Question Banner */}
+          <div className="w-full shrink-0">
+            <div
+              data-testid="face-off-question-banner"
+              className="p-2.5 sm:p-3.5 2xl:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-b from-blue-950/80 via-slate-900/90 to-slate-950 border-2 border-feud-gold/60 shadow-[0_0_25px_rgba(234,179,8,0.2)] text-center relative overflow-hidden"
+            >
+              <div className="absolute top-1.5 right-3 flex items-center gap-1.5 text-[10px] font-bold text-feud-gold uppercase tracking-wider">
+                {audioEnabled ? (
+                  <>
+                    <Volume2 className="w-3 h-3 animate-pulse" />
+                    <span>{t.host.hostTts}</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-3 h-3 text-slate-500" />
+                    <span className="text-slate-500">{t.host.hostTtsMuted}</span>
+                  </>
+                )}
+              </div>
+
+              <span className="text-[10px] font-extrabold text-feud-gold-light uppercase tracking-widest block mb-0.5">
+                {t.host.surveyQuestion}
+              </span>
+              <h2
+                data-testid="face-off-question-text"
+                className="text-lg sm:text-xl lg:text-2xl 2xl:text-3xl font-extrabold text-white leading-tight drop-shadow-md"
+              >
+                &ldquo;{snapshot.question?.questionText}&rdquo;
+              </h2>
+            </div>
+          </div>
 
       {/* Opponent Challenge Banner (US-13 Scenarios 2 & 4) */}
       {snapshot.phase === 'OPPONENT_GUESS' && (
@@ -573,7 +768,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       )}
 
       {/* Survey Board Grid (US-13 Scenarios 1, 2, 3, 4) */}
-      {snapshot.phase !== 'AWAITING_READY' && answers.length > 0 && (
+      {answers.length > 0 && (
         <div
           data-testid="face-off-survey-board"
           className="w-full bg-slate-950/80 border-2 border-feud-gold/40 rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 shadow-xl backdrop-blur-md"
@@ -662,186 +857,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       )}
 
       {/* Duel Podiums & Center Arbiter */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
-        {/* Contender 1 Podium (Team 1) */}
-        <div
-          data-testid="face-off-podium-team1"
-          className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
-            isC1Winner
-              ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
-              : isC1LockedOut
-              ? 'bg-slate-900/60 border-red-500/60 opacity-80'
-              : 'bg-slate-900/80 border-blue-500/40'
-          }`}
-        >
-          {/* Winner Banner */}
-          {isC1Winner && (
-            <div
-              data-testid="c1-winner-badge"
-              className="absolute -top-3 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse"
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>{t.mainGame.buzzerWinner.replace('{name}', contender1?.nickname || '')}</span>
-            </div>
-          )}
-
-          {/* Locked Out Overlay */}
-          {isC1LockedOut && (
-            <div
-              data-testid="c1-lockout-badge"
-              className="absolute -top-3 px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1"
-            >
-              <Lock className="w-3 h-3" />
-              <span>{t.mainGame.buzzerLocked}</span>
-            </div>
-          )}
-
-          <span className="text-[10px] font-extrabold uppercase text-blue-400 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 mb-2">
-            {t.mainGame.team1} &bull; {t.mainGame.battingOrder.replace('{order}', String(contender1?.battingOrder || 1))}
-          </span>
-
-          <h3
-            data-testid="c1-nickname"
-            className="text-lg sm:text-2xl font-black text-white tracking-wide"
-          >
-            {contender1?.nickname}
-          </h3>
-
-          {/* Readiness State */}
-          <div className="mt-2.5 flex items-center gap-2">
-            {contender1?.isReady ? (
-              <span
-                data-testid="c1-ready-badge"
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-green-400 px-2.5 py-0.5 rounded-full bg-green-500/15 border border-green-500/30"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{t.mainGame.imReady}</span>
-              </span>
-            ) : (
-              <span
-                data-testid="c1-waiting-badge"
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 animate-pulse"
-              >
-                <span>{t.lobby.statusWaiting}</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Center Buzzer & Countdown Arbiter */}
-        <div
-          data-testid="face-off-center-arbiter"
-          className="flex flex-col items-center justify-center p-2 min-w-[140px]"
-        >
-          {isBuzzerLocked ? (
-            /* 15-Second Active Countdown Ring */
-            <div
-              data-testid="face-off-timer-ring"
-              className="flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-full bg-slate-900/90 border-3 border-feud-gold shadow-[0_0_25px_rgba(234,179,8,0.4)] animate-pulse"
-            >
-              <Clock className="w-6 h-6 text-feud-gold mb-0.5" />
-              <span
-                data-testid="face-off-seconds"
-                className={`text-2xl sm:text-3xl font-black tracking-tight ${
-                  currentSeconds <= 5 ? 'text-red-400 animate-ping' : 'text-feud-gold'
-                }`}
-              >
-                {currentSeconds}s
-              </span>
-              <span className="text-[9px] font-bold uppercase text-slate-400 tracking-wider">
-                Timer
-              </span>
-            </div>
-          ) : snapshot.phase === 'BUZZER_ACTIVE' ? (
-            /* Armed Buzzers Active State */
-            <div
-              data-testid="buzzers-armed-cue"
-              className="flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-full bg-yellow-500/10 border-2 border-feud-gold/70 text-center animate-pulse"
-            >
-              <Zap className="w-7 h-7 text-feud-gold animate-bounce mb-0.5" />
-              <span className="text-xs font-black text-feud-gold uppercase tracking-wider">
-                {t.mainGame.buzzerBtn}
-              </span>
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                Ready to Buzz
-              </span>
-            </div>
-          ) : (
-            /* Waiting for Readiness */
-            <div className="flex flex-col items-center text-center p-2">
-              <span className="text-xl sm:text-2xl font-black text-slate-600 tracking-wider">VS</span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                {t.mainGame.faceOffTitle}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Contender 2 Podium (Team 2) */}
-        <div
-          data-testid="face-off-podium-team2"
-          className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
-            isC2Winner
-              ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
-              : isC2LockedOut
-              ? 'bg-slate-900/60 border-red-500/60 opacity-80'
-              : 'bg-slate-900/80 border-purple-500/40'
-          }`}
-        >
-          {/* Winner Banner */}
-          {isC2Winner && (
-            <div
-              data-testid="c2-winner-badge"
-              className="absolute -top-3 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse"
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>{t.mainGame.buzzerWinner.replace('{name}', contender2?.nickname || '')}</span>
-            </div>
-          )}
-
-          {/* Locked Out Overlay */}
-          {isC2LockedOut && (
-            <div
-              data-testid="c2-lockout-badge"
-              className="absolute -top-3 px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1"
-            >
-              <Lock className="w-3 h-3" />
-              <span>{t.mainGame.buzzerLocked}</span>
-            </div>
-          )}
-
-          <span className="text-[10px] font-extrabold uppercase text-purple-400 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 mb-2">
-            {t.mainGame.team2} &bull; {t.mainGame.battingOrder.replace('{order}', String(contender2?.battingOrder || 1))}
-          </span>
-
-          <h3
-            data-testid="c2-nickname"
-            className="text-lg sm:text-2xl font-black text-white tracking-wide"
-          >
-            {contender2?.nickname}
-          </h3>
-
-          {/* Readiness State */}
-          <div className="mt-2.5 flex items-center gap-2">
-            {contender2?.isReady ? (
-              <span
-                data-testid="c2-ready-badge"
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-green-400 px-2.5 py-0.5 rounded-full bg-green-500/15 border border-green-500/30"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{t.mainGame.imReady}</span>
-              </span>
-            ) : (
-              <span
-                data-testid="c2-waiting-badge"
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 animate-pulse"
-              >
-                <span>{t.lobby.statusWaiting}</span>
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+      {renderDuelPodiums()}
 
       {/* Answer Submission / Resolved Stage */}
       {snapshot.submittedAnswer && (
@@ -896,6 +912,8 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </>
+  )}
+</div>
   );
 };

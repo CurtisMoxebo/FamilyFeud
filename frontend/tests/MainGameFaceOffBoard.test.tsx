@@ -103,6 +103,17 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
 
     // TTS has not fired yet because phase is AWAITING_READY
     expect(ttsModule.speakQuestion).not.toHaveBeenCalled();
+
+    // Layout hierarchy: controls on top, grand total scores directly underneath, pending players in remaining space
+    const board = screen.getByTestId('main-game-face-off-board');
+    const children = Array.from(board.children);
+    const controlsIndex = children.findIndex((el) => el.querySelector('[data-testid="face-off-round-badge"]'));
+    const scoresIndex = children.findIndex((el) => el.querySelector('[data-testid="grand-total-header"]'));
+    const pendingPlayersIndex = children.findIndex((el) => el.getAttribute('data-testid') === 'face-off-pending-players-section');
+
+    expect(controlsIndex).toBe(0);
+    expect(scoresIndex).toBe(1);
+    expect(pendingPlayersIndex).toBe(2);
   });
 
   it('satisfies Scenario 1: displays survey question and initiates host TTS reading when BUZZER_ACTIVE', () => {
