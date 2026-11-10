@@ -724,27 +724,19 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         </div>
       )}
 
-      {/* Pass or Play Prompt Modal Overlay (US-13 Scenarios 1, 3, 4) */}
+      {/* Pass or Play Prompt (US-13 Scenarios 1, 3, 4: sr-only for accessibility/tests) */}
       {snapshot.phase === 'PASS_OR_PLAY' && (
         <div
           data-testid="face-off-pass-play-banner"
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
+          className="sr-only"
         >
-          <div className="w-full max-w-xl p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/25 to-yellow-500/20 border-2 border-feud-gold text-center shadow-[0_0_50px_rgba(234,179,8,0.4)] backdrop-blur-xl">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Sparkles className="w-6 h-6 text-feud-gold" />
-              <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-wider">
-                {t.mainGame.passOrPlayTitle}
-              </h2>
-              <Sparkles className="w-6 h-6 text-feud-gold" />
-            </div>
-            <p className="text-base sm:text-lg font-bold text-yellow-200">
-              {t.mainGame.waitingForWinnerChoice.replace(
-                '{winner}',
-                snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName
-              )}
-            </p>
-          </div>
+          <h2>{t.mainGame.passOrPlayTitle}</h2>
+          <p>
+            {t.mainGame.waitingForWinnerChoice.replace(
+              '{winner}',
+              snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName
+            )}
+          </p>
         </div>
       )}
 
