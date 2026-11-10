@@ -642,6 +642,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onNextRound={handleAdvanceNextRound}
           onReplay={handleReplay}
           language={room.language}
+          audioEnabled={audioEnabled}
           roomName={room.roomName}
           roomCode={room.roomCode}
           onLeave={() => navigate('/')}

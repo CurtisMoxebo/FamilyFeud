@@ -79,6 +79,7 @@ export interface MainGameTeamGuessingBoardProps {
   onNextRound?: () => void;
   onReplay?: () => void;
   language?: string;
+  audioEnabled?: boolean;
   roomName: string;
   roomCode: string;
   onLeave?: () => void;
@@ -109,6 +110,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   onNextRound,
   onReplay,
   language = 'EN',
+  audioEnabled: propAudioEnabled,
   roomName,
   roomCode,
   onLeave,
@@ -121,11 +123,12 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   const isFullscreen = propsIsFullscreen ?? internalFullscreen.isFullscreen;
   const toggleFullscreen = onToggleFullscreen ?? internalFullscreen.toggleFullscreen;
 
-  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => !isTtsMuted());
+  const [internalAudioEnabled, setInternalAudioEnabled] = useState<boolean>(() => !isTtsMuted());
+  const audioEnabled = propAudioEnabled !== undefined ? propAudioEnabled : internalAudioEnabled;
 
   const handleToggleAudio = () => {
     const nextAudio = !audioEnabled;
-    setAudioEnabled(nextAudio);
+    setInternalAudioEnabled(nextAudio);
     setTtsMuted(!nextAudio);
     if (!nextAudio) {
       cancelSpeech();
@@ -140,6 +143,42 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   const surveySaidAnnouncementRef = useRef(surveySaidAnnouncement);
   surveySaidAnnouncementRef.current = surveySaidAnnouncement;
 
+  // Active full-screen strike animation overlay state
+  const [activeStrikeOverlay, setActiveStrikeOverlay] = useState<{
+    count: number;
+    message?: string;
+  } | null>(null);
+
+  // Track strikes visually displayed on the board - delayed while survey said announcement is active
+  const [displayedStrikes, setDisplayedStrikes] = useState<number>(snapshot.strikes);
+
+  // A strike announcement is in progress if the banner is showing, overlay is showing, or a strike is pending reveal
+  const isStrikeAnnouncementInProgress = Boolean(
+    surveySaidAnnouncement ||
+    activeStrikeOverlay ||
+    (strikeIssued &&
+      strikeIssued.strikeCount > 0 &&
+      strikeIssued.rawAnswer &&
+      !strikeIssued.isTimeout &&
+      !strikeIssued.isPass &&
+      displayedStrikes < strikeIssued.strikeCount)
+  );
+
+  // Fallback: if snapshot strikes increase without strikeIssued or after announcement finishes
+  useEffect(() => {
+    if (!strikeIssued && !isStrikeAnnouncementInProgress && snapshot.strikes > displayedStrikes) {
+      setDisplayedStrikes(snapshot.strikes);
+    }
+  }, [snapshot.strikes, strikeIssued, isStrikeAnnouncementInProgress, displayedStrikes]);
+
+  // Track previous active player to preserve guesser nickname on strike answer announcements
+  const prevActivePlayerRef = useRef(snapshot.activePlayer);
+  useEffect(() => {
+    if (snapshot.activePlayer) {
+      prevActivePlayerRef.current = snapshot.activePlayer;
+    }
+  }, [snapshot.activePlayer]);
+
   useEffect(() => {
     return () => {
       cancelSpeech();
@@ -152,10 +191,11 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     if (
       snapshot.phase === 'TEAM_GUESSING' &&
       snapshot.question?.questionText &&
-      !surveySaidAnnouncement
+      !isStrikeAnnouncementInProgress &&
+      displayedStrikes === snapshot.strikes
     ) {
       const playerId = snapshot.activePlayer?.id || 'initial';
-      const turnKey = `${snapshot.question.id}-${playerId}-${snapshot.strikes}-${snapshot.revealedAnswers.length}`;
+      const turnKey = `${snapshot.question.id}-${playerId}-${displayedStrikes}-${snapshot.revealedAnswers.length}`;
       if (lastSpokenPlayerTurn.current !== turnKey) {
         lastSpokenPlayerTurn.current = turnKey;
         if (audioEnabled) {
@@ -169,8 +209,9 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     snapshot.question?.questionText,
     snapshot.activePlayer?.id,
     snapshot.strikes,
+    displayedStrikes,
     snapshot.revealedAnswers.length,
-    surveySaidAnnouncement,
+    isStrikeAnnouncementInProgress,
     language,
     audioEnabled,
   ]);
@@ -181,7 +222,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     if (
       (snapshot.phase === 'STEAL_PHASE' || Boolean(transitionStealPhase)) &&
       snapshot.question?.questionText &&
-      !hasSpokenStealQuestion.current
+      !hasSpokenStealQuestion.current &&
+      !isStrikeAnnouncementInProgress
     ) {
       hasSpokenStealQuestion.current = true;
       if (audioEnabled) {
@@ -191,21 +233,21 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         return () => clearTimeout(timer);
       }
     }
-  }, [snapshot.phase, transitionStealPhase, snapshot.question?.questionText, language, audioEnabled]);
+  }, [
+    snapshot.phase,
+    transitionStealPhase,
+    snapshot.question?.questionText,
+    language,
+    audioEnabled,
+    isStrikeAnnouncementInProgress,
+  ]);
 
-  // Scenario 2: Cancel host reading on rapid guess submission or strike (US-17 Scenario 2)
+  // Scenario 2: Cancel host reading on rapid guess submission or reveal (US-17 Scenario 2)
   useEffect(() => {
-    if (!surveySaidAnnouncementRef.current && (snapshot.revealedAnswers.length > 0 || (strikeIssued && strikeIssued.strikeCount > 0))) {
+    if (!surveySaidAnnouncementRef.current && snapshot.revealedAnswers.length > 0) {
       cancelSpeech();
     }
-  }, [snapshot.revealedAnswers.length, strikeIssued]);
-
-
-  // Active full-screen strike animation overlay state
-  const [activeStrikeOverlay, setActiveStrikeOverlay] = useState<{
-    count: number;
-    message?: string;
-  } | null>(null);
+  }, [snapshot.revealedAnswers.length]);
 
   // Judge Manual Override state (US-21 Scenario 2)
   const [creditTeam, setCreditTeam] = useState<'TEAM_1' | 'TEAM_2'>(snapshot.controllingTeam);
@@ -220,6 +262,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   useEffect(() => {
     if (snapshot.strikes < prevStrikesRef.current) {
       setActiveStrikeOverlay(null);
+      setDisplayedStrikes(snapshot.strikes);
       if (snapshot.phase === 'TEAM_GUESSING' && snapshot.strikes < 3) {
         hasAnnouncedSteal.current = false;
       }
@@ -277,6 +320,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       lastHandledStrikeTimestamp.current = Date.now();
 
       const showStrikeOverlayAndBuzzer = () => {
+        setDisplayedStrikes(strikeIssued.strikeCount);
         setActiveStrikeOverlay({
           count: strikeIssued.strikeCount,
           message: strikeIssued.isDuplicate
@@ -300,6 +344,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
         const player =
           strikeIssued.player?.nickname ||
+          prevActivePlayerRef.current?.nickname ||
           snapshot.activePlayer?.nickname ||
           t.mainGame.contender ||
           'Player';
@@ -418,12 +463,20 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   useEffect(() => {
     if (
       (transitionStealPhase || snapshot.phase === 'STEAL_PHASE') &&
-      !hasAnnouncedSteal.current
+      !hasAnnouncedSteal.current &&
+      !isStrikeAnnouncementInProgress
     ) {
       hasAnnouncedSteal.current = true;
       if (audioEnabled) { cancelSpeech(); speakStealPhase(opposingTeamName, language); }
     }
-  }, [transitionStealPhase, snapshot.phase, opposingTeamName, language]);
+  }, [
+    transitionStealPhase,
+    snapshot.phase,
+    opposingTeamName,
+    language,
+    isStrikeAnnouncementInProgress,
+    audioEnabled,
+  ]);
 
   // US-15 Scenarios 1 & 2: Steal Phase Resolution Celebrations & Audio/TTS Announcements
   useEffect(() => {
@@ -747,7 +800,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
             {t.mainGame.strikeTitle}s:
           </span>
           {[1, 2, 3].map((strikeNum) => {
-            const hasStrike = snapshot.strikes >= strikeNum;
+            const hasStrike = displayedStrikes >= strikeNum;
             return (
               <div
                 key={strikeNum}

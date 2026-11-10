@@ -773,14 +773,80 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
     expect(screen.queryByTestId('giant-strike-overlay')).not.toBeInTheDocument();
     expect(soundEffects.playStrikeBuzzer).not.toHaveBeenCalled();
 
+    // Strike box 2 is NOT added yet while the host is reading
+    expect(screen.getByTestId('strike-box-2')).toHaveTextContent('2');
+
     // Speech completes
     act(() => {
       capturedCallback?.();
     });
 
-    // Strike overlay and buzzer now activate
+    // Strike overlay, buzzer, and strike box now activate after host finishes reading
     expect(screen.queryByTestId('survey-said-banner')).not.toBeInTheDocument();
     expect(screen.getByTestId('giant-strike-overlay')).toBeInTheDocument();
     expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(2);
+    expect(screen.getByTestId('strike-box-2')).toHaveTextContent('X');
+  });
+
+  it('delays steal phase announcement until after host reads 3rd strike wrong answer', () => {
+    let capturedCallback: (() => void) | undefined;
+    vi.mocked(tts.speakPlayerAnswerSurveySaid).mockImplementation(
+      (_player, _answer, _lang, onComplete) => {
+        capturedCallback = onComplete;
+      }
+    );
+
+    const { rerender } = renderComponent();
+
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{ ...baseSnapshot, strikes: 2, phase: 'TEAM_GUESSING' }}
+          roomName="Championship Feud"
+          roomCode="FEUD-9999"
+          strikeIssued={{
+            roomCode: 'FEUD-9999',
+            team: 'TEAM_1',
+            strikeCount: 3,
+            maxStrikes: 3,
+            isDuplicate: false,
+            isTimeout: false,
+            player: {
+              id: 'p1',
+              nickname: 'Alice',
+            },
+            rawAnswer: 'Giraffe',
+          }}
+          transitionStealPhase={{
+            roomCode: 'FEUD-9999',
+            controllingTeam: 'TEAM_1',
+            opposingTeam: 'TEAM_2',
+            roundBank: 55,
+            reason: 'THREE_STRIKES',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    // Host is speaking the 3rd wrong answer
+    expect(tts.speakPlayerAnswerSurveySaid).toHaveBeenCalledWith(
+      'Alice',
+      'Giraffe',
+      'EN',
+      expect.any(Function)
+    );
+
+    // Strike 3 NOT shown yet on board, steal phase NOT announced yet
+    expect(screen.getByTestId('strike-box-3')).toHaveTextContent('3');
+    expect(tts.speakStealPhase).not.toHaveBeenCalled();
+
+    // Wrong answer speech finishes
+    act(() => {
+      capturedCallback?.();
+    });
+
+    // Strike 3 is added to the board
+    expect(screen.getByTestId('strike-box-3')).toHaveTextContent('X');
+    expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(3);
   });
 });
