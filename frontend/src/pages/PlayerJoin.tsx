@@ -363,25 +363,32 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       isPaused ? (
         <div
           data-testid="player-game-paused-banner"
-          role="status"
+          role="dialog"
+          aria-modal="true"
           aria-live="assertive"
-          className="w-full max-w-md mb-4 p-4 rounded-2xl bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-2 border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.4)] text-center z-40"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
         >
-          <div className="flex items-center justify-center gap-2 text-amber-300 font-black text-xl uppercase tracking-widest">
-            <Pause className="w-5 h-5" />
-            <span>{t.admin.gamePausedBanner}</span>
+          <div className="w-full max-w-sm p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-slate-900 via-amber-950/80 to-slate-900 border-2 border-amber-400 shadow-[0_0_50px_rgba(245,158,11,0.5)] flex flex-col items-center text-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-500/20 border-2 border-amber-400/60 text-amber-300 flex items-center justify-center mb-3 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse">
+              <Pause className="w-7 h-7 sm:w-8 sm:h-8 fill-current" />
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-black uppercase tracking-widest text-amber-300 mb-2">
+              {t.admin.gamePausedBanner}
+            </h2>
+
+            <p className="text-xs sm:text-sm font-semibold text-slate-300">
+              {t.admin.playerInputsLocked}
+              {typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0 && (
+                <span
+                  data-testid="player-paused-remaining-time"
+                  className="ml-2 inline-block px-2.5 py-0.5 rounded-lg bg-amber-500/25 border border-amber-400/50 text-amber-200 font-mono font-bold text-sm"
+                >
+                  {pausedRemainingSeconds}s
+                </span>
+              )}
+            </p>
           </div>
-          <p className="text-xs font-semibold text-slate-300 mt-1">
-            {t.admin.playerInputsLocked}
-            {typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0 && (
-              <span
-                data-testid="player-paused-remaining-time"
-                className="ml-2 inline-block px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-amber-200 font-mono font-bold"
-              >
-                {pausedRemainingSeconds}s
-              </span>
-            )}
-          </p>
         </div>
       ) : null;
 

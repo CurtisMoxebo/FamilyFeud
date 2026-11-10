@@ -195,10 +195,10 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const isFastMoneyRoom = room?.gameMode === 'FAST_MONEY';
   const canManualOverride = Boolean(
     !isFastMoneyRoom &&
-      teamGuessingState &&
-      (teamGuessingState.phase === 'TEAM_GUESSING' ||
-        teamGuessingState.phase === 'STEAL_PHASE') &&
-      !matchOver
+    teamGuessingState &&
+    (teamGuessingState.phase === 'TEAM_GUESSING' ||
+      teamGuessingState.phase === 'STEAL_PHASE') &&
+    !matchOver
   );
 
   useEffect(() => {
@@ -221,9 +221,9 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       fastMoneyHostState &&
       !gameOver &&
       fastMoneyHostState.phase !== 'GAME_OVER') ||
-      (!isFastMoneyRoom && teamGuessingState && !matchOver) ||
-      (!isFastMoneyRoom && faceOffState && !matchOver) ||
-      isPaused
+    (!isFastMoneyRoom && teamGuessingState && !matchOver) ||
+    (!isFastMoneyRoom && faceOffState && !matchOver) ||
+    isPaused
   );
 
   const handleTogglePause = useCallback(() => {
@@ -482,11 +482,10 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onClick={handleToggleManualOverride}
           data-testid="host-manual-override-toggle"
           aria-expanded={isManualOverrideOpen}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${
-            isManualOverrideOpen
-              ? 'bg-indigo-500 hover:bg-indigo-400 text-white border-indigo-300 shadow-indigo-500/25'
-              : 'bg-slate-800/90 hover:bg-slate-700 text-indigo-300 border-indigo-500/40'
-          }`}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${isManualOverrideOpen
+            ? 'bg-indigo-500 hover:bg-indigo-400 text-white border-indigo-300 shadow-indigo-500/25'
+            : 'bg-slate-800/90 hover:bg-slate-700 text-indigo-300 border-indigo-500/40'
+            }`}
         >
           <Gavel className="w-3.5 h-3.5" />
           <span>
@@ -502,40 +501,42 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     isPaused ? (
       <div
         data-testid="host-game-paused-banner"
-        role="status"
+        role="dialog"
+        aria-modal="true"
         aria-live="assertive"
-        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mb-4 p-5 rounded-3xl bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-2 border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.45)] flex flex-col sm:flex-row items-center justify-between gap-4 z-40"
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
       >
-        <div className="flex items-center gap-3.5 text-center sm:text-left">
-          <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/50 text-amber-300">
-            <Pause className="w-7 h-7" />
+        <div className="w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-slate-900 via-amber-950/80 to-slate-900 border-2 border-amber-400 shadow-[0_0_50px_rgba(245,158,11,0.5)] flex flex-col items-center text-center">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/20 border-2 border-amber-400/60 text-amber-300 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse">
+            <Pause className="w-8 h-8 sm:w-10 sm:h-10 fill-current" />
           </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-amber-300">
-              {t.admin.gamePausedBanner}
-            </div>
-            <p className="text-xs sm:text-sm font-semibold text-slate-300 mt-0.5">
-              {t.admin.gamePausedSubtitle}
-              {typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0 && (
-                <span
-                  data-testid="host-paused-remaining-time"
-                  className="ml-2 inline-block px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/40 text-amber-200 font-mono font-bold"
-                >
-                  {pausedRemainingSeconds}s
-                </span>
-              )}
-            </p>
-          </div>
+
+          <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-widest text-amber-300 mb-2">
+            {t.admin.gamePausedBanner}
+          </h2>
+
+          <p className="text-sm sm:text-base font-semibold text-slate-300 mb-6">
+            {t.admin.gamePausedSubtitle}
+            {typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0 && (
+              <span
+                data-testid="host-paused-remaining-time"
+                className="ml-2 inline-block px-3 py-1 rounded-xl bg-amber-500/25 border border-amber-400/50 text-amber-200 font-mono font-extrabold text-base sm:text-lg"
+              >
+                {pausedRemainingSeconds}s
+              </span>
+            )}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => resumeGame()}
+            data-testid="host-banner-resume-btn"
+            className="inline-flex items-center gap-2.5 px-8 py-3.5 sm:px-10 sm:py-4 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 hover:from-emerald-300 hover:to-green-300 text-slate-950 font-black text-base sm:text-lg uppercase tracking-wider shadow-[0_0_25px_rgba(52,211,153,0.5)] cursor-pointer transition-all hover:scale-105 active:scale-95"
+          >
+            <Play className="w-5 h-5 fill-current" />
+            <span>{t.admin.resumeTimer}</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => resumeGame()}
-          data-testid="host-banner-resume-btn"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg cursor-pointer transition-all hover:scale-105"
-        >
-          <Play className="w-4 h-4 fill-current" />
-          <span>{t.admin.resumeTimer}</span>
-        </button>
       </div>
     ) : null;
 
@@ -587,27 +588,27 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const activeTeams =
     teamsAssigned ??
     (!isFastMoney &&
-    (roomState?.status === 'ACTIVE' || room.status === 'ACTIVE') &&
-    players.some((p) => p.team === 'TEAM_1' || p.team === 'TEAM_2')
+      (roomState?.status === 'ACTIVE' || room.status === 'ACTIVE') &&
+      players.some((p) => p.team === 'TEAM_1' || p.team === 'TEAM_2')
       ? {
-          roomCode: room.roomCode,
-          team1: players
-            .filter((p) => p.team === 'TEAM_1')
-            .map((p, idx) => ({
-              id: p.id,
-              nickname: p.nickname,
-              team: 'TEAM_1' as const,
-              battingOrder: idx + 1,
-            })),
-          team2: players
-            .filter((p) => p.team === 'TEAM_2')
-            .map((p, idx) => ({
-              id: p.id,
-              nickname: p.nickname,
-              team: 'TEAM_2' as const,
-              battingOrder: idx + 1,
-            })),
-        }
+        roomCode: room.roomCode,
+        team1: players
+          .filter((p) => p.team === 'TEAM_1')
+          .map((p, idx) => ({
+            id: p.id,
+            nickname: p.nickname,
+            team: 'TEAM_1' as const,
+            battingOrder: idx + 1,
+          })),
+        team2: players
+          .filter((p) => p.team === 'TEAM_2')
+          .map((p, idx) => ({
+            id: p.id,
+            nickname: p.nickname,
+            team: 'TEAM_2' as const,
+            battingOrder: idx + 1,
+          })),
+      }
       : null);
 
   // Main Game Team Guessing Stage (US-14)
@@ -718,12 +719,12 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const disabledReason = isFastMoney
     ? t.lobby.fastMoneyWaiting.replace('{count}', String(playerCount))
     : playerCount < 2
-    ? t.lobby.mainGameEvenCountRequired
-    : playerCount % 2 !== 0
-    ? t.lobby.oddPlayerCountWarning
-        .replace('{count}', String(playerCount))
-        .replace('{target}', String(playerCount + 1))
-    : roomState?.startDisabledReason ?? t.lobby.mainGameEvenCountRequired;
+      ? t.lobby.mainGameEvenCountRequired
+      : playerCount % 2 !== 0
+        ? t.lobby.oddPlayerCountWarning
+          .replace('{count}', String(playerCount))
+          .replace('{target}', String(playerCount + 1))
+        : roomState?.startDisabledReason ?? t.lobby.mainGameEvenCountRequired;
 
   return (
     <div
@@ -833,8 +834,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
                 {room.language === 'FR'
                   ? 'Français (FR)'
                   : room.language === 'ES'
-                  ? 'Español (ES)'
-                  : 'English (EN)'}
+                    ? 'Español (ES)'
+                    : 'English (EN)'}
               </div>
             </div>
           </div>
@@ -913,29 +914,26 @@ export const HostBoard: React.FC<HostBoardProps> = ({
                   <div
                     key={p.id}
                     data-testid={`host-player-card-${p.nickname}`}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                      p.isConnected
-                        ? 'bg-slate-800/80 border-slate-700/80 text-white shadow-md'
-                        : 'bg-slate-900/40 border-red-900/30 text-slate-500 opacity-60'
-                    }`}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${p.isConnected
+                      ? 'bg-slate-800/80 border-slate-700/80 text-white shadow-md'
+                      : 'bg-slate-900/40 border-red-900/30 text-slate-500 opacity-60'
+                      }`}
                   >
                     <div className="flex items-center gap-2 min-w-0 mr-1.5">
                       <div
-                        className={`w-2 h-2 rounded-full shrink-0 ${
-                          p.isConnected
-                            ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]'
-                            : 'bg-red-500'
-                        }`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${p.isConnected
+                          ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]'
+                          : 'bg-red-500'
+                          }`}
                       />
                       <span className="font-bold text-xs sm:text-sm truncate">{p.nickname}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span
-                        className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                          p.isConnected
-                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                        }`}
+                        className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${p.isConnected
+                          ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                          : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                          }`}
                       >
                         {p.isConnected ? t.lobby.statusReady : t.lobby.statusDisconnected}
                       </span>
@@ -962,13 +960,12 @@ export const HostBoard: React.FC<HostBoardProps> = ({
               data-testid="host-start-game-btn"
               disabled={!canStart || isStartingGame}
               onClick={handleStartGame}
-              className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-extrabold text-base uppercase tracking-wider transition-all duration-200 ${
-                canStart && !isStartingGame
-                  ? 'bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-105 cursor-pointer animate-pulse'
-                  : isStartingGame
+              className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-extrabold text-base uppercase tracking-wider transition-all duration-200 ${canStart && !isStartingGame
+                ? 'bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-105 cursor-pointer animate-pulse'
+                : isStartingGame
                   ? 'bg-gradient-to-r from-feud-gold/70 via-yellow-400/70 to-amber-500/70 text-slate-950 cursor-wait opacity-80'
                   : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
-              }`}
+                }`}
             >
               {isStartingGame ? (
                 <>
