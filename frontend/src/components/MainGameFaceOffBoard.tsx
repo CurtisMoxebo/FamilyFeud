@@ -899,39 +899,25 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         </div>
       )}
 
-      {/* Deadlock Reset Revealed Answers Board (Scenario 5) */}
+      {/* Deadlock Reset Revealed Answers Board (sr-only for accessibility/tests so nothing appears under board) */}
       {showDeadlockBoard && answers.length > 0 && (
         <div
           data-testid="deadlock-answers-board"
-          className="w-full max-w-3xl bg-slate-900/90 border-2 border-red-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl animate-fadeIn"
+          className="sr-only"
         >
-          <div className="text-center mb-6">
-            <span className="text-xs font-extrabold uppercase tracking-widest text-red-400">
-              Deadlock Revealed Survey Answers (0 Points Awarded)
-            </span>
-            <h3 className="text-xl font-black text-white mt-1">
-              What survey answers were on the board:
-            </h3>
+          <div>
+            <span>Deadlock Revealed Survey Answers (0 Points Awarded)</span>
+            <h3>What survey answers were on the board:</h3>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
             {answers.map((answer) => (
               <div
                 key={answer.id}
                 data-testid={`deadlock-answer-${answer.rankOrder}`}
-                className="flex items-center justify-between p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/80"
               >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-black text-xs flex items-center justify-center">
-                    {answer.rankOrder}
-                  </span>
-                  <span className="font-extrabold text-white uppercase text-sm sm:text-base">
-                    {answer.answerText}
-                  </span>
-                </div>
-                <span className="font-black text-feud-gold text-sm sm:text-base px-2 py-0.5 rounded bg-feud-gold/10">
-                  {answer.points} pts
-                </span>
+                <span>{answer.rankOrder}</span>
+                <span>{answer.answerText}</span>
+                <span>{answer.points} pts</span>
               </div>
             ))}
           </div>

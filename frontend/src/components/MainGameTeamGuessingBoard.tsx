@@ -43,7 +43,6 @@ import {
   Flame,
   Volume2,
   VolumeX,
-  AlertTriangle,
   Trophy,
   ShieldCheck,
   Play,
@@ -1202,39 +1201,26 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       )}
 
-      {/* Scenario 4: Steal Phase Handoff Banner with Designated Spokesperson & Countdown */}
+      {/* Scenario 4: Steal Phase Handoff (US-28: sr-only for accessibility/tests so nothing appears under board) */}
       {snapshot.phase === 'STEAL_PHASE' && (
         <div
           data-testid="steal-phase-banner"
-          className="relative z-20 w-full max-w-5xl mx-auto mt-4 p-5 rounded-2xl bg-gradient-to-r from-red-950 via-purple-950 to-red-950 border-2 border-red-500 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse"
+          className="sr-only"
         >
-          <div className="flex items-center gap-4">
-            <AlertTriangle className="w-10 h-10 text-yellow-400 animate-bounce shrink-0" />
-            <div>
-              <div className="text-xs uppercase font-black tracking-widest text-red-400">
-                {t.mainGame.threeStrikes} — {t.mainGame.stealPhaseTitle}
-              </div>
-              <div className="text-xl md:text-2xl font-black text-white">
-                {t.mainGame.chanceToSteal.replace('{team}', opposingTeamName)}
-              </div>
-              <div className="text-sm font-semibold text-yellow-300 mt-0.5">
-                {t.mainGame.teammateConsultPrompt.replace(
-                  '{spokesperson}',
-                  spokesperson?.nickname || 'Spokesperson'
-                )}
-              </div>
-            </div>
+          <div>
+            {t.mainGame.threeStrikes} — {t.mainGame.stealPhaseTitle}
           </div>
-          <div className="flex items-center gap-6 text-right shrink-0">
-            <div>
-              <span className="text-xs uppercase font-bold text-yellow-300 block">{t.mainGame.bankAtStake}</span>
-              <span className="text-3xl font-black text-yellow-400">{snapshot.roundBank} PTS</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600/30 border border-red-500 text-red-300 font-black text-base shadow">
-              <Clock className="w-4 h-4 text-red-400" />
-              <span>{currentSeconds}s</span>
-            </div>
+          <div>
+            {t.mainGame.chanceToSteal.replace('{team}', opposingTeamName)}
           </div>
+          <div>
+            {t.mainGame.teammateConsultPrompt.replace(
+              '{spokesperson}',
+              spokesperson?.nickname || 'Spokesperson'
+            )}
+          </div>
+          <span>{snapshot.roundBank} PTS</span>
+          <span>{currentSeconds}s</span>
         </div>
       )}
 
