@@ -610,8 +610,11 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     expect(screen.getByTestId('face-off-ready-countdown')).toBeInTheDocument();
     expect(screen.getByTestId('face-off-ready-seconds')).toHaveTextContent('5s');
 
-    // Question banner displays countdown notice
-    expect(screen.getByTestId('face-off-question-text')).toHaveTextContent('Game starts in 5s...');
+    // Countdown banner displays countdown notice
+    expect(screen.getByTestId('face-off-ready-countdown-banner')).toHaveTextContent('Game starts in 5s...');
+
+    // Survey question banner and board have NOT started yet during countdown
+    expect(screen.queryByTestId('face-off-question-text')).not.toBeInTheDocument();
 
     // Host TTS has not fired yet during the 5-second countdown
     expect(ttsModule.speakQuestion).not.toHaveBeenCalled();

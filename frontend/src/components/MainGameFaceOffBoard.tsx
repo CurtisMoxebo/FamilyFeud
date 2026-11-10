@@ -107,11 +107,13 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
 
   // 5-second countdown timer when both face-off contenders are ready
   const isBothReady = Boolean(snapshot.team1Contender?.isReady && snapshot.team2Contender?.isReady);
-  const [readyCountdown, setReadyCountdown] = useState<number | null>(() =>
-    initialReadyCountdown !== undefined ? initialReadyCountdown : null
-  );
+  const [readyCountdown, setReadyCountdown] = useState<number | null>(() => {
+    if (initialReadyCountdown !== undefined) return initialReadyCountdown;
+    if (snapshot.phase === 'AWAITING_READY' && isBothReady) return 5;
+    return null;
+  });
   const previousBothReadyRef = useRef<boolean>(
-    initialReadyCountdown !== undefined ? false : isBothReady
+    initialReadyCountdown !== undefined ? false : (snapshot.phase === 'AWAITING_READY' ? false : isBothReady)
   );
   const previousPhaseRef = useRef<FaceOffPhase>(snapshot.phase);
 
@@ -130,7 +132,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     if (isBothReady && (wasNotBothReady || (wasAwaitingReady && snapshot.phase === 'BUZZER_ACTIVE'))) {
       setReadyCountdown(5);
     }
-  }, [isBothReady, snapshot.phase]);
+  }, [isBothReady, snapshot.phase, snapshot.team1Contender?.isReady, snapshot.team2Contender?.isReady]);
 
   useEffect(() => {
     if (readyCountdown === null) return;
@@ -704,7 +706,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       )}
 
       {/* 3. Middle of Remaining Space */}
-      {snapshot.phase === 'AWAITING_READY' && readyCountdown === null ? (
+      {snapshot.phase === 'AWAITING_READY' || readyCountdown !== null ? (
         <div
           data-testid="face-off-pending-players-section"
           className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-4 sm:gap-6 my-auto"
@@ -722,6 +724,22 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
               {contender2?.nickname}
             </p>
           </div>
+
+          {/* Prominent 5-Second Ready Countdown Banner before game starts */}
+          {readyCountdown !== null && (
+            <div
+              data-testid="face-off-ready-countdown-banner"
+              className="flex flex-col items-center gap-1.5 py-3 px-8 rounded-2xl bg-slate-900/90 border-2 border-feud-gold/60 shadow-[0_0_35px_rgba(234,179,8,0.35)] text-center animate-pulse"
+            >
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-feud-gold">
+                <CheckCircle2 className="w-4 h-4 text-green-400" />
+                <span>{t.mainGame.bothReady}</span>
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-white">
+                {t.mainGame.gameStartsIn.replace('{seconds}', String(readyCountdown))}
+              </p>
+            </div>
+          )}
 
           {/* Pending Players Duel Podiums */}
           <div className="w-full max-w-4xl shrink-0">
