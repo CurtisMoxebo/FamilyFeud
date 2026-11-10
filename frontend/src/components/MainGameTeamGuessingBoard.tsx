@@ -594,14 +594,14 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
   return (
     <div
-      className="w-full h-full max-h-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto bg-slate-950 text-white flex flex-col justify-between p-2 sm:p-3 md:p-3.5 2xl:px-10 rounded-2xl sm:rounded-3xl select-none relative overflow-hidden"
+      className="w-full h-full max-h-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto bg-slate-950 text-white flex flex-col justify-between p-2 sm:p-2.5 md:p-3 2xl:px-10 rounded-2xl sm:rounded-3xl select-none relative overflow-hidden"
       data-testid="main-game-team-guessing-board"
     >
       {/* Dynamic Background Glow */}
       <div className="absolute inset-0 bg-radial-gradient from-blue-900/20 via-transparent to-transparent pointer-events-none" />
 
       {/* Persistent Grand Total Header (US-16 Scenario 1 & 2) */}
-      <div className="relative z-20 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto mb-1.5 sm:mb-2">
+      <div className="relative z-20 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto mb-1 sm:mb-1.5 shrink-0">
         <MainGameScoreboardHeader
           team1GrandTotal={scoreboardState?.team1GrandTotal ?? 0}
           team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
@@ -613,7 +613,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       </div>
 
       {/* Top TV Stage Navigation Bar */}
-      <header className="relative z-10 flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1.5 sm:pb-2 sm:mb-2">
+      <header className="relative z-10 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex items-center justify-between border-b border-slate-800 pb-1 mb-1 sm:pb-1.5 sm:mb-1.5 shrink-0">
         <div className="flex items-center gap-3">
           {onLeave && (
             <button
@@ -717,8 +717,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       </header>
 
       {/* Prominent Survey Question Display */}
-      <section className="relative z-10 w-full max-w-4xl 2xl:max-w-6xl 3xl:max-w-[1440px] 4k:max-w-[1800px] mx-auto mb-1.5 sm:mb-2">
-        <div className="p-2 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/40 shadow-2xl text-center relative overflow-hidden">
+      <section className="relative z-10 w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl 3xl:max-w-[1500px] 4k:max-w-[1900px] mx-auto mb-1 sm:mb-1.5 shrink-0">
+        <div className="p-2 sm:p-2.5 2xl:p-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-indigo-500/40 shadow-2xl text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-80" />
           <h2 className="text-lg md:text-xl 2xl:text-2xl 3xl:text-3xl font-black text-yellow-300 tracking-wide drop-shadow-md">
             "{snapshot.question.questionText}"
@@ -727,7 +727,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       </section>
 
       {/* Main Game Stage Scoreboard & Centerpieces */}
-      <div className="relative z-10 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-3 mb-1.5 sm:mb-2">
+      <div className="relative z-10 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-3 mb-1 sm:mb-1.5 shrink-0">
         {/* Active Guesser / Steal Spokesperson & Timer */}
         <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 sm:py-2 rounded-xl shadow-lg w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-2.5">
@@ -922,8 +922,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       )}
 
       {/* Answer Board Card Grid (4 to 8 Flip Cards) with Steal Match & Board Clearance Highlighting */}
-      <main className="relative z-10 w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-2.5 2xl:gap-3.5 p-2.5 md:p-3.5 2xl:p-5 bg-slate-900/80 border-2 border-blue-900/60 rounded-2xl sm:rounded-3xl shadow-2xl backdrop-blur-sm">
+      <main className="relative z-10 w-full max-w-6xl xl:max-w-7xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mx-auto flex-1 min-h-0 flex flex-col overflow-hidden py-0.5 sm:py-1">
+        <div className="flex-1 min-h-0 w-full h-full max-h-full grid grid-cols-1 md:grid-cols-2 auto-rows-fr gap-2 sm:gap-2.5 2xl:gap-3.5 p-2 sm:p-2.5 2xl:p-4 bg-slate-900/85 border-2 border-blue-900/60 rounded-2xl sm:rounded-3xl shadow-2xl backdrop-blur-sm overflow-hidden">
           {Array.from({ length: totalSlots }).map((_, idx) => {
             const rankOrder = idx + 1;
             const revealedItem = revealedMap.get(rankOrder);
@@ -938,7 +938,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
               <div
                 key={rankOrder}
                 data-testid={`team-board-card-${rankOrder}`}
-                className={`relative min-h-[44px] sm:min-h-[50px] 2xl:min-h-[64px] 3xl:min-h-[76px] rounded-xl sm:rounded-2xl border-2 flex items-center px-3.5 2xl:px-6 py-1 sm:py-1.5 transition-all duration-500 shadow-md ${
+                className={`relative h-full min-h-[46px] sm:min-h-[56px] 2xl:min-h-[72px] 3xl:min-h-[84px] rounded-xl sm:rounded-2xl border-2 flex items-center px-3 sm:px-4 2xl:px-6 py-1 sm:py-1.5 transition-all duration-500 shadow-md ${
                   isRevealed
                     ? isStealMatch
                       ? 'bg-gradient-to-r from-emerald-700 via-teal-800 to-emerald-900 border-yellow-300 shadow-[0_4px_25px_rgba(16,185,129,0.5)] animate-pulse'
@@ -951,10 +951,10 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                 }`}
               >
                 {isRevealed && revealedItem ? (
-                  <div className="w-full flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                  <div className="w-full flex items-center justify-between gap-2.5 sm:gap-3">
+                    <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
                       <span
-                        className={`w-8 h-8 rounded-full font-black flex items-center justify-center text-sm shadow ${
+                        className={`w-8 h-8 sm:w-10 sm:h-10 2xl:w-12 2xl:h-12 rounded-full font-black flex items-center justify-center text-sm sm:text-base 2xl:text-xl shadow shrink-0 ${
                           isStealMatch
                             ? 'bg-yellow-300 text-slate-950 animate-bounce'
                             : isRemaining
@@ -964,24 +964,24 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                       >
                         {rankOrder}
                       </span>
-                      <div className="flex flex-col">
-                        <span className="font-extrabold text-white text-base md:text-lg tracking-wide uppercase">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-extrabold text-white text-base sm:text-lg md:text-xl 2xl:text-2xl tracking-wide uppercase truncate">
                           {revealedItem.answerText}
                         </span>
                         {isRemaining && (
-                          <span className="text-[10px] font-bold text-amber-300/90 uppercase tracking-wider">
+                          <span className="text-[10px] sm:text-xs font-bold text-amber-300/90 uppercase tracking-wider">
                             {t.mainGame.remainingAnswersTitle}
                           </span>
                         )}
                         {isStealMatch && (
-                          <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider">
+                          <span className="text-[10px] sm:text-xs font-black text-emerald-300 uppercase tracking-wider">
                             ⚡ Stolen Answer!
                           </span>
                         )}
                       </div>
                     </div>
                     <span
-                      className={`font-black px-3.5 py-1 rounded-lg text-lg shadow-inner ${
+                      className={`font-black px-3 sm:px-4 2xl:px-5 py-1 sm:py-1.5 rounded-xl text-base sm:text-xl 2xl:text-2xl shadow-inner shrink-0 ${
                         isStealMatch
                           ? 'bg-yellow-300 text-slate-950 ring-2 ring-yellow-400'
                           : isRemaining
@@ -993,16 +993,16 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                     </span>
                   </div>
                 ) : showOverrideControls && onOverrideAnswer ? (
-                  <div className="w-full flex items-center justify-between gap-3 py-2">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="w-8 h-8 rounded-full bg-indigo-500/30 border border-indigo-400 text-indigo-200 font-black flex items-center justify-center text-sm shrink-0">
+                  <div className="w-full flex items-center justify-between gap-2.5 sm:gap-3 py-1">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                      <span className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-indigo-500/30 border border-indigo-400 text-indigo-200 font-black flex items-center justify-center text-sm sm:text-base shrink-0">
                         {rankOrder}
                       </span>
                       <div
                         data-testid={`host-override-slot-label-${rankOrder}`}
                         className="flex flex-col min-w-0"
                       >
-                        <span className="font-extrabold text-indigo-100 text-sm md:text-base truncate">
+                        <span className="font-extrabold text-indigo-100 text-sm sm:text-base md:text-lg truncate">
                           {candidateOption ? `"${candidateOption.answerText}"` : `Slot #${rankOrder}`}
                         </span>
                         {candidateOption && (
@@ -1018,7 +1018,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                       onClick={() =>
                         onOverrideAnswer(rankOrder, candidateOption?.points, creditTeam)
                       }
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 text-slate-950 font-black text-xs uppercase tracking-wide shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0"
+                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wide shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0"
                     >
                       <Gavel className="w-3.5 h-3.5" />
                       <span>{t.admin.overrideAccept}</span>
@@ -1026,7 +1026,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                   </div>
                 ) : (
                   <div className="w-full flex items-center justify-center">
-                    <span className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-black flex items-center justify-center text-lg shadow-inner">
+                    <span className="w-9 h-9 sm:w-11 sm:h-11 2xl:w-13 2xl:h-13 rounded-full bg-slate-800 border-2 border-slate-700 text-slate-400 font-black flex items-center justify-center text-base sm:text-xl 2xl:text-2xl shadow-inner">
                       {rankOrder}
                     </span>
                   </div>

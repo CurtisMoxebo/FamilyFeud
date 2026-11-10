@@ -142,6 +142,17 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
       'Top 3 answers on the board. Name something people often lose',
       'EN'
     );
+
+    // Podiums appear between team scores and survey question banner
+    const board = screen.getByTestId('main-game-face-off-board');
+    const children = Array.from(board.children);
+    const scoresIndex = children.findIndex((el) => el.querySelector('[data-testid="grand-total-header"]'));
+    const podiumsIndex = children.findIndex((el) => el.querySelector('[data-testid="face-off-podium-team1"]'));
+    const questionIndex = children.findIndex((el) => el.querySelector('[data-testid="face-off-question-banner"]'));
+
+    expect(scoresIndex).toBeGreaterThanOrEqual(0);
+    expect(podiumsIndex).toBeGreaterThan(scoresIndex);
+    expect(questionIndex).toBeGreaterThan(podiumsIndex);
   });
 
   it('satisfies Scenario 2: cuts off host TTS immediately via cancelSpeech and plays buzzer cue when buzzer is locked', () => {
