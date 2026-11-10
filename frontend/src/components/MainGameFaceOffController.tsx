@@ -22,7 +22,6 @@ import {
   Award,
   Users,
   Send,
-  ArrowLeft,
   Play,
   ArrowRight,
   Sparkles,
@@ -75,7 +74,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   onSubmitAnswer,
   onChoosePlayPass,
   scoreboardState,
-  onLeave,
+  onLeave: _onLeave,
 }) => {
   const { t } = useTranslation();
   const [answerInput, setAnswerInput] = useState<string>('');
@@ -292,8 +291,11 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
         />
       </div>
 
-      {/* Header Info */}
-      <div className="w-full flex items-center justify-between border-b border-feud-slate-border/80 pb-2 sm:pb-3">
+      {/* Header Info (sr-only to maximize mobile play area) */}
+      <div
+        data-testid="controller-header-info"
+        className="sr-only"
+      >
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-feud-gold px-2.5 py-0.5 rounded-full bg-feud-gold/10 border border-feud-gold/20">
             {t.mainGame.faceOffTitle}
@@ -313,24 +315,17 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="hidden sm:inline text-xs text-slate-400 truncate max-w-[100px]">
+          <span className="text-xs text-slate-400 truncate max-w-[140px]">
             {roomName}
           </span>
-          {onLeave && (
-            <button
-              type="button"
-              onClick={onLeave}
-              className="touch-target min-h-touch px-3 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800/80 flex items-center justify-center gap-1 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{t.lobby.leaveLobby}</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Role & Status Pill */}
-      <div className="w-full flex items-center justify-between text-xs">
+      {/* Role & Status Pill (sr-only to maximize mobile play area) */}
+      <div
+        data-testid="controller-role-pill"
+        className="sr-only"
+      >
         <span className="font-semibold text-slate-300">
           Player: <span className="font-bold text-white">{currentNickname}</span>
         </span>
