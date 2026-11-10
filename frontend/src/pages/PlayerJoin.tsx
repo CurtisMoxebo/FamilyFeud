@@ -673,16 +673,16 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
                 {roomState?.maxPlayers ?? (isFastMoney ? 2 : 10)}
               </span>
             </div>
-            <div data-testid="player-roster-list" className="flex flex-col gap-1.5 overflow-y-auto max-h-[160px] sm:max-h-[220px]">
+            <div data-testid="player-roster-list" className="grid grid-cols-2 gap-1.5 overflow-y-auto max-h-[160px] sm:max-h-[220px] content-start">
               {playersList.map((p) => (
                 <div
                   key={p.id}
                   data-testid={`player-roster-item-${p.nickname}`}
                   className="flex items-center justify-between p-2 rounded-lg bg-slate-800/70 border border-slate-700/60 text-xs text-white"
                 >
-                  <span className="font-semibold truncate mr-2">{p.nickname}</span>
+                  <span className="font-semibold truncate mr-1.5">{p.nickname}</span>
                   <span
-                    className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                    className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${
                       p.isConnected
                         ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                         : 'bg-red-500/10 text-red-400 border border-red-500/20'

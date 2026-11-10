@@ -907,31 +907,31 @@ export const HostBoard: React.FC<HostBoardProps> = ({
             ) : (
               <div
                 data-testid="host-player-roster"
-                className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto pr-1 mb-2"
+                className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto pr-1 mb-2 content-start"
               >
                 {players.map((p) => (
                   <div
                     key={p.id}
                     data-testid={`host-player-card-${p.nickname}`}
-                    className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                       p.isConnected
                         ? 'bg-slate-800/80 border-slate-700/80 text-white shadow-md'
                         : 'bg-slate-900/40 border-red-900/30 text-slate-500 opacity-60'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 mr-1.5">
                       <div
-                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                        className={`w-2 h-2 rounded-full shrink-0 ${
                           p.isConnected
                             ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]'
                             : 'bg-red-500'
                         }`}
                       />
-                      <span className="font-bold text-sm truncate">{p.nickname}</span>
+                      <span className="font-bold text-xs sm:text-sm truncate">{p.nickname}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <span
-                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                        className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
                           p.isConnected
                             ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                             : 'bg-red-500/10 text-red-400 border border-red-500/20'
@@ -1011,16 +1011,16 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           </p>
 
           {/* High-Contrast QR Code Card */}
-          <div className="p-2 sm:p-2.5 bg-white rounded-xl shadow-xl border-2 sm:border-3 border-feud-gold/40 flex flex-col items-center justify-center transition-transform hover:scale-105 duration-200">
+          <div className="p-3 sm:p-4 bg-white rounded-2xl sm:rounded-3xl shadow-2xl border-2 sm:border-4 border-feud-gold/40 flex flex-col items-center justify-center transition-transform hover:scale-105 duration-200 my-1 sm:my-2">
             <QRCodeSVG
               value={joinUrl}
-              size={130}
+              size={220}
               level="H"
               includeMargin={false}
               fgColor="#0f172a"
               bgColor="#ffffff"
               data-testid="host-qr-code"
-              className="w-24 h-24 sm:w-28 sm:h-28 2xl:w-36 2xl:h-36"
+              className="w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 2xl:w-64 2xl:h-64"
             />
           </div>
 
