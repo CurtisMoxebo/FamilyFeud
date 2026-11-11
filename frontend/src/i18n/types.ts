@@ -244,13 +244,11 @@ export interface TranslationDictionary {
     matchChampionsBadge: string;
     submitOrPassPrompt: string;
     atStake: string;
-    bankAtStake: string;
     buzzerLockedOpponentFirst: string;
     spectatorRoundNotice: string;
     buzzerRejected: string;
     designatedContenderNotice: string;
     contender: string;
-    playerSaidSurveySaid: string;
     startsIn: string;
     gameStartsIn: string;
   };
