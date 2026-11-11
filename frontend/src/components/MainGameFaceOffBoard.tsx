@@ -112,6 +112,15 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     if (snapshot.phase === 'AWAITING_READY' && isBothReady) return 5;
     return null;
   });
+
+  // Track whether countdown has completed before revealing board and speaking question
+  const [hasCompletedReadyCountdown, setHasCompletedReadyCountdown] = useState<boolean>(() => {
+    if (initialReadyCountdown !== undefined) return initialReadyCountdown <= 0;
+    // In direct test mounts where phase is already BUZZER_ACTIVE or later without ready countdown:
+    if (snapshot.phase !== 'AWAITING_READY') return true;
+    return false;
+  });
+
   const previousBothReadyRef = useRef<boolean>(
     initialReadyCountdown !== undefined ? false : (snapshot.phase === 'AWAITING_READY' ? false : isBothReady)
   );
@@ -120,8 +129,20 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   useEffect(() => {
     if (initialReadyCountdown !== undefined) {
       setReadyCountdown(initialReadyCountdown);
+      if (initialReadyCountdown > 0) {
+        setHasCompletedReadyCountdown(false);
+      }
     }
   }, [initialReadyCountdown]);
+
+  // Reset countdown completed state when entering AWAITING_READY or loading a new question
+  useEffect(() => {
+    if (snapshot.phase === 'AWAITING_READY') {
+      setHasCompletedReadyCountdown(false);
+      lastSpokenQuestionId.current = null;
+      cancelSpeech();
+    }
+  }, [snapshot.phase, snapshot.question?.id]);
 
   useEffect(() => {
     const wasNotBothReady = !previousBothReadyRef.current;
@@ -130,6 +151,8 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     previousPhaseRef.current = snapshot.phase;
 
     if (isBothReady && (wasNotBothReady || (wasAwaitingReady && snapshot.phase === 'BUZZER_ACTIVE'))) {
+      cancelSpeech();
+      setHasCompletedReadyCountdown(false);
       setReadyCountdown(5);
     }
   }, [isBothReady, snapshot.phase, snapshot.team1Contender?.isReady, snapshot.team2Contender?.isReady]);
@@ -138,12 +161,19 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     if (readyCountdown === null) return;
     if (readyCountdown <= 0) {
       setReadyCountdown(null);
+      setHasCompletedReadyCountdown(true);
       return;
     }
     if (isPaused) return;
 
     const timer = setTimeout(() => {
-      setReadyCountdown((prev) => (prev !== null && prev > 1 ? prev - 1 : null));
+      setReadyCountdown((prev) => {
+        if (prev !== null && prev <= 1) {
+          setHasCompletedReadyCountdown(true);
+          return null;
+        }
+        return prev !== null ? prev - 1 : null;
+      });
     }, 1000);
 
     return () => clearTimeout(timer);
@@ -182,9 +212,14 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     roundControlAssigned?.controllingTeamName ||
     (controllingTeam === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2);
 
-  // Scenario 1: Trigger TTS reading of question when buzzers activate (after 5s countdown completes)
+  // Scenario 1: Trigger TTS reading of question when buzzers activate (strictly after 5s countdown completes)
   useEffect(() => {
-    if (snapshot.phase === 'BUZZER_ACTIVE' && snapshot.question?.id && readyCountdown === null) {
+    if (
+      snapshot.phase === 'BUZZER_ACTIVE' &&
+      snapshot.question?.id &&
+      readyCountdown === null &&
+      hasCompletedReadyCountdown
+    ) {
       if (lastSpokenQuestionId.current !== snapshot.question.id) {
         lastSpokenQuestionId.current = snapshot.question.id;
         if (audioEnabled) {
@@ -196,7 +231,17 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         }
       }
     }
-  }, [snapshot.phase, snapshot.question?.id, snapshot.question?.questionText, snapshot.question?.answers?.length, language, audioEnabled, t.mainGame.topAnswersOnBoard, readyCountdown]);
+  }, [
+    snapshot.phase,
+    snapshot.question?.id,
+    snapshot.question?.questionText,
+    snapshot.question?.answers?.length,
+    language,
+    audioEnabled,
+    t.mainGame.topAnswersOnBoard,
+    readyCountdown,
+    hasCompletedReadyCountdown,
+  ]);
 
   // Scenario 2: Atomic Buzzer Lockout cuts off ongoing TTS and sounds sharp buzzer cue
   useEffect(() => {
@@ -706,7 +751,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       )}
 
       {/* 3. Middle of Remaining Space */}
-      {snapshot.phase === 'AWAITING_READY' || readyCountdown !== null ? (
+      {snapshot.phase === 'AWAITING_READY' || readyCountdown !== null || !hasCompletedReadyCountdown ? (
         <div
           data-testid="face-off-pending-players-section"
           className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-4 sm:gap-6 my-auto"

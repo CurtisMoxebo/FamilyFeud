@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 import { MainGameFaceOffBoard } from '../src/components/MainGameFaceOffBoard';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
@@ -618,5 +618,61 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
 
     // Host TTS has not fired yet during the 5-second countdown
     expect(ttsModule.speakQuestion).not.toHaveBeenCalled();
+  });
+
+  it('strictly delays host TTS question speech until after the 5-second countdown finishes', () => {
+    vi.useFakeTimers();
+
+    const { rerender } = renderBoard({
+      snapshot: {
+        ...baseSnapshot,
+        phase: 'AWAITING_READY',
+      },
+    });
+
+    // Both players become ready
+    rerender(
+      <LanguageProvider initialLanguage="EN">
+        <MainGameFaceOffBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'BUZZER_ACTIVE',
+            team1Contender: { ...baseSnapshot.team1Contender, isReady: true },
+            team2Contender: { ...baseSnapshot.team2Contender, isReady: true },
+          }}
+          roomName="Family Feud Championship"
+          roomCode="FEUD-TEST"
+          language="EN"
+        />
+      </LanguageProvider>
+    );
+
+    // During the countdown, TTS must NOT speak
+    expect(ttsModule.speakQuestion).not.toHaveBeenCalled();
+
+    // Fast-forward 5 seconds step-by-step
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    // After countdown completes, host TTS speaks the question
+    expect(ttsModule.speakQuestion).toHaveBeenCalledWith(
+      'Top 3 answers on the board. Name something people often lose',
+      'EN'
+    );
+
+    vi.useRealTimers();
   });
 });
