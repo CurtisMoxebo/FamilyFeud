@@ -734,7 +734,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
           team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
           activeRoundBank={snapshot.roundBank}
           currentRoundNumber={scoreboardState?.currentRoundNumber ?? snapshot.roundNumber ?? 1}
-          totalRounds={scoreboardState?.totalRounds ?? 3}
+          totalRounds={scoreboardState?.totalRounds ?? (snapshot.controllingTeamPlayers?.length ? snapshot.controllingTeamPlayers.length : 3)}
           isSuddenDeath={scoreboardState?.isSuddenDeath ?? false}
         />
       </div>

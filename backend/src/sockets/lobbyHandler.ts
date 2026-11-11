@@ -1042,8 +1042,11 @@ export function registerLobbyHandlers(
 
           broadcastFaceOffState(io, session);
 
-          // US-16: Initialize match scoreboard and broadcast initial score state
-          const scoreboard = initMatchScoreboard(normalizedCode, game.id, { totalRounds: 3 });
+          // US-16: Initialize match scoreboard with rounds equivalent to number of players per team
+          const totalRounds = partitionResult && partitionResult.team1.length > 0
+            ? partitionResult.team1.length
+            : 3;
+          const scoreboard = initMatchScoreboard(normalizedCode, game.id, { totalRounds });
           io.to(`room:${normalizedCode}`).emit('scoreboard_update', scoreboard.getState());
         }
 

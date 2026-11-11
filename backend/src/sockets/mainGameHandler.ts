@@ -1768,8 +1768,6 @@ export function registerMainGameHandlers(
       });
 
       hostAdminService.clearRoomAdmin(normalizedCode, io);
-      // Reset scoreboard session
-      const resetState = scoreboard.resetForReplay(newGame.id, { totalRounds: 3 });
 
       // Retrieve players preserving team assignments
       const prevFaceOff = getFaceOffSession(normalizedCode);
@@ -1795,6 +1793,10 @@ export function registerMainGameHandlers(
             team: 'TEAM_2' as const,
             battingOrder: i + 1,
           }));
+
+      // Reset scoreboard session: total rounds equal to players per team
+      const replayTotalRounds = team1Players.length > 0 ? team1Players.length : scoreboard.totalRounds;
+      const resetState = scoreboard.resetForReplay(newGame.id, { totalRounds: replayTotalRounds });
 
       const q = questions[0];
       const newQuestion: FaceOffQuestion = {
@@ -1839,7 +1841,7 @@ export function registerMainGameHandlers(
         gameId: newGame.id,
         gameMode: 'MAIN_GAME',
         currentRound: 1,
-        totalRounds: 3,
+        totalRounds: resetState.totalRounds,
       });
       io.to(`room:${normalizedCode}`).emit('scoreboard_update', resetState);
       broadcastFaceOffState(io, newSession);

@@ -241,6 +241,46 @@ describe('US-16: Main Game Scoreboard & Replay Service (mainGameScoreboardServic
       expect(resetState.isSuddenDeath).toBe(false);
       expect(resetState.suddenDeathWinner).toBeNull();
     });
+    it('allows every player in team to do a face-off when total rounds equals team size (e.g. 5 rounds for 5 players)', () => {
+      const team1 = [
+        { id: 't1-p1', nickname: 'Alice', battingOrder: 1 },
+        { id: 't1-p2', nickname: 'Bob', battingOrder: 2 },
+        { id: 't1-p3', nickname: 'Charlie', battingOrder: 3 },
+        { id: 't1-p4', nickname: 'David', battingOrder: 4 },
+        { id: 't1-p5', nickname: 'Eve', battingOrder: 5 },
+      ];
+      const team2 = [
+        { id: 't2-p1', nickname: 'Frank', battingOrder: 1 },
+        { id: 't2-p2', nickname: 'Grace', battingOrder: 2 },
+        { id: 't2-p3', nickname: 'Heidi', battingOrder: 3 },
+        { id: 't2-p4', nickname: 'Ivan', battingOrder: 4 },
+        { id: 't2-p5', nickname: 'Judy', battingOrder: 5 },
+      ];
+
+      const session = new MainGameScoreboardSession(roomCode, gameId, { totalRounds: 5 });
+      expect(session.totalRounds).toBe(5);
+
+      for (let round = 1; round <= 5; round++) {
+        const rotation = getFaceOffContendersForRound(round, team1, team2);
+        expect(rotation.team1Contender.battingOrder).toBe(round);
+        expect(rotation.team2Contender.battingOrder).toBe(round);
+        expect(rotation.team1Contender.id).toBe(`t1-p${round}`);
+        expect(rotation.team2Contender.id).toBe(`t2-p${round}`);
+
+        session.awardRoundPoints(round % 2 === 0 ? 'TEAM_2' : 'TEAM_1', 50);
+
+        if (round < 5) {
+          expect(session.phase).toBe('ROUND_RESOLVED');
+          session.advanceToNextRound();
+          expect(session.phase).toBe('ROUND_IN_PROGRESS');
+          expect(session.currentRoundNumber).toBe(round + 1);
+        } else {
+          // At round 5, all 5 players have faced off and match finishes
+          expect(session.phase).toBe('MATCH_OVER');
+          expect(session.matchWinner).toBe('TEAM_1');
+        }
+      }
+    });
   });
 
   describe('Registry & Lifecycle Management', () => {

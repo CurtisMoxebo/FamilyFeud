@@ -716,7 +716,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           team2GrandTotal={scoreboardState?.team2GrandTotal ?? 0}
           activeRoundBank={scoreboardState?.activeRoundBank ?? 0}
           currentRoundNumber={scoreboardState?.currentRoundNumber ?? snapshot.roundNumber ?? 1}
-          totalRounds={scoreboardState?.totalRounds ?? 3}
+          totalRounds={scoreboardState?.totalRounds ?? (snapshot.team1Players?.length ? snapshot.team1Players.length : 3)}
           isSuddenDeath={scoreboardState?.isSuddenDeath ?? false}
         />
       </div>
