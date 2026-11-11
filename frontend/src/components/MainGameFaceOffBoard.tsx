@@ -115,7 +115,9 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
 
   // Track whether countdown has completed before revealing board and speaking question
   const [hasCompletedReadyCountdown, setHasCompletedReadyCountdown] = useState<boolean>(() => {
-    if (initialReadyCountdown !== undefined) return initialReadyCountdown <= 0;
+    if (initialReadyCountdown !== undefined && initialReadyCountdown !== null) {
+      return initialReadyCountdown <= 0;
+    }
     // In direct test mounts where phase is already BUZZER_ACTIVE or later without ready countdown:
     if (snapshot.phase !== 'AWAITING_READY') return true;
     return false;
@@ -129,8 +131,10 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   useEffect(() => {
     if (initialReadyCountdown !== undefined) {
       setReadyCountdown(initialReadyCountdown);
-      if (initialReadyCountdown > 0) {
+      if (initialReadyCountdown !== null && initialReadyCountdown > 0) {
         setHasCompletedReadyCountdown(false);
+      } else if (initialReadyCountdown !== null && initialReadyCountdown <= 0) {
+        setHasCompletedReadyCountdown(true);
       }
     }
   }, [initialReadyCountdown]);
@@ -189,8 +193,8 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
       ? pausedRemainingSeconds
       : timerTick && timerTick.secondsRemaining !== undefined
-      ? timerTick.secondsRemaining
-      : snapshot.remainingSeconds;
+        ? timerTick.secondsRemaining
+        : snapshot.remainingSeconds;
 
   const isBuzzerLocked = snapshot.buzzerLocked || Boolean(buzzerLocked);
   const activeWinnerId =
@@ -407,13 +411,12 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       {/* Contender 1 Podium (Team 1) */}
       <div
         data-testid="face-off-podium-team1"
-        className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
-          isC1Winner
-            ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
-            : isC1LockedOut
+        className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${isC1Winner
+          ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
+          : isC1LockedOut
             ? 'bg-slate-900/60 border-red-500/60 opacity-80'
             : 'bg-slate-900/80 border-blue-500/40'
-        }`}
+          }`}
       >
         {/* Winner Banner */}
         {isC1Winner && (
@@ -500,9 +503,8 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             <Clock className="w-6 h-6 text-feud-gold mb-0.5" />
             <span
               data-testid="face-off-seconds"
-              className={`text-2xl sm:text-3xl font-black tracking-tight ${
-                currentSeconds <= 5 ? 'text-red-400 animate-ping' : 'text-feud-gold'
-              }`}
+              className={`text-2xl sm:text-3xl font-black tracking-tight ${currentSeconds <= 5 ? 'text-red-400 animate-ping' : 'text-feud-gold'
+                }`}
             >
               {currentSeconds}s
             </span>
@@ -538,13 +540,12 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       {/* Contender 2 Podium (Team 2) */}
       <div
         data-testid="face-off-podium-team2"
-        className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${
-          isC2Winner
-            ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
-            : isC2LockedOut
+        className={`relative flex flex-col items-center p-2.5 sm:p-3 2xl:p-4 rounded-xl sm:rounded-2xl backdrop-blur-xl border-2 transition-all duration-300 ${isC2Winner
+          ? 'bg-blue-900/40 border-feud-gold shadow-[0_0_30px_rgba(234,179,8,0.35)] scale-105'
+          : isC2LockedOut
             ? 'bg-slate-900/60 border-red-500/60 opacity-80'
             : 'bg-slate-900/80 border-purple-500/40'
-        }`}
+          }`}
       >
         {/* Winner Banner */}
         {isC2Winner && (
@@ -646,11 +647,10 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                 data-testid="host-pause-resume-btn"
                 aria-label={isPaused ? t.admin.resumeTimer : t.admin.pauseTimer}
                 title={isPaused ? `${t.admin.resumeTimer} (${t.admin.spacebarShortcutHint})` : `${t.admin.pauseTimer} (${t.admin.spacebarShortcutHint})`}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
-                  isPaused
-                    ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
-                    : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
-                }`}
+                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${isPaused
+                  ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/50 text-emerald-300'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
+                  }`}
               >
                 {isPaused ? (
                   <Play className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 fill-current" />
@@ -725,11 +725,10 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       {timeoutResult && (
         <div
           data-testid="face-off-timeout-banner"
-          className={`w-full p-4 rounded-2xl text-center font-bold text-sm sm:text-base border transition-all animate-bounce ${
-            timeoutResult.type === 'DEADLOCK_RESET'
-              ? 'bg-red-950/80 border-red-500/80 text-red-200'
-              : 'bg-amber-950/80 border-amber-500/80 text-amber-200'
-          }`}
+          className={`w-full p-4 rounded-2xl text-center font-bold text-sm sm:text-base border transition-all animate-bounce ${timeoutResult.type === 'DEADLOCK_RESET'
+            ? 'bg-red-950/80 border-red-500/80 text-red-200'
+            : 'bg-amber-950/80 border-amber-500/80 text-amber-200'
+            }`}
         >
           {timeoutResult.type === 'DEADLOCK_RESET' ? (
             <div className="flex items-center justify-center gap-2">
@@ -832,226 +831,222 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             </div>
           </div>
 
-      {/* Opponent Challenge Banner (US-13 Scenarios 2 & 4: sr-only for accessibility/tests) */}
-      {snapshot.phase === 'OPPONENT_GUESS' && (
-        <div
-          data-testid="face-off-opponent-challenge-banner"
-          className="sr-only"
-        >
-          <span>
-            {snapshot.firstGuessResult?.isMatched && snapshot.firstGuessResult.points > 0
-              ? t.mainGame.canYouBeat
-                  .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
-                  .replace('{points}', String(snapshot.firstGuessResult.points))
-              : t.mainGame.opponentChance.replace('{contender}', snapshot.firstGuessResult?.playerNickname || contender1?.nickname || 'Contender')}
-          </span>
-          <span>
-            {contender2?.nickname} has 15 seconds to buzz in and steal control!
-          </span>
-        </div>
-      )}
-
-      {/* Pass or Play Prompt (US-13 Scenarios 1, 3, 4: sr-only for accessibility/tests) */}
-      {snapshot.phase === 'PASS_OR_PLAY' && (
-        <div
-          data-testid="face-off-pass-play-banner"
-          className="sr-only"
-        >
-          <h2>{t.mainGame.passOrPlayTitle}</h2>
-          <p>
-            {t.mainGame.waitingForWinnerChoice.replace(
-              '{winner}',
-              snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName
-            )}
-          </p>
-        </div>
-      )}
-
-      {/* Round Control Assigned Modal Overlay (US-13 Scenarios 6 & 7) */}
-      {(snapshot.phase === 'ROUND_CONTROL_ASSIGNED' || roundControlAssigned) && (
-        <div
-          data-testid="face-off-control-assigned-banner"
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
-        >
-          <div
-            className={`w-full max-w-xl p-6 sm:p-8 rounded-3xl border-2 text-center shadow-[0_0_50px_rgba(34,197,94,0.4)] backdrop-blur-xl ${
-              (snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
-                ? 'bg-gradient-to-r from-green-950/95 via-slate-900 to-green-950/95 border-green-400'
-                : 'bg-gradient-to-r from-amber-950/95 via-slate-900 to-amber-950/95 border-amber-400'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Award className="w-7 h-7 text-feud-gold animate-bounce" />
-              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-wide">
-                {(snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
-                  ? t.mainGame.teamChosePlay.replace('{team}', controllingTeam === 'TEAM_2' ? '2' : '1')
-                  : t.mainGame.controlPassesTo.replace('{team}', controllingTeam === 'TEAM_2' ? '2' : '1')}
-              </h2>
+          {/* Opponent Challenge Banner (US-13 Scenarios 2 & 4: sr-only for accessibility/tests) */}
+          {snapshot.phase === 'OPPONENT_GUESS' && (
+            <div
+              data-testid="face-off-opponent-challenge-banner"
+              className="sr-only"
+            >
+              <span>
+                {snapshot.firstGuessResult?.isMatched && snapshot.firstGuessResult.points > 0
+                  ? t.mainGame.canYouBeat
+                    .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
+                    .replace('{points}', String(snapshot.firstGuessResult.points))
+                  : t.mainGame.opponentChance.replace('{contender}', snapshot.firstGuessResult?.playerNickname || contender1?.nickname || 'Contender')}
+              </span>
+              <span>
+                {contender2?.nickname} has 15 seconds to buzz in and steal control!
+              </span>
             </div>
-            <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-slate-300 mt-1">
-              Transitioning to Team Guessing Round...
-            </p>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Survey Said Suspense Banner (US-28: sr-only for accessibility/tests) */}
-      {surveySaidAnnouncement && (
-        <div
-          data-testid="survey-said-banner"
-          className="sr-only"
-        >
-          <span>{t.host.surveyQuestion}</span>
-          <h3>
-            <span>{surveySaidAnnouncement.player}</span> said &ldquo;{surveySaidAnnouncement.answer}&rdquo;
-          </h3>
-          <p>Survey said...!</p>
-        </div>
-      )}
+          {/* Pass or Play Prompt (US-13 Scenarios 1, 3, 4: sr-only for accessibility/tests) */}
+          {snapshot.phase === 'PASS_OR_PLAY' && (
+            <div
+              data-testid="face-off-pass-play-banner"
+              className="sr-only"
+            >
+              <h2>{t.mainGame.passOrPlayTitle}</h2>
+              <p>
+                {t.mainGame.waitingForWinnerChoice.replace(
+                  '{winner}',
+                  snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName
+                )}
+              </p>
+            </div>
+          )}
 
-      {/* Survey Board Grid (US-13 Scenarios 1, 2, 3, 4) */}
-      {answers.length > 0 && (
-        <div
-          data-testid="face-off-survey-board"
-          className="w-full flex-1 min-h-0 flex flex-col bg-slate-950/80 border-2 border-feud-gold/40 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 2xl:p-3.5 shadow-xl backdrop-blur-md overflow-hidden my-1 sm:my-1.5"
-        >
-          <div className="flex items-center justify-between mb-1.5 sm:mb-2 border-b border-slate-800 pb-1.5 sm:pb-2 shrink-0">
-            <span className="text-xs font-black uppercase tracking-widest text-feud-gold flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-feud-gold" />
-              Survey Board
-            </span>
-            <span className="text-xs font-semibold text-slate-400">
-              {revealedCount} / {answers.length} Revealed
-            </span>
-          </div>
-
-          <div className="flex-1 min-h-0 w-full h-full max-h-full grid grid-cols-2 grid-rows-4 auto-rows-fr gap-2 sm:gap-2.5 overflow-hidden">
-            {HOST_SLOT_RANKS.map((rankOrder) => {
-              const answer = answerByRank.get(rankOrder);
-              const hasAnswer = Boolean(answer) || rankOrder <= totalAnswers;
-
-              if (!hasAnswer) {
-                return (
-                  <div
-                    key={`face-off-empty-slot-${rankOrder}`}
-                    data-testid={`face-off-empty-slot-${rankOrder}`}
-                    className="h-full rounded-xl border border-slate-800/40 bg-slate-950/30 select-none"
-                  />
-                );
-              }
-
-              const isRevealed =
-                revealedRanks.includes(rankOrder) ||
-                showDeadlockBoard;
-              const isNumberOne = rankOrder === 1;
-
-              return isRevealed && answer ? (
-                <div
-                  key={answer.id || rankOrder}
-                  data-testid={`face-off-card-${rankOrder}`}
-                  className={`h-full flex items-center justify-between p-2 sm:p-2.5 2xl:p-3 rounded-xl transition-all duration-300 min-h-[42px] sm:min-h-[50px] ${
-                    isNumberOne
-                      ? 'bg-gradient-to-r from-amber-500/25 via-yellow-500/20 to-feud-gold/30 border-2 border-feud-gold shadow-[0_0_20px_rgba(234,179,8,0.4)]'
-                      : 'bg-slate-800/90 border border-blue-500/40 shadow-md'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-                    <span
-                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full font-black text-xs sm:text-sm flex items-center justify-center shadow-inner shrink-0 ${
-                        isNumberOne
-                          ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 ring-2 ring-yellow-300'
-                          : 'bg-blue-600/30 text-blue-300 border border-blue-400/30'
-                      }`}
-                    >
-                      {rankOrder}
-                    </span>
-                    <div className="min-w-0">
-                      <span className="font-black text-white uppercase text-xs sm:text-sm md:text-base tracking-wide block truncate">
-                        {answer.answerText}
-                      </span>
-                      {isNumberOne && (
-                        <span
-                          data-testid="number-one-badge"
-                          className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-yellow-300 bg-yellow-500/20 px-1.5 py-0.5 rounded-full border border-yellow-400/40"
-                        >
-                          <Award className="w-2.5 h-2.5" />
-                          {t.mainGame.numberOneAnswerFound || '#1 ANSWER'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <span
-                    data-testid={`face-off-points-${rankOrder}`}
-                    className={`font-black text-xs sm:text-sm md:text-base px-2.5 sm:px-3 py-1 rounded-lg shadow-md shrink-0 ${
-                      isNumberOne
-                        ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950'
-                        : 'bg-feud-gold/20 text-feud-gold border border-feud-gold/40'
-                    }`}
-                  >
-                    {answer.points} pts
-                  </span>
-                </div>
-              ) : (
-                <div
-                  key={`concealed-${rankOrder}`}
-                  data-testid={`face-off-card-concealed-${rankOrder}`}
-                  className="h-full flex items-center justify-between p-2 sm:p-2.5 2xl:p-3 rounded-xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-blue-950/40 border border-slate-800/80 shadow-inner group min-h-[42px] sm:min-h-[50px]"
-                >
-                  <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 border border-slate-700 font-extrabold text-xs sm:text-sm text-slate-400 flex items-center justify-center shrink-0">
-                    {rankOrder}
-                  </span>
-                  <div className="flex-1 mx-3 h-2.5 bg-slate-800/50 rounded-full border border-dashed border-slate-700/60" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest shrink-0">
-                    --
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Answer Submission / Resolved Stage (sr-only for accessibility/tests) */}
-      {snapshot.submittedAnswer && (
-        <div
-          data-testid="face-off-submitted-answer"
-          className="sr-only"
-        >
-          <span>
-            {activeWinnerName}&apos;s Submitted Answer
-          </span>
-          <div>
-            &ldquo;{snapshot.submittedAnswer}&rdquo;
-          </div>
-        </div>
-      )}
-
-      {/* Deadlock Reset Revealed Answers Board (sr-only for accessibility/tests so nothing appears under board) */}
-      {showDeadlockBoard && answers.length > 0 && (
-        <div
-          data-testid="deadlock-answers-board"
-          className="sr-only"
-        >
-          <div>
-            <span>Deadlock Revealed Survey Answers (0 Points Awarded)</span>
-            <h3>What survey answers were on the board:</h3>
-          </div>
-          <div>
-            {answers.map((answer) => (
+          {/* Round Control Assigned Modal Overlay (US-13 Scenarios 6 & 7) */}
+          {(snapshot.phase === 'ROUND_CONTROL_ASSIGNED' || roundControlAssigned) && (
+            <div
+              data-testid="face-off-control-assigned-banner"
+              className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
+            >
               <div
-                key={answer.id}
-                data-testid={`deadlock-answer-${answer.rankOrder}`}
+                className={`w-full max-w-xl p-6 sm:p-8 rounded-3xl border-2 text-center shadow-[0_0_50px_rgba(34,197,94,0.4)] backdrop-blur-xl ${(snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
+                  ? 'bg-gradient-to-r from-green-950/95 via-slate-900 to-green-950/95 border-green-400'
+                  : 'bg-gradient-to-r from-amber-950/95 via-slate-900 to-amber-950/95 border-amber-400'
+                  }`}
               >
-                <span>{answer.rankOrder}</span>
-                <span>{answer.answerText}</span>
-                <span>{answer.points} pts</span>
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Award className="w-7 h-7 text-feud-gold animate-bounce" />
+                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-wide">
+                    {(snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
+                      ? t.mainGame.teamChosePlay.replace('{team}', controllingTeam === 'TEAM_2' ? '2' : '1')
+                      : t.mainGame.controlPassesTo.replace('{team}', controllingTeam === 'TEAM_2' ? '2' : '1')}
+                  </h2>
+                </div>
+                <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-slate-300 mt-1">
+                  Transitioning to Team Guessing Round...
+                </p>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          )}
+
+          {/* Survey Said Suspense Banner (US-28: sr-only for accessibility/tests) */}
+          {surveySaidAnnouncement && (
+            <div
+              data-testid="survey-said-banner"
+              className="sr-only"
+            >
+              <span>{t.host.surveyQuestion}</span>
+              <h3>
+                <span>{surveySaidAnnouncement.player}</span> said &ldquo;{surveySaidAnnouncement.answer}&rdquo;
+              </h3>
+              <p>Survey said...!</p>
+            </div>
+          )}
+
+          {/* Survey Board Grid (US-13 Scenarios 1, 2, 3, 4) */}
+          {answers.length > 0 && (
+            <div
+              data-testid="face-off-survey-board"
+              className="w-full flex-1 min-h-0 flex flex-col bg-slate-950/80 border-2 border-feud-gold/40 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 2xl:p-3.5 shadow-xl backdrop-blur-md overflow-hidden my-1 sm:my-1.5"
+            >
+              <div className="flex items-center justify-between mb-1.5 sm:mb-2 border-b border-slate-800 pb-1.5 sm:pb-2 shrink-0">
+                <span className="text-xs font-black uppercase tracking-widest text-feud-gold flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-feud-gold" />
+                  Survey Board
+                </span>
+                <span className="text-xs font-semibold text-slate-400">
+                  {revealedCount} / {answers.length} Revealed
+                </span>
+              </div>
+
+              <div className="flex-1 min-h-0 w-full h-full max-h-full grid grid-cols-2 grid-rows-4 auto-rows-fr gap-2 sm:gap-2.5 overflow-hidden">
+                {HOST_SLOT_RANKS.map((rankOrder) => {
+                  const answer = answerByRank.get(rankOrder);
+                  const hasAnswer = Boolean(answer) || rankOrder <= totalAnswers;
+
+                  if (!hasAnswer) {
+                    return (
+                      <div
+                        key={`face-off-empty-slot-${rankOrder}`}
+                        data-testid={`face-off-empty-slot-${rankOrder}`}
+                        className="h-full rounded-xl border border-slate-800/40 bg-slate-950/30 select-none"
+                      />
+                    );
+                  }
+
+                  const isRevealed =
+                    revealedRanks.includes(rankOrder) ||
+                    showDeadlockBoard;
+                  const isNumberOne = rankOrder === 1;
+
+                  return isRevealed && answer ? (
+                    <div
+                      key={answer.id || rankOrder}
+                      data-testid={`face-off-card-${rankOrder}`}
+                      className={`h-full flex items-center justify-between p-2 sm:p-2.5 2xl:p-3 rounded-xl transition-all duration-300 min-h-[42px] sm:min-h-[50px] ${isNumberOne
+                        ? 'bg-gradient-to-r from-amber-500/25 via-yellow-500/20 to-feud-gold/30 border-2 border-feud-gold shadow-[0_0_20px_rgba(234,179,8,0.4)]'
+                        : 'bg-slate-800/90 border border-blue-500/40 shadow-md'
+                        }`}
+                    >
+                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                        <span
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full font-black text-xs sm:text-sm flex items-center justify-center shadow-inner shrink-0 ${isNumberOne
+                            ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 ring-2 ring-yellow-300'
+                            : 'bg-blue-600/30 text-blue-300 border border-blue-400/30'
+                            }`}
+                        >
+                          {rankOrder}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-black text-white uppercase text-xs sm:text-sm md:text-base tracking-wide block truncate">
+                            {answer.answerText}
+                          </span>
+                          {isNumberOne && (
+                            <span
+                              data-testid="number-one-badge"
+                              className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-yellow-300 bg-yellow-500/20 px-1.5 py-0.5 rounded-full border border-yellow-400/40"
+                            >
+                              <Award className="w-2.5 h-2.5" />
+                              {t.mainGame.numberOneAnswerFound || '#1 ANSWER'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        data-testid={`face-off-points-${rankOrder}`}
+                        className={`font-black text-xs sm:text-sm md:text-base px-2.5 sm:px-3 py-1 rounded-lg shadow-md shrink-0 ${isNumberOne
+                          ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950'
+                          : 'bg-feud-gold/20 text-feud-gold border border-feud-gold/40'
+                          }`}
+                      >
+                        {answer.points} pts
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      key={`concealed-${rankOrder}`}
+                      data-testid={`face-off-card-concealed-${rankOrder}`}
+                      className="h-full flex items-center justify-between p-2 sm:p-2.5 2xl:p-3 rounded-xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-blue-950/40 border border-slate-800/80 shadow-inner group min-h-[42px] sm:min-h-[50px]"
+                    >
+                      <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-800 border border-slate-700 font-extrabold text-xs sm:text-sm text-slate-400 flex items-center justify-center shrink-0">
+                        {rankOrder}
+                      </span>
+                      <div className="flex-1 mx-3 h-2.5 bg-slate-800/50 rounded-full border border-dashed border-slate-700/60" />
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest shrink-0">
+                        --
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Answer Submission / Resolved Stage (sr-only for accessibility/tests) */}
+          {snapshot.submittedAnswer && (
+            <div
+              data-testid="face-off-submitted-answer"
+              className="sr-only"
+            >
+              <span>
+                {activeWinnerName}&apos;s Submitted Answer
+              </span>
+              <div>
+                &ldquo;{snapshot.submittedAnswer}&rdquo;
+              </div>
+            </div>
+          )}
+
+          {/* Deadlock Reset Revealed Answers Board (sr-only for accessibility/tests so nothing appears under board) */}
+          {showDeadlockBoard && answers.length > 0 && (
+            <div
+              data-testid="deadlock-answers-board"
+              className="sr-only"
+            >
+              <div>
+                <span>Deadlock Revealed Survey Answers (0 Points Awarded)</span>
+                <h3>What survey answers were on the board:</h3>
+              </div>
+              <div>
+                {answers.map((answer) => (
+                  <div
+                    key={answer.id}
+                    data-testid={`deadlock-answer-${answer.rankOrder}`}
+                  >
+                    <span>{answer.rankOrder}</span>
+                    <span>{answer.answerText}</span>
+                    <span>{answer.points} pts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
-    </>
-  )}
-</div>
+    </div>
   );
 };

@@ -824,19 +824,19 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
               </p>
 
               {/* Action Buttons: PLAY or PASS */}
-              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+              <div className="w-full grid grid-cols-2 gap-2 sm:gap-3 mt-2">
                 <button
                   type="button"
                   data-testid="face-off-play-btn"
                   disabled={isPaused}
                   onClick={handleChoosePlay}
-                  className="touch-target min-h-touch py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="touch-target min-h-touch py-3 sm:py-4 px-2 sm:px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-black text-base sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="flex items-center gap-2">
-                    <Play className="w-5 h-5 fill-white" />
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white shrink-0" />
                     <span>{t.mainGame.playBtn}</span>
                   </div>
-                  <span className="text-[10px] font-semibold text-emerald-100 uppercase tracking-widest">
+                  <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-100 uppercase tracking-wider text-center leading-tight">
                     Your team plays
                   </span>
                 </button>
@@ -846,13 +846,13 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                   data-testid="face-off-pass-btn"
                   disabled={isPaused}
                   onClick={handleChoosePass}
-                  className="touch-target min-h-touch py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-lg sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="touch-target min-h-touch py-3 sm:py-4 px-2 sm:px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-base sm:text-xl uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] flex flex-col items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="flex items-center gap-2">
-                    <ArrowRight className="w-5 h-5 text-slate-950" />
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-950 shrink-0" />
                     <span>{t.mainGame.passBtn}</span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">
+                  <span className="text-[9px] sm:text-[10px] font-bold text-slate-900 uppercase tracking-wider text-center leading-tight">
                     Pass to opponent
                   </span>
                 </button>

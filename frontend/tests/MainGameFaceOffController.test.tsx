@@ -298,11 +298,12 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       expect(screen.getByText('Play or Pass?')).toBeInTheDocument();
       expect(screen.getByTestId('number-one-badge')).toHaveTextContent('#1 ANSWER!');
 
-      // Action buttons
+      // Action buttons (horizontally aligned side-by-side)
       const playBtn = screen.getByTestId('face-off-play-btn');
       const passBtn = screen.getByTestId('face-off-pass-btn');
       expect(playBtn).toBeInTheDocument();
       expect(passBtn).toBeInTheDocument();
+      expect(playBtn.parentElement).toHaveClass('grid-cols-2');
 
       // Click PLAY
       fireEvent.click(playBtn);
