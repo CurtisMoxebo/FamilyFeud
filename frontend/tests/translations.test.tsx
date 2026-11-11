@@ -331,6 +331,10 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       expect(translations.FR.mainGame.buzzerWinner.replace('{name}', 'Alex')).toBe('Alex a buzzé en premier !');
       expect(translations.ES.mainGame.buzzerWinner.replace('{name}', 'Alex')).toBe('¡Alex tocó primero!');
 
+      expect(translations.EN.mainGame.youBuzzedFirst).toBe('You buzzed first!');
+      expect(translations.FR.mainGame.youBuzzedFirst).toBe('Vous avez buzzé en premier !');
+      expect(translations.ES.mainGame.youBuzzedFirst).toBe('¡Tocaste primero!');
+
       expect(translations.EN.mainGame.timeUpHandOff.replace('{next}', 'David')).toBe(
         "Time's up! Turn passed to David"
       );

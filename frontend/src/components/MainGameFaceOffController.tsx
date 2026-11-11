@@ -90,8 +90,8 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
     isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
       ? pausedRemainingSeconds
       : timerTick && timerTick.secondsRemaining !== undefined
-      ? timerTick.secondsRemaining
-      : snapshot.remainingSeconds;
+        ? timerTick.secondsRemaining
+        : snapshot.remainingSeconds;
 
   const trimmedNick = currentNickname.trim().toLowerCase();
 
@@ -192,6 +192,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
     (currentPlayerId && faceOffWinnerId === currentPlayerId) ||
     (faceOffWinnerName && faceOffWinnerName.toLowerCase() === trimmedNick);
 
+  const isBuzzerWinner =
+    (currentPlayerId && (activeWinnerId === currentPlayerId || snapshot.buzzedPlayerId === currentPlayerId)) ||
+    (activeWinnerName && activeWinnerName.toLowerCase() === trimmedNick);
+
   // Active respondent check (may be initial buzzer winner or cascaded opponent/teammate)
   const isActiveRespondent =
     (currentPlayerId && snapshot.activeRespondentId === currentPlayerId) ||
@@ -273,9 +277,8 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
     <div
       data-testid="main-game-face-off-controller"
       data-keyboard-open={isKeyboardOpen ? 'true' : 'false'}
-      className={`max-w-md w-full max-w-[100%] overflow-x-hidden bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl ${
-        isKeyboardOpen ? 'p-2.5 gap-2' : 'h-full max-h-full justify-between p-3 sm:p-5 gap-2 sm:gap-3 overflow-hidden'
-      } pb-safe shadow-2xl animate-fadeIn flex flex-col items-center text-center`}
+      className={`max-w-md w-full max-w-[100%] overflow-x-hidden bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl ${isKeyboardOpen ? 'p-2.5 gap-2' : 'h-full max-h-full justify-between p-3 sm:p-5 gap-2 sm:gap-3 overflow-hidden'
+        } pb-safe shadow-2xl animate-fadeIn flex flex-col items-center text-center`}
     >
       {/* Persistent Grand Total Header (US-16 Scenario 1 Mobile) */}
       <div className="w-full">
@@ -368,11 +371,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {timeoutResult && (
         <div
           data-testid="controller-timeout-alert"
-          className={`w-full p-3 rounded-xl text-xs sm:text-sm font-bold border animate-bounce ${
-            timeoutResult.type === 'DEADLOCK_RESET'
-              ? 'bg-red-950/80 border-red-500 text-red-200'
-              : 'bg-amber-950/80 border-amber-500 text-amber-200'
-          }`}
+          className={`w-full p-3 rounded-xl text-xs sm:text-sm font-bold border animate-bounce ${timeoutResult.type === 'DEADLOCK_RESET'
+            ? 'bg-red-950/80 border-red-500 text-red-200'
+            : 'bg-amber-950/80 border-amber-500 text-amber-200'
+            }`}
         >
           {timeoutResult.type === 'DEADLOCK_RESET' ? (
             <span>{t.mainGame.deadlockReset}</span>
@@ -396,8 +398,8 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           {buzzerRejected.reason === 'BUZZER_LOCKED'
             ? t.mainGame.buzzerLockedOpponentFirst
             : buzzerRejected.reason === 'NOT_A_CONTENDER'
-            ? t.mainGame.spectatorRoundNotice
-            : t.mainGame.buzzerRejected}
+              ? t.mainGame.spectatorRoundNotice
+              : t.mainGame.buzzerRejected}
         </div>
       )}
 
@@ -563,19 +565,21 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
             className="w-full p-3 rounded-2xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/30 to-yellow-500/20 border border-feud-gold/50 flex items-center justify-center gap-2 text-sm font-black text-feud-gold uppercase tracking-wider"
           >
             <Award className="w-5 h-5 text-feud-gold" />
-            <span>{t.mainGame.buzzerWinner.replace('{name}', activeWinnerName)}</span>
+            <span>
+              {isBuzzerWinner
+                ? t.mainGame.youBuzzedFirst
+                : t.mainGame.buzzerWinner.replace('{name}', activeWinnerName)}
+            </span>
           </div>
 
           {/* Active 15-Second Authoritative Countdown Ring */}
           <div
             data-testid="controller-timer-ring"
-            className={`${
-              isKeyboardOpen ? 'w-14 h-14' : 'w-24 h-24'
-            } rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all ${
-              currentSeconds <= 5
+            className={`${isKeyboardOpen ? 'w-14 h-14' : 'w-24 h-24'
+              } rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all ${currentSeconds <= 5
                 ? 'border-red-500 bg-red-950/40 text-red-400 animate-pulse'
                 : 'border-feud-gold bg-slate-900/90 text-feud-gold'
-            }`}
+              }`}
           >
             <span
               data-testid="controller-seconds-remaining"
@@ -591,18 +595,13 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           {/* ACTIVE RESPONDENT: Answer Input Field Form */}
           {isActiveRespondent ? (
             hasSubmitted ? (
-              /* Already Submitted Answer */
+              /* Already Submitted Answer (visually hidden on mobile screen view) */
               <div
                 data-testid="controller-submitted-card"
-                className="w-full p-4 rounded-2xl bg-green-950/80 border border-green-500 text-center animate-fadeIn"
+                className="sr-only"
               >
-                <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-1" />
-                <span className="text-xs font-bold uppercase tracking-wider text-green-300">
-                  Answer Submitted
-                </span>
-                <p className="text-xl font-extrabold text-white mt-1 uppercase">
-                  &ldquo;{answerInput}&rdquo;
-                </p>
+                <span>Answer Submitted</span>
+                <p>&ldquo;{answerInput}&rdquo;</p>
               </div>
             ) : (
               /* Input Form with 15s Timer */
@@ -610,9 +609,8 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                 ref={formAnchorRef}
                 onSubmit={handleSubmit}
                 data-testid="face-off-answer-form"
-                className={`w-full flex flex-col ${
-                  isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'
-                }`}
+                className={`w-full flex flex-col ${isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'
+                  }`}
               >
                 <label
                   htmlFor="face-off-answer-input"
@@ -687,12 +685,12 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
               <span>
                 {snapshot.firstGuessResult?.isMatched && snapshot.firstGuessResult.points > 0
                   ? t.mainGame.canYouBeat
-                      .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
-                      .replace('{points}', String(snapshot.firstGuessResult.points))
+                    .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
+                    .replace('{points}', String(snapshot.firstGuessResult.points))
                   : t.mainGame.opponentChance.replace(
-                      '{contender}',
-                      snapshot.firstGuessResult?.playerNickname || c1?.nickname || 'Contender'
-                    )}
+                    '{contender}',
+                    snapshot.firstGuessResult?.playerNickname || c1?.nickname || 'Contender'
+                  )}
               </span>
             </div>
           </div>
@@ -700,13 +698,11 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           {/* 15-Second Countdown Ring */}
           <div
             data-testid="controller-timer-ring"
-            className={`${
-              isKeyboardOpen ? 'w-14 h-14' : 'w-24 h-24'
-            } rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all ${
-              currentSeconds <= 5
+            className={`${isKeyboardOpen ? 'w-14 h-14' : 'w-24 h-24'
+              } rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all ${currentSeconds <= 5
                 ? 'border-red-500 bg-red-950/40 text-red-400 animate-pulse'
                 : 'border-blue-400 bg-slate-900/90 text-blue-300'
-            }`}
+              }`}
           >
             <span
               data-testid="controller-seconds-remaining"
@@ -722,26 +718,21 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
           {/* ACTIVE RESPONDENT (Opponent Contender) */}
           {isActiveRespondent ? (
             hasSubmitted ? (
+              /* Already Submitted Answer (visually hidden on mobile screen view) */
               <div
                 data-testid="controller-submitted-card"
-                className="w-full p-4 rounded-2xl bg-green-950/80 border border-green-500 text-center animate-fadeIn"
+                className="sr-only"
               >
-                <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-1" />
-                <span className="text-xs font-bold uppercase tracking-wider text-green-300">
-                  Answer Submitted
-                </span>
-                <p className="text-xl font-extrabold text-white mt-1 uppercase">
-                  &ldquo;{answerInput}&rdquo;
-                </p>
+                <span>Answer Submitted</span>
+                <p>&ldquo;{answerInput}&rdquo;</p>
               </div>
             ) : (
               <form
                 ref={formAnchorRef}
                 onSubmit={handleSubmit}
                 data-testid="face-off-answer-form"
-                className={`w-full flex flex-col ${
-                  isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'
-                }`}
+                className={`w-full flex flex-col ${isKeyboardOpen ? 'gap-2 sticky bottom-0 z-10' : 'gap-3'
+                  }`}
               >
                 <label
                   htmlFor="face-off-answer-input"
@@ -810,14 +801,14 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
 
               {(snapshot.firstGuessResult?.isNumberOneAnswer ||
                 snapshot.secondGuessResult?.isNumberOneAnswer) && (
-                <span
-                  data-testid="number-one-badge"
-                  className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-yellow-300 bg-yellow-500/20 px-3 py-1 rounded-full border border-yellow-400/50"
-                >
-                  <Award className="w-4 h-4" />
-                  {t.mainGame.numberOneAnswerFound || '#1 ANSWER!'}
-                </span>
-              )}
+                  <span
+                    data-testid="number-one-badge"
+                    className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-yellow-300 bg-yellow-500/20 px-3 py-1 rounded-full border border-yellow-400/50"
+                  >
+                    <Award className="w-4 h-4" />
+                    {t.mainGame.numberOneAnswerFound || '#1 ANSWER!'}
+                  </span>
+                )}
 
               <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-sm">
                 {t.mainGame.passOrPlaySubtitle}
@@ -882,11 +873,10 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {(snapshot.phase === 'ROUND_CONTROL_ASSIGNED' || roundControlAssigned) && (
         <div
           data-testid="controller-round-control-banner"
-          className={`w-full p-5 rounded-3xl border-2 text-center shadow-2xl animate-fadeIn ${
-            (snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
-              ? 'bg-gradient-to-r from-green-950/90 via-slate-900 to-green-950/90 border-green-400 shadow-[0_0_25px_rgba(34,197,94,0.35)]'
-              : 'bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.35)]'
-          }`}
+          className={`w-full p-5 rounded-3xl border-2 text-center shadow-2xl animate-fadeIn ${(snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
+            ? 'bg-gradient-to-r from-green-950/90 via-slate-900 to-green-950/90 border-green-400 shadow-[0_0_25px_rgba(34,197,94,0.35)]'
+            : 'bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.35)]'
+            }`}
         >
           <div className="flex items-center justify-center gap-2 mb-1">
             <Award className="w-6 h-6 text-feud-gold animate-bounce" />
@@ -924,9 +914,8 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {myTeamPlayers && myTeamPlayers.length > 0 && (
         <div
           data-testid="face-off-my-team-roster"
-          className={`${
-            isKeyboardOpen ? 'hidden' : 'flex flex-col'
-          } w-full mt-4 gap-2 transition-all`}
+          className={`${isKeyboardOpen ? 'hidden' : 'flex flex-col'
+            } w-full mt-4 gap-2 transition-all`}
         >
           <div className="flex items-center justify-between px-1 mb-1">
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
@@ -947,23 +936,21 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
                 <div
                   key={player.id}
                   data-testid={`face-off-team-player-${player.id}`}
-                  className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs border transition-all ${
-                    isContender
-                      ? 'bg-amber-500/25 border-amber-400/60 text-amber-200 font-extrabold shadow-[0_0_10px_rgba(245,158,11,0.3)]'
-                      : isMe
+                  className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs border transition-all ${isContender
+                    ? 'bg-amber-500/25 border-amber-400/60 text-amber-200 font-extrabold shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                    : isMe
                       ? isTeam2
                         ? 'bg-emerald-600/30 border-emerald-400/50 text-white font-bold'
                         : 'bg-blue-600/30 border-blue-400/50 text-white font-bold'
                       : 'bg-slate-900/80 border-slate-800 text-slate-300'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-1.5 truncate mr-1">
                     <span
-                      className={`w-5 h-5 rounded-full font-black flex items-center justify-center text-[10px] shrink-0 ${
-                        isTeam2
-                          ? 'bg-emerald-500/30 text-emerald-300'
-                          : 'bg-blue-500/30 text-blue-300'
-                      }`}
+                      className={`w-5 h-5 rounded-full font-black flex items-center justify-center text-[10px] shrink-0 ${isTeam2
+                        ? 'bg-emerald-500/30 text-emerald-300'
+                        : 'bg-blue-500/30 text-blue-300'
+                        }`}
                     >
                       {player.battingOrder}
                     </span>

@@ -180,6 +180,7 @@ export interface TranslationDictionary {
     buzzerBtn: string;
     buzzerLocked: string;
     buzzerWinner: string;
+    youBuzzedFirst: string;
     spectatorCheer: string;
     faceOffTimeRemaining: string;
     faceOffInputPlaceholder: string;

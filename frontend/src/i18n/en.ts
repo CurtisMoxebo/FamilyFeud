@@ -183,6 +183,7 @@ export const en: TranslationDictionary = {
     buzzerBtn: 'BUZZ!',
     buzzerLocked: 'LOCKED OUT',
     buzzerWinner: '{name} buzzed first!',
+    youBuzzedFirst: 'You buzzed first!',
     spectatorCheer: 'Spectator — Cheer on your contender!',
     faceOffTimeRemaining: '{seconds}s remaining',
     faceOffInputPlaceholder: 'Type your answer...',

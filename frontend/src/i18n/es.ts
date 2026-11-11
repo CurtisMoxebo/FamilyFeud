@@ -183,6 +183,7 @@ export const es: TranslationDictionary = {
     buzzerBtn: '¡ZUMBADOR!',
     buzzerLocked: 'BLOQUEADO',
     buzzerWinner: '¡{name} tocó primero!',
+    youBuzzedFirst: '¡Tocaste primero!',
     spectatorCheer: 'Espectador — ¡Anima a tu participante!',
     faceOffTimeRemaining: '{seconds}s restantes',
     faceOffInputPlaceholder: 'Escribe tu respuesta...',

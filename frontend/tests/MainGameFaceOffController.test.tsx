@@ -148,8 +148,8 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       onSubmitAnswer: handleSubmitAnswer,
     });
 
-    // Winner banner
-    expect(screen.getByTestId('controller-winner-banner')).toHaveTextContent('Alice buzzed first!');
+    // Winner banner shows personalized message for the player who buzzed first
+    expect(screen.getByTestId('controller-winner-banner')).toHaveTextContent('You buzzed first!');
 
     // 15-second countdown timer ring
     expect(screen.getByTestId('controller-timer-ring')).toBeInTheDocument();
@@ -193,6 +193,7 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
     expect(lockoutCard).toBeInTheDocument();
     expect(lockoutCard).toHaveTextContent('LOCKED OUT');
     expect(lockoutCard).toHaveTextContent("Alice's turn to answer");
+    expect(screen.getByTestId('controller-winner-banner')).toHaveTextContent('Alice buzzed first!');
 
     // Answer input is not available for locked out opponent
     expect(screen.queryByTestId('face-off-answer-input')).not.toBeInTheDocument();
