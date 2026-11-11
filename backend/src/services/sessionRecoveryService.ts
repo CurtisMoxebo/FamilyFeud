@@ -72,6 +72,15 @@ class SessionRecoveryService {
   }
 
   /**
+   * Cleans up the host secret and host socket ID for a room.
+   */
+  public removeHostSession(roomCode: string): void {
+    const code = normalizeRoomCode(roomCode);
+    this.hostSecrets.delete(code);
+    this.hostSockets.delete(code);
+  }
+
+  /**
    * Creates or updates a player's session token and registers their session record.
    */
   public createPlayerSession(

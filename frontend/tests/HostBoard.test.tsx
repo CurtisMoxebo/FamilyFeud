@@ -241,13 +241,19 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     await user.click(backBtn);
   });
 
-  it('allows host to leave lobby and return to home page', async () => {
+  it('allows host to leave lobby, emits leave_room to disconnect players, and returns to home page', async () => {
     const user = userEvent.setup();
+    const leaveRoomSpy = vi.fn();
+    vi.spyOn(socketHook, 'useSocket').mockReturnValue({
+      ...defaultSocketMock,
+      leaveRoom: leaveRoomSpy,
+    });
     renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
 
     const leaveBtn = screen.getByTestId('host-back-home-btn');
     expect(leaveBtn).toBeInTheDocument();
     await user.click(leaveBtn);
+    expect(leaveRoomSpy).toHaveBeenCalledWith({ roomCode: 'FEUD-7890', isHost: true });
   });
 
   /* -------------------------------------------------------------

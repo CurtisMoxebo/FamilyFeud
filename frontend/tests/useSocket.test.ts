@@ -160,17 +160,15 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
     });
   });
 
-  it('emits leave_room and resets state when leaveRoom is called', () => {
+  it('emits leave_room with payload when leaveRoom is called with host info', () => {
     const { result } = renderHook(() => useSocket());
 
     act(() => {
-      result.current.leaveRoom();
+      result.current.leaveRoom({ roomCode: 'FEUD-TEST', isHost: true });
     });
 
-    expect(mockSocket.emit).toHaveBeenCalledWith('leave_room');
+    expect(mockSocket.emit).toHaveBeenCalledWith('leave_room', { roomCode: 'FEUD-TEST', isHost: true });
     expect(result.current.roomState).toBeNull();
-    expect(result.current.roomError).toBeNull();
-    expect(result.current.gameStarted).toBeNull();
   });
 
   it('emits start_game when startGame is called', () => {

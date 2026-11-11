@@ -455,9 +455,13 @@ function _useSocketInternal(options?: UseSocketOptions) {
     setFaceOffBoardReveal(null);
   }, []);
 
-  const leaveRoom = useCallback(() => {
+  const leaveRoom = useCallback((payload?: { roomCode?: string; isHost?: boolean }) => {
     if (socketRef.current) {
-      socketRef.current.emit('leave_room');
+      if (payload) {
+        socketRef.current.emit('leave_room', payload);
+      } else {
+        socketRef.current.emit('leave_room');
+      }
     }
     setRoomState(null);
     setRoomError(null);

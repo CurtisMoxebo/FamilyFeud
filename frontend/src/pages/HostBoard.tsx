@@ -116,6 +116,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const {
     roomState,
     roomError,
+    leaveRoom,
     startGame,
     teamsAssigned: socketTeamsAssigned,
     faceOffState: socketFaceOffState,
@@ -225,6 +226,11 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     (!isFastMoneyRoom && faceOffState && !matchOver) ||
     isPaused
   );
+
+  const handleLeaveLobby = useCallback(() => {
+    leaveRoom({ roomCode: room?.roomCode || roomCode, isHost: true });
+    navigate('/');
+  }, [leaveRoom, room?.roomCode, roomCode, navigate]);
 
   const handleTogglePause = useCallback(() => {
     if (!room) return;
@@ -646,7 +652,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           audioEnabled={audioEnabled}
           roomName={room.roomName}
           roomCode={room.roomCode}
-          onLeave={() => navigate('/')}
+          onLeave={handleLeaveLobby}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           onTogglePause={handleTogglePause}
@@ -667,7 +673,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           team1={activeTeams.team1}
           team2={activeTeams.team2}
           onProceedToFaceOff={() => setTeamsShowcased(true)}
-          onLeave={() => navigate('/')}
+          onLeave={handleLeaveLobby}
         />
       </div>
     );
@@ -691,7 +697,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           language={room.language}
           roomName={room.roomName}
           roomCode={room.roomCode}
-          onLeave={() => navigate('/')}
+          onLeave={handleLeaveLobby}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           onTogglePause={handleTogglePause}
@@ -700,7 +706,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           <MainGameVictoryModal
             matchOver={matchOver}
             onReplay={handleReplay}
-            onLeave={() => navigate('/')}
+            onLeave={handleLeaveLobby}
             isHost={true}
           />
         )}
@@ -773,7 +779,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={handleLeaveLobby}
               data-testid="host-back-home-btn"
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
             >
