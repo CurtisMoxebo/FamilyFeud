@@ -416,7 +416,7 @@ describe('US-13: Face-Off Scoring & Pass or Play WebSocket Integration', () => {
     });
     await oppPromptPromise;
 
-    // Bob misses too -> cascades to next teammate (Charlie / p3 on team 1)
+    // Bob misses too -> cascades to next teammate (David / p4 on team 1)
     const cascadePromise = waitForEvent<any>(hostSocket, 'face_off_cascade');
     p2Socket.emit('submit_face_off_guess', {
       roomCode: 'FEUD-S13D',
@@ -426,7 +426,7 @@ describe('US-13: Face-Off Scoring & Pass or Play WebSocket Integration', () => {
 
     const cascadeData = await cascadePromise;
     expect(cascadeData.roomCode).toBe('FEUD-S13D');
-    expect(cascadeData.nextRespondentId).toBe('p3');
+    expect(cascadeData.nextRespondentId).toBe('p4');
     expect(session.phase).toBe('ANSWERING');
   });
 
