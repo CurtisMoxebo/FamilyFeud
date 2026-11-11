@@ -607,6 +607,48 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
     );
   });
 
+  it('satisfies US-28: speaks survey question upon entering TEAM_GUESSING phase after Face-Off with revealed answers present and does not cancel speech', () => {
+    vi.clearAllMocks();
+    render(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'TEAM_GUESSING',
+            revealedAnswers: [
+              {
+                id: 'ans-1',
+                answerText: 'Top Answer',
+                points: 40,
+                rankOrder: 1,
+                revealedByPlayerId: 'p1',
+                revealedByNickname: 'Alice',
+                revealedByTeam: 'TEAM_1',
+              },
+            ],
+            activePlayer: { id: 'p2', nickname: 'David', team: 'TEAM_1', battingOrder: 2 },
+          }}
+          timerTick={null}
+          strikeIssued={null}
+          roundCleared={null}
+          transitionStealPhase={null}
+          boardReveal={null}
+          stealResolved={null}
+          roundWinner={null}
+          language="EN"
+          roomName="Test Room"
+          roomCode="FEUD-9999"
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakQuestion).toHaveBeenCalledWith(
+      baseSnapshot.question.questionText,
+      'EN'
+    );
+    expect(tts.cancelSpeech).not.toHaveBeenCalled();
+  });
+
   it('satisfies US-28: re-speaks survey question when the next player has to answer', () => {
     const { rerender } = render(
       <LanguageProvider>

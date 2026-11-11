@@ -249,9 +249,13 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   ]);
 
   // Scenario 2: Cancel host reading on rapid guess submission or reveal (US-17 Scenario 2)
+  const prevRevealedCountRef = useRef<number>(snapshot.revealedAnswers.length);
   useEffect(() => {
-    if (!surveySaidAnnouncementRef.current && snapshot.revealedAnswers.length > 0) {
-      cancelSpeech();
+    if (snapshot.revealedAnswers.length > prevRevealedCountRef.current) {
+      prevRevealedCountRef.current = snapshot.revealedAnswers.length;
+      if (!surveySaidAnnouncementRef.current) {
+        cancelSpeech();
+      }
     }
   }, [snapshot.revealedAnswers.length]);
 

@@ -298,12 +298,6 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     language,
   ]);
 
-  // Clean up speech on unmount
-  useEffect(() => {
-    return () => {
-      cancelSpeech();
-    };
-  }, []);
 
   const contender1 = snapshot.team1Contender;
   const contender2 = snapshot.team2Contender;
