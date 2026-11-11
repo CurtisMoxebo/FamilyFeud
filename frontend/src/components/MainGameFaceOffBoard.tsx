@@ -63,6 +63,7 @@ export interface MainGameFaceOffBoardProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   onTogglePause?: () => void;
+  onAnswerRevealCompleted?: (roomCode: string) => void;
 }
 
 // 8-slot vertical counting layout on host TV board:
@@ -88,6 +89,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   isFullscreen: propsIsFullscreen,
   onToggleFullscreen,
   onTogglePause,
+  onAnswerRevealCompleted,
 }) => {
   const { t } = useTranslation();
   const internalFullscreen = useFullscreen({ enableShortcut: false });
@@ -306,29 +308,37 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   const contender1 = snapshot.team1Contender;
   const contender2 = snapshot.team2Contender;
 
-  const [revealedRanks, setRevealedRanks] = useState<number[]>(() =>
-    snapshot.revealedAnswers?.map((r) => r.rankOrder) || []
-  );
+  const pendingRevealRanksRef = useRef<Set<number>>(new Set());
+  const announcedGuessesRef = useRef<Set<string>>(new Set());
+
+  const [revealedRanks, setRevealedRanks] = useState<number[]>(() => {
+    const pending = new Set<number>();
+    if (snapshot.firstGuessResult?.rankOrder) pending.add(snapshot.firstGuessResult.rankOrder);
+    if (snapshot.secondGuessResult?.rankOrder) pending.add(snapshot.secondGuessResult.rankOrder);
+    return (
+      snapshot.revealedAnswers
+        ?.filter((r) => !pending.has(r.rankOrder))
+        .map((r) => r.rankOrder) || []
+    );
+  });
   const [surveySaidAnnouncement, setSurveySaidAnnouncement] = useState<{
     player: string;
     answer: string;
   } | null>(null);
 
-  const handledGuessesRef = useRef<Set<string>>(new Set());
-
   // Re-sync revealedRanks on initial load or if snapshot answers already revealed
   useEffect(() => {
     const answers = snapshot.revealedAnswers;
     if (answers && answers.length > 0) {
-      if (!surveySaidAnnouncement) {
-        setRevealedRanks((prev) => {
-          const incoming = answers.map((r) => r.rankOrder);
-          const hasAll = incoming.every((r) => prev.includes(r));
-          return hasAll ? prev : Array.from(new Set([...prev, ...incoming]));
-        });
-      }
+      setRevealedRanks((prev) => {
+        const allowedAnswers = answers
+          .filter((r) => !pendingRevealRanksRef.current.has(r.rankOrder))
+          .map((r) => r.rankOrder);
+        const hasAll = allowedAnswers.every((r) => prev.includes(r));
+        return hasAll ? prev : Array.from(new Set([...prev, ...allowedAnswers]));
+      });
     }
-  }, [snapshot.revealedAnswers, surveySaidAnnouncement]);
+  }, [snapshot.revealedAnswers]);
 
   // US-28: "{Player} said {Answer}, survey said..." before revealing answer
   useEffect(() => {
@@ -338,8 +348,12 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     ) => {
       if (!guess) return;
       const key = `${guess.playerId}-${guess.rawAnswer}`;
-      if (handledGuessesRef.current.has(key)) return;
-      handledGuessesRef.current.add(key);
+      if (announcedGuessesRef.current.has(key)) return;
+      announcedGuessesRef.current.add(key);
+
+      if (guess.rankOrder) {
+        pendingRevealRanksRef.current.add(guess.rankOrder);
+      }
 
       const playerName = guess.playerNickname || defaultContender?.nickname || 'Contender';
       const playerAnswer = guess.rawAnswer;
@@ -349,12 +363,16 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       const onReveal = () => {
         setSurveySaidAnnouncement(null);
         if (guess.rankOrder) {
+          pendingRevealRanksRef.current.delete(guess.rankOrder);
           setRevealedRanks((prev) =>
             prev.includes(guess.rankOrder!) ? prev : [...prev, guess.rankOrder!]
           );
           playCorrectDing();
         } else {
           playBuzzerHit();
+        }
+        if (onAnswerRevealCompleted) {
+          onAnswerRevealCompleted(roomCode);
         }
       };
 
@@ -375,6 +393,8 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     contender2,
     audioEnabled,
     language,
+    onAnswerRevealCompleted,
+    roomCode,
   ]);
 
   const isC1Winner = activeWinnerId === contender1?.id;
@@ -832,7 +852,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           </div>
 
           {/* Opponent Challenge Banner (US-13 Scenarios 2 & 4: sr-only for accessibility/tests) */}
-          {snapshot.phase === 'OPPONENT_GUESS' && (
+          {snapshot.phase === 'OPPONENT_GUESS' && !surveySaidAnnouncement && (
             <div
               data-testid="face-off-opponent-challenge-banner"
               className="sr-only"
@@ -851,7 +871,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
           )}
 
           {/* Pass or Play Prompt (US-13 Scenarios 1, 3, 4: sr-only for accessibility/tests) */}
-          {snapshot.phase === 'PASS_OR_PLAY' && (
+          {snapshot.phase === 'PASS_OR_PLAY' && !surveySaidAnnouncement && (
             <div
               data-testid="face-off-pass-play-banner"
               className="sr-only"
@@ -893,17 +913,21 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             </div>
           )}
 
-          {/* Survey Said Suspense Banner (US-28: sr-only for accessibility/tests) */}
+          {/* Survey Said Suspense Banner (US-28) */}
           {surveySaidAnnouncement && (
             <div
               data-testid="survey-said-banner"
-              className="sr-only"
+              className="w-full max-w-2xl mx-auto my-2 p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/30 to-yellow-500/20 border-2 border-feud-gold/70 shadow-[0_0_30px_rgba(234,179,8,0.35)] flex flex-col items-center justify-center gap-1 text-center animate-pulse"
             >
-              <span>{t.host.surveyQuestion}</span>
-              <h3>
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-feud-gold">
+                <Sparkles className="w-4 h-4 text-feud-gold animate-bounce" />
+                <span>{t.host.surveyQuestion}</span>
+                <Sparkles className="w-4 h-4 text-feud-gold animate-bounce" />
+              </div>
+              <h3 className="text-lg sm:text-2xl font-black text-white">
                 <span>{surveySaidAnnouncement.player}</span> said &ldquo;{surveySaidAnnouncement.answer}&rdquo;
               </h3>
-              <p>Survey said...!</p>
+              <p className="text-xs sm:text-sm font-extrabold text-feud-gold uppercase tracking-wider">Survey said...!</p>
             </div>
           )}
 

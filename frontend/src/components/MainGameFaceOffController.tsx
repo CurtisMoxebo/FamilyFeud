@@ -11,6 +11,8 @@ import {
   PromptPassPlayPayload,
   RoundControlAssignedPayload,
   OpponentTurnPromptPayload,
+  FaceOffAnswerSubmittedPayload,
+  AnswerRevealCompletedPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { triggerHaptic } from '../utils/haptics';
@@ -50,6 +52,8 @@ export interface MainGameFaceOffControllerProps {
   onSubmitAnswer?: (rawAnswer: string) => void;
   onChoosePlayPass?: (decision: 'play' | 'pass') => void;
   scoreboardState?: ScoreboardUpdatePayload | null;
+  faceOffAnswerSubmitted?: FaceOffAnswerSubmittedPayload | null;
+  answerRevealCompleted?: AnswerRevealCompletedPayload | null;
   onLeave?: () => void;
 }
 
@@ -65,6 +69,8 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   promptPassPlay,
   roundControlAssigned,
   opponentTurnPrompt: _opponentTurnPrompt,
+  faceOffAnswerSubmitted,
+  answerRevealCompleted,
   currentNickname,
   currentPlayerId,
   roomCode,
@@ -79,6 +85,42 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   const { t } = useTranslation();
   const [answerInput, setAnswerInput] = useState<string>('');
   const [hasSubmitted, setHasSubmitted] = useState<boolean>(false);
+  const [activeAnnouncement, setActiveAnnouncement] = useState<{
+    player: string;
+    answer: string;
+  } | null>(null);
+  const handledSubmissionRef = useRef<Set<string>>(new Set());
+
+  // Listen for opponent or contender answer submission
+  useEffect(() => {
+    if (faceOffAnswerSubmitted?.rawAnswer) {
+      const key = `${faceOffAnswerSubmitted.playerId}-${faceOffAnswerSubmitted.rawAnswer}`;
+      if (!handledSubmissionRef.current.has(key)) {
+        handledSubmissionRef.current.add(key);
+        setActiveAnnouncement({
+          player: faceOffAnswerSubmitted.playerNickname || 'Contender',
+          answer: faceOffAnswerSubmitted.rawAnswer,
+        });
+      }
+    }
+  }, [faceOffAnswerSubmitted]);
+
+  // Safety timer for announcement suspense (~2800ms)
+  useEffect(() => {
+    if (!activeAnnouncement) return;
+    const timer = setTimeout(() => {
+      setActiveAnnouncement(null);
+    }, 2800);
+    return () => clearTimeout(timer);
+  }, [activeAnnouncement]);
+
+  // Dismiss suspense immediately when host finishes reading and sends answerRevealCompleted
+  useEffect(() => {
+    if (answerRevealCompleted && activeAnnouncement) {
+      setActiveAnnouncement(null);
+    }
+  }, [answerRevealCompleted, activeAnnouncement]);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const formAnchorRef = useRef<HTMLFormElement>(null);
   const lastBuzzHapticAtRef = useRef<number>(0);
@@ -239,6 +281,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
     if (snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE') {
       setHasSubmitted(false);
       setAnswerInput('');
+      setActiveAnnouncement(null);
     } else if (snapshot.phase === 'OPPONENT_GUESS') {
       setHasSubmitted(false);
       setAnswerInput('');
@@ -249,9 +292,14 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
     e.preventDefault();
     if (isPaused || !answerInput.trim() || hasSubmitted) return;
 
+    const trimmed = answerInput.trim();
     setHasSubmitted(true);
+    setActiveAnnouncement({
+      player: currentNickname,
+      answer: trimmed,
+    });
     if (onSubmitAnswer) {
-      onSubmitAnswer(answerInput.trim());
+      onSubmitAnswer(trimmed);
     }
   };
 
@@ -671,29 +719,49 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       )}
 
       {/* ===================================================================== */}
+      {/* US-28: SUSPENSE BANNER WHILE HOST READS ANSWER BEFORE REVEAL */}
+      {/* ===================================================================== */}
+      {activeAnnouncement && (
+        <div
+          data-testid="controller-survey-said-banner"
+          className="w-full p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/30 to-yellow-500/20 border-2 border-feud-gold/70 shadow-[0_0_25px_rgba(234,179,8,0.3)] flex flex-col items-center justify-center gap-2 text-center animate-pulse"
+        >
+          <Sparkles className="w-6 h-6 text-feud-gold animate-bounce" />
+          <p className="text-sm sm:text-base font-black text-white">
+            {activeAnnouncement.player} said &ldquo;{activeAnnouncement.answer}&rdquo;...
+          </p>
+          <span className="text-xs sm:text-sm font-extrabold text-feud-gold uppercase tracking-widest">
+            Survey said...
+          </span>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
       {/* PHASE 3.5: OPPONENT_GUESS (US-13 Scenarios 2 & 4) */}
       {/* ===================================================================== */}
       {snapshot.phase === 'OPPONENT_GUESS' && (
         <div className="w-full flex flex-col items-center gap-4 animate-fadeIn">
           {/* Opponent Challenge Alert */}
-          <div
-            data-testid="controller-opponent-challenge-banner"
-            className="w-full p-4 rounded-2xl bg-gradient-to-r from-blue-950/90 via-slate-900 to-blue-950/90 border-2 border-blue-400/70 text-center shadow-lg"
-          >
-            <div className="flex items-center justify-center gap-2 text-amber-300 font-extrabold text-sm sm:text-base">
-              <Flame className="w-5 h-5 text-amber-400 animate-bounce" />
-              <span>
-                {snapshot.firstGuessResult?.isMatched && snapshot.firstGuessResult.points > 0
-                  ? t.mainGame.canYouBeat
-                    .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
-                    .replace('{points}', String(snapshot.firstGuessResult.points))
-                  : t.mainGame.opponentChance.replace(
-                    '{contender}',
-                    snapshot.firstGuessResult?.playerNickname || c1?.nickname || 'Contender'
-                  )}
-              </span>
+          {!activeAnnouncement && (
+            <div
+              data-testid="controller-opponent-challenge-banner"
+              className="w-full p-4 rounded-2xl bg-gradient-to-r from-blue-950/90 via-slate-900 to-blue-950/90 border-2 border-blue-400/70 text-center shadow-lg"
+            >
+              <div className="flex items-center justify-center gap-2 text-amber-300 font-extrabold text-sm sm:text-base">
+                <Flame className="w-5 h-5 text-amber-400 animate-bounce" />
+                <span>
+                  {snapshot.firstGuessResult?.isMatched && snapshot.firstGuessResult.points > 0
+                    ? t.mainGame.canYouBeat
+                      .replace('{answer}', snapshot.firstGuessResult.rawAnswer)
+                      .replace('{points}', String(snapshot.firstGuessResult.points))
+                    : t.mainGame.opponentChance.replace(
+                      '{contender}',
+                      snapshot.firstGuessResult?.playerNickname || c1?.nickname || 'Contender'
+                    )}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 15-Second Countdown Ring */}
           <div
@@ -783,7 +851,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {/* ===================================================================== */}
       {/* PHASE 4: PASS OR PLAY (US-13 Scenarios 1, 3, 4) */}
       {/* ===================================================================== */}
-      {snapshot.phase === 'PASS_OR_PLAY' && (
+      {snapshot.phase === 'PASS_OR_PLAY' && !activeAnnouncement && (
         <div className="w-full flex flex-col items-center gap-5 animate-fadeIn">
           {isFaceOffWinner ? (
             /* WINNER: Pass or Play Decision Modal / Buttons */

@@ -27,6 +27,8 @@ import {
   FaceOffTimeoutPayload,
   FaceOffResetPayload,
   FaceOffAnswerSubmittedPayload,
+  TeamGuessSubmittedPayload,
+  AnswerRevealCompletedPayload,
   PromptPassPlayPayload,
   RoundControlAssignedPayload,
   OpponentTurnPromptPayload,
@@ -133,6 +135,8 @@ function _useSocketInternal(options?: UseSocketOptions) {
   const [stealResolved, setStealResolved] = useState<StealResolvedPayload | null>(null);
   const [roundWinner, setRoundWinner] = useState<RoundWinnerPayload | null>(null);
   const [scoreboardState, setScoreboardState] = useState<ScoreboardUpdatePayload | null>(null);
+  const [teamGuessSubmitted, setTeamGuessSubmitted] = useState<TeamGuessSubmittedPayload | null>(null);
+  const [answerRevealCompleted, setAnswerRevealCompleted] = useState<AnswerRevealCompletedPayload | null>(null);
   const [matchOver, setMatchOver] = useState<MatchOverPayload | null>(null);
   const [suddenDeathInitiated, setSuddenDeathInitiated] = useState<SuddenDeathInitiatedPayload | null>(null);
   const [nextRoundStarted, setNextRoundStarted] = useState<NextRoundStartedPayload | null>(null);
@@ -424,6 +428,12 @@ function _useSocketInternal(options?: UseSocketOptions) {
     setRoomError(null);
     if (socketRef.current) {
       socketRef.current.emit('advance_next_round', { roomCode });
+    }
+  }, []);
+
+  const emitAnswerRevealCompleted = useCallback((roomCode: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('answer_reveal_completed', { roomCode });
     }
   }, []);
 
@@ -754,6 +764,18 @@ function _useSocketInternal(options?: UseSocketOptions) {
       setRoundWinner(payload);
     });
 
+    socket.on('team_guess_submitted', (payload: TeamGuessSubmittedPayload) => {
+      setTeamGuessSubmitted(payload);
+    });
+
+    socket.on('steal_guess_submitted', (payload: TeamGuessSubmittedPayload) => {
+      setTeamGuessSubmitted(payload);
+    });
+
+    socket.on('answer_reveal_completed', (payload: AnswerRevealCompletedPayload) => {
+      setAnswerRevealCompleted(payload);
+    });
+
     socket.on('scoreboard_update', (payload: ScoreboardUpdatePayload) => {
       setScoreboardState(payload);
     });
@@ -983,6 +1005,9 @@ function _useSocketInternal(options?: UseSocketOptions) {
     stealResolved,
     roundWinner,
     scoreboardState,
+    teamGuessSubmitted,
+    answerRevealCompleted,
+    emitAnswerRevealCompleted,
     matchOver,
     suddenDeathInitiated,
     nextRoundStarted,
@@ -1045,11 +1070,19 @@ function _useSocketInternal(options?: UseSocketOptions) {
 
 export type UseSocketReturn = Omit<
   ReturnType<typeof _useSocketInternal>,
-  'repeatFastMoneyQuestion' | 'repeatQuestionAlert' | 'clearRepeatQuestionAlert'
+  | 'repeatFastMoneyQuestion'
+  | 'repeatQuestionAlert'
+  | 'clearRepeatQuestionAlert'
+  | 'teamGuessSubmitted'
+  | 'answerRevealCompleted'
+  | 'emitAnswerRevealCompleted'
 > & {
   repeatFastMoneyQuestion?: (roomCode: string, playerId: string, questionId?: string) => void;
   repeatQuestionAlert?: QuestionRepeatRequestedPayload | null;
   clearRepeatQuestionAlert?: () => void;
+  teamGuessSubmitted?: TeamGuessSubmittedPayload | null;
+  answerRevealCompleted?: AnswerRevealCompletedPayload | null;
+  emitAnswerRevealCompleted?: (roomCode: string) => void;
 };
 
 export function useSocket(options?: UseSocketOptions): UseSocketReturn {

@@ -117,6 +117,9 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     kickedInfo,
     clearKickedInfo,
     gamePaused: socketGamePaused,
+    faceOffAnswer,
+    teamGuessSubmitted,
+    answerRevealCompleted,
   } = useSocket({
     roomCode,
     isHost: false,
@@ -518,6 +521,8 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             roundCleared={roundCleared}
             transitionStealPhase={transitionStealPhase}
             stealResolved={stealResolved}
+            teamGuessSubmitted={teamGuessSubmitted}
+            answerRevealCompleted={answerRevealCompleted}
             currentNickname={nickname.trim()}
             currentPlayerId={currentPlayer?.id}
             roomCode={room.roomCode}
@@ -557,6 +562,8 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             promptPassPlay={promptPassPlay}
             roundControlAssigned={roundControlAssigned}
             opponentTurnPrompt={opponentTurnPrompt}
+            faceOffAnswerSubmitted={faceOffAnswer}
+            answerRevealCompleted={answerRevealCompleted}
             currentNickname={nickname.trim()}
             currentPlayerId={currentPlayer?.id}
             roomCode={room.roomCode}

@@ -8,6 +8,8 @@ import {
   RoundClearedPayload,
   TransitionStealPhasePayload,
   StealResolvedPayload,
+  TeamGuessSubmittedPayload,
+  AnswerRevealCompletedPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { triggerHaptic } from '../utils/haptics';
@@ -43,6 +45,8 @@ export interface MainGameTeamControllerProps {
   onSubmitStealGuess?: (rawAnswer: string) => void;
   onPassTurn?: () => void;
   scoreboardState?: ScoreboardUpdatePayload | null;
+  teamGuessSubmitted?: TeamGuessSubmittedPayload | null;
+  answerRevealCompleted?: AnswerRevealCompletedPayload | null;
   onLeave?: () => void;
 }
 
@@ -55,6 +59,8 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   roundCleared,
   transitionStealPhase,
   stealResolved,
+  teamGuessSubmitted,
+  answerRevealCompleted,
   currentNickname,
   currentPlayerId,
   roomCode,
@@ -72,6 +78,56 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     count: number;
     message?: string;
   } | null>(null);
+  const [activeAnnouncement, setActiveAnnouncement] = useState<{
+    player: string;
+    answer: string;
+  } | null>(null);
+  const handledSubmissionRef = useRef<Set<string>>(new Set());
+  const pendingStrikeAlertRef = useRef<{ count: number; message?: string } | null>(null);
+
+  // Listen for team guess submitted
+  useEffect(() => {
+    if (teamGuessSubmitted?.rawAnswer) {
+      const key = `${teamGuessSubmitted.playerId}-${teamGuessSubmitted.rawAnswer}`;
+      if (!handledSubmissionRef.current.has(key)) {
+        handledSubmissionRef.current.add(key);
+        setActiveAnnouncement({
+          player: teamGuessSubmitted.playerNickname || 'Teammate',
+          answer: teamGuessSubmitted.rawAnswer,
+        });
+      }
+    }
+  }, [teamGuessSubmitted]);
+
+  // Safety timer for announcement suspense (~2800ms)
+  useEffect(() => {
+    if (!activeAnnouncement) return;
+    const timer = setTimeout(() => {
+      setActiveAnnouncement(null);
+    }, 2800);
+    return () => clearTimeout(timer);
+  }, [activeAnnouncement]);
+
+  // Dismiss suspense immediately when host finishes reading and sends answerRevealCompleted
+  useEffect(() => {
+    if (answerRevealCompleted && activeAnnouncement) {
+      setActiveAnnouncement(null);
+    }
+  }, [answerRevealCompleted, activeAnnouncement]);
+
+  // Flush pending strike alert when announcement suspense ends
+  useEffect(() => {
+    if (!activeAnnouncement && pendingStrikeAlertRef.current) {
+      const pending = pendingStrikeAlertRef.current;
+      pendingStrikeAlertRef.current = null;
+      triggerHaptic('strike');
+      setLocalStrikeAlert(pending);
+      const alertTimer = setTimeout(() => {
+        setLocalStrikeAlert(null);
+      }, 2500);
+      return () => clearTimeout(alertTimer);
+    }
+  }, [activeAnnouncement]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const formAnchorRef = useRef<HTMLFormElement>(null);
@@ -156,23 +212,28 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       const now = Date.now();
       if (!lastStrikeTimestamp.current || now - lastStrikeTimestamp.current > 300) {
         lastStrikeTimestamp.current = now;
-        triggerHaptic('strike');
-        setLocalStrikeAlert({
+        const alertData = {
           count: strikeIssued.strikeCount,
           message: strikeIssued.isDuplicate
             ? t.mainGame.duplicateAnswerWarning
             : strikeIssued.isTimeout
             ? "TIME'S UP!"
             : t.mainGame.notOnBoard,
-        });
+        };
 
-        const alertTimer = setTimeout(() => {
-          setLocalStrikeAlert(null);
-        }, 2500);
-        return () => clearTimeout(alertTimer);
+        if (activeAnnouncement) {
+          pendingStrikeAlertRef.current = alertData;
+        } else {
+          triggerHaptic('strike');
+          setLocalStrikeAlert(alertData);
+          const alertTimer = setTimeout(() => {
+            setLocalStrikeAlert(null);
+          }, 2500);
+          return () => clearTimeout(alertTimer);
+        }
       }
     }
-  }, [strikeIssued, t.mainGame.duplicateAnswerWarning, t.mainGame.notOnBoard]);
+  }, [strikeIssued, activeAnnouncement, t.mainGame.duplicateAnswerWarning, t.mainGame.notOnBoard]);
 
   // US-22: Celebratory haptic feedback on answer reveal, board clear, or steal resolution
   useEffect(() => {
@@ -181,10 +242,12 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       snapshot.phase === 'TEAM_GUESSING' &&
       isControllingTeam
     ) {
-      triggerHaptic('success');
+      if (!activeAnnouncement) {
+        triggerHaptic('success');
+      }
     }
     prevRevealedCountRef.current = snapshot.revealedAnswers.length;
-  }, [snapshot.revealedAnswers.length, snapshot.phase, isControllingTeam]);
+  }, [snapshot.revealedAnswers.length, snapshot.phase, isControllingTeam, activeAnnouncement]);
 
   useEffect(() => {
     if (roundCleared && isControllingTeam) {
@@ -217,6 +280,10 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     }
 
     setIsSubmitting(true);
+    setActiveAnnouncement({
+      player: currentNickname,
+      answer: cleaned,
+    });
     if (onSubmitGuess) {
       onSubmitGuess(cleaned);
     }
@@ -234,6 +301,10 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     }
 
     setIsSubmitting(true);
+    setActiveAnnouncement({
+      player: currentNickname,
+      answer: cleaned,
+    });
     if (onSubmitStealGuess) {
       onSubmitStealGuess(cleaned);
     }
@@ -392,6 +463,22 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* US-28: Suspense Announcement Card before Host Finishes Reading Answer */}
+      {activeAnnouncement && (
+        <div
+          data-testid="controller-survey-said-banner"
+          className="mb-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/30 to-yellow-500/20 border-2 border-feud-gold/70 shadow-xl flex flex-col items-center justify-center gap-1 text-center animate-pulse"
+        >
+          <Sparkles className="w-5 h-5 text-feud-gold animate-bounce" />
+          <p className="text-xs sm:text-sm font-black text-white">
+            {activeAnnouncement.player} said &ldquo;{activeAnnouncement.answer}&rdquo;...
+          </p>
+          <span className="text-[10px] sm:text-xs font-extrabold text-feud-gold uppercase tracking-widest">
+            Survey said...
+          </span>
+        </div>
+      )}
 
       {/* Active Turn Status Banner (Scenario 4) */}
       <div className="mb-2">

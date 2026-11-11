@@ -675,4 +675,76 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
 
     vi.useRealTimers();
   });
+
+  it('satisfies US-28: host reads contender answer and survey said before card reveal and emit onAnswerRevealCompleted', () => {
+    let capturedOnReveal: (() => void) | undefined;
+    vi.spyOn(ttsModule, 'speakPlayerAnswerSurveySaid').mockImplementation((_player, _answer, _lang, cb) => {
+      capturedOnReveal = cb;
+    });
+
+    const handleAnswerRevealCompleted = vi.fn();
+
+    const guessSnapshot: FaceOffSessionState = {
+      ...baseSnapshot,
+      phase: 'PASS_OR_PLAY',
+      winnerPlayerId: 'p1',
+      winnerNickname: 'Alice',
+      winnerTeam: 'TEAM_1',
+      revealedAnswers: [
+        {
+          id: 'a1',
+          answerText: 'KEYS',
+          points: 45,
+          rankOrder: 1,
+          revealedByPlayerId: 'p1',
+          revealedByNickname: 'Alice',
+          revealedByTeam: 'TEAM_1',
+        },
+      ],
+      firstGuessResult: {
+        playerId: 'p1',
+        playerNickname: 'Alice',
+        playerTeam: 'TEAM_1',
+        rawAnswer: 'Keys',
+        points: 45,
+        rankOrder: 1,
+        isMatched: true,
+        isNumberOneAnswer: true,
+      },
+    };
+
+    renderBoard({
+      snapshot: guessSnapshot,
+      initialReadyCountdown: 0,
+      onAnswerRevealCompleted: handleAnswerRevealCompleted,
+    });
+
+    // Host TTS called to speak Alice's answer
+    expect(ttsModule.speakPlayerAnswerSurveySaid).toHaveBeenCalledWith(
+      'Alice',
+      'Keys',
+      'EN',
+      expect.any(Function)
+    );
+
+    // While host is reading, survey-said-banner is visible
+    expect(screen.getByTestId('survey-said-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent('Alice said “Keys”');
+
+    // Card 1 is concealed (NOT revealed yet) while host is speaking
+    expect(screen.getByTestId('face-off-card-concealed-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('face-off-card-1')).not.toBeInTheDocument();
+    expect(handleAnswerRevealCompleted).not.toHaveBeenCalled();
+
+    // Host finishes reading: onReveal callback is fired
+    act(() => {
+      capturedOnReveal?.();
+    });
+
+    // Now card 1 flips and reveals answer
+    expect(screen.getByTestId('face-off-card-1')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-card-1')).toHaveTextContent('KEYS');
+    expect(screen.getByTestId('face-off-card-1')).toHaveTextContent('45');
+    expect(handleAnswerRevealCompleted).toHaveBeenCalledWith('FEUD-TEST');
+  });
 });

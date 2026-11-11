@@ -407,8 +407,20 @@ export interface BuzzerActivePayload {
 export interface FaceOffAnswerSubmittedPayload {
   roomCode: string;
   playerId: string;
-  questionId: string;
+  playerNickname?: string;
+  questionId?: string;
   rawAnswer: string;
+}
+
+export interface TeamGuessSubmittedPayload {
+  roomCode: string;
+  playerId: string;
+  playerNickname?: string;
+  rawAnswer: string;
+}
+
+export interface AnswerRevealCompletedPayload {
+  roomCode: string;
 }
 
 

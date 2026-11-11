@@ -548,5 +548,74 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       // Buzzer button is not visible / armed during countdown
       expect(screen.queryByTestId('face-off-buzzer-btn')).not.toBeInTheDocument();
     });
+
+    it('satisfies US-28: displays suspense banner and withholds Pass/Play modal until host finishes reading answer', () => {
+      const answeringSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'ANSWERING',
+        buzzerLocked: true,
+        buzzedPlayerId: 'p1',
+        buzzedPlayerNickname: 'Alice',
+        activeRespondentId: 'p1',
+      };
+
+      const { rerender } = renderController({
+        snapshot: answeringSnapshot,
+      });
+
+      // Submit an answer
+      const input = screen.getByTestId('face-off-answer-input');
+      fireEvent.change(input, { target: { value: 'Keys' } });
+      const submitBtn = screen.getByTestId('face-off-submit-btn');
+      fireEvent.click(submitBtn);
+
+      // Controller immediately enters suspense state
+      expect(screen.getByTestId('controller-survey-said-banner')).toBeInTheDocument();
+      expect(screen.getByTestId('controller-survey-said-banner')).toHaveTextContent('Alice said “Keys”');
+      expect(screen.getByTestId('controller-survey-said-banner')).toHaveTextContent('Survey said...');
+
+      // Server transitions to PASS_OR_PLAY, but announcement is still pending
+      const passPlaySnapshot: FaceOffSessionState = {
+        ...answeringSnapshot,
+        phase: 'PASS_OR_PLAY',
+        winnerPlayerId: 'p1',
+        winnerNickname: 'Alice',
+        winnerTeam: 'TEAM_1',
+      };
+
+      rerender(
+        <LanguageProvider initialLanguage="EN">
+          <MainGameFaceOffController
+            snapshot={passPlaySnapshot}
+            currentNickname="Alice"
+            currentPlayerId="p1"
+            roomCode="FEUD-CTRL"
+            roomName="Family Feud Duel"
+          />
+        </LanguageProvider>
+      );
+
+      // Pass/Play modal is withheld while suspense banner is active
+      expect(screen.queryByTestId('face-off-pass-play-modal')).not.toBeInTheDocument();
+      expect(screen.getByTestId('controller-survey-said-banner')).toBeInTheDocument();
+
+      // Host finishes reading: answerRevealCompleted arrives
+      rerender(
+        <LanguageProvider initialLanguage="EN">
+          <MainGameFaceOffController
+            snapshot={passPlaySnapshot}
+            answerRevealCompleted={{ roomCode: 'FEUD-CTRL' }}
+            currentNickname="Alice"
+            currentPlayerId="p1"
+            roomCode="FEUD-CTRL"
+            roomName="Family Feud Duel"
+          />
+        </LanguageProvider>
+      );
+
+      // Now suspense banner is cleared and Pass/Play modal is revealed!
+      expect(screen.queryByTestId('controller-survey-said-banner')).not.toBeInTheDocument();
+      expect(screen.getByTestId('face-off-pass-play-modal')).toBeInTheDocument();
+    });
   });
 });

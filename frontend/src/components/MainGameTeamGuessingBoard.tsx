@@ -53,6 +53,7 @@ import {
   Minimize2,
   Pause,
   Award,
+  Sparkles,
 } from 'lucide-react';
 
 export interface MainGameTeamGuessingBoardProps {
@@ -84,6 +85,7 @@ export interface MainGameTeamGuessingBoardProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   onTogglePause?: () => void;
+  onAnswerRevealCompleted?: (roomCode: string) => void;
 }
 
 // 8-slot vertical counting layout on host TV board:
@@ -119,6 +121,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   isFullscreen: propsIsFullscreen,
   onToggleFullscreen,
   onTogglePause,
+  onAnswerRevealCompleted,
 }) => {
   const { t } = useTranslation();
   const internalFullscreen = useFullscreen({ enableShortcut: false });
@@ -357,6 +360,9 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         const onRevealStrike = () => {
           setSurveySaidAnnouncement(null);
           showStrikeOverlayAndBuzzer();
+          if (onAnswerRevealCompleted) {
+            onAnswerRevealCompleted(roomCode);
+          }
         };
 
         if (audioEnabled) {
@@ -377,6 +383,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     t.mainGame.contender,
     t.mainGame.duplicateAnswerWarning,
     t.mainGame.notOnBoard,
+    onAnswerRevealCompleted,
+    roomCode,
   ]);
 
   // Scenario 1: Trigger Chime SFX when new cards are revealed directly in snapshot (without boardReveal prop)
@@ -431,6 +439,9 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
       const chimeTimer = setTimeout(() => {
         playPointsChime();
       }, 350);
+      if (onAnswerRevealCompleted) {
+        onAnswerRevealCompleted(roomCode);
+      }
       return () => clearTimeout(chimeTimer);
     };
 
@@ -447,6 +458,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     snapshot.activePlayer?.nickname,
     t.mainGame.contender,
     snapshot.revealedAnswers.length,
+    onAnswerRevealCompleted,
+    roomCode,
   ]);
 
   // Scenario 3: Board Cleared celebration & victory fanfare
@@ -505,10 +518,13 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
   // Combine revealed answers from snapshot, boardReveal, and steal resolution (Scenario 3)
   const revealedMap = new Map<number, TeamRevealedAnswer>();
-  snapshot.revealedAnswers.forEach((a) => revealedMap.set(a.rankOrder, a));
+  snapshot.revealedAnswers.forEach((a) => {
+    if (surveySaidAnnouncement?.rankOrder === a.rankOrder) return;
+    revealedMap.set(a.rankOrder, a);
+  });
 
   if (boardReveal && boardReveal.rankOrder) {
-    if (!revealedMap.has(boardReveal.rankOrder)) {
+    if (surveySaidAnnouncement?.rankOrder !== boardReveal.rankOrder && !revealedMap.has(boardReveal.rankOrder)) {
       revealedMap.set(boardReveal.rankOrder, {
         id: `reveal-${boardReveal.rankOrder}`,
         answerText: boardReveal.answerText,
@@ -1020,19 +1036,21 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       )}
 
-      {/* Survey Said Suspense Banner (US-28: sr-only for accessibility/tests) */}
+      {/* Survey Said Suspense Banner (US-28) */}
       {surveySaidAnnouncement && (
         <div
           data-testid="survey-said-banner"
-          className="sr-only"
+          className="w-full max-w-2xl mx-auto my-2 p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/30 to-yellow-500/20 border-2 border-feud-gold/70 shadow-[0_0_30px_rgba(234,179,8,0.35)] flex flex-col items-center justify-center gap-1 text-center animate-pulse"
         >
-          <span>
-            {t.host.surveyQuestion}
-          </span>
-          <h3>
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-feud-gold">
+            <Sparkles className="w-4 h-4 text-feud-gold animate-bounce" />
+            <span>{t.host.surveyQuestion}</span>
+            <Sparkles className="w-4 h-4 text-feud-gold animate-bounce" />
+          </div>
+          <h3 className="text-lg sm:text-2xl font-black text-white">
             <span>{surveySaidAnnouncement.player}</span>{' '}
             said &ldquo;{surveySaidAnnouncement.answer}&rdquo;...{' '}
-            <span>Survey said!</span>
+            <span className="text-feud-gold">Survey said!</span>
           </h3>
         </div>
       )}

@@ -748,16 +748,17 @@ export function registerMainGameHandlers(
         return;
       }
 
+      // Execute authoritative scoring arbiter
+      const evalResult = await session.evaluateContenderAnswer(playerId, rawAnswer.trim());
+
       // Notify clients of raw answer submission
       io.to(`room:${normalizedCode}`).emit('face_off_answer_submitted', {
         roomCode: normalizedCode,
         playerId,
+        playerNickname: evalResult.guessResult.playerNickname,
         questionId: questionId || session.question.id,
         rawAnswer: rawAnswer.trim(),
       });
-
-      // Execute authoritative scoring arbiter
-      const evalResult = await session.evaluateContenderAnswer(playerId, rawAnswer.trim());
 
       // If matched, reveal the card on the host TV stage
       if (evalResult.revealedAnswer) {
@@ -1077,6 +1078,14 @@ export function registerMainGameHandlers(
         }
 
         const evalResult = await session.evaluateGuess(playerId, rawAnswer);
+
+        // Notify clients of raw answer submission
+        io.to(`room:${normalizedCode}`).emit('team_guess_submitted', {
+          roomCode: normalizedCode,
+          playerId,
+          playerNickname: evalResult.guessResult.playerNickname,
+          rawAnswer: rawAnswer.trim(),
+        });
 
         // If matched and card revealed (Scenario 1 & 3)
         if (evalResult.revealedAnswer) {
@@ -1420,6 +1429,13 @@ export function registerMainGameHandlers(
 
         const evalResult = await session.evaluateStealGuess(playerId, rawAnswer.trim());
 
+        io.to(`room:${normalizedCode}`).emit('steal_guess_submitted', {
+          roomCode: normalizedCode,
+          playerId,
+          playerNickname: session.stealSpokesperson?.nickname || 'Spokesperson',
+          rawAnswer: rawAnswer.trim(),
+        });
+
         handleStealResolvedBroadcast(io, normalizedCode, evalResult);
 
         if (callback) {
@@ -1466,6 +1482,18 @@ export function registerMainGameHandlers(
       if (callback) callback({ success: true, state });
     }
   );
+
+  /**
+   * Host notifies room that answer announcement has completed and reveals can finalize (US-28).
+   * Event: 'answer_reveal_completed'
+   */
+  socket.on('answer_reveal_completed', (payload: { roomCode: string }) => {
+    if (!payload?.roomCode) return;
+    const normalizedCode = normalizeRoomCode(payload.roomCode);
+    io.to(`room:${normalizedCode}`).emit('answer_reveal_completed', {
+      roomCode: normalizedCode,
+    });
+  });
 
   /**
    * Allows clients to fetch the active Scoreboard state snapshot (US-16).

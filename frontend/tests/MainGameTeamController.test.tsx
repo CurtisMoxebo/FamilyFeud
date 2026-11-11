@@ -456,4 +456,62 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
     // Opposing team players (Charlie) are NOT rendered in team roster
     expect(screen.queryByTestId('mobile-team-player-p3')).not.toBeInTheDocument();
   });
+
+  it('satisfies US-28: displays suspense banner on guess submission and withholds strike alert until host finishes reading answer', () => {
+    const { rerender } = renderComponent();
+
+    // Alice submits guess "Dog"
+    const input = screen.getByTestId('player-guess-input');
+    fireEvent.change(input, { target: { value: 'Dog' } });
+    const submitBtn = screen.getByTestId('player-submit-guess-btn');
+    fireEvent.click(submitBtn);
+
+    // Controller displays suspense banner
+    expect(screen.getByTestId('controller-survey-said-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('controller-survey-said-banner')).toHaveTextContent('Alice said “Dog”');
+    expect(screen.getByTestId('controller-survey-said-banner')).toHaveTextContent('Survey said...');
+
+    // Server emits strike_issued, but announcement is still pending
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamController
+          snapshot={baseSnapshot}
+          currentNickname="Alice"
+          currentPlayerId="p1"
+          roomCode="FEUD-5555"
+          roomName="Family Feud Championship"
+          strikeIssued={{
+            roomCode: 'FEUD-5555',
+            team: 'TEAM_1',
+            strikeCount: 2,
+            maxStrikes: 3,
+            player: { id: 'p1', nickname: 'Alice' },
+            rawAnswer: 'Dog',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    // Strike alert overlay is withheld while announcement is pending
+    expect(screen.queryByTestId('mobile-strike-alert')).not.toBeInTheDocument();
+    expect(screen.getByTestId('controller-survey-said-banner')).toBeInTheDocument();
+
+    // Host finishes reading: answerRevealCompleted arrives
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamController
+          snapshot={baseSnapshot}
+          currentNickname="Alice"
+          currentPlayerId="p1"
+          roomCode="FEUD-5555"
+          roomName="Family Feud Championship"
+          answerRevealCompleted={{ roomCode: 'FEUD-5555' }}
+        />
+      </LanguageProvider>
+    );
+
+    // Suspense banner clears and strike alert is now revealed!
+    expect(screen.queryByTestId('controller-survey-said-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mobile-strike-alert')).toBeInTheDocument();
+  });
 });

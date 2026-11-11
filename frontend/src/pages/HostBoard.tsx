@@ -154,6 +154,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     hostOverrideOptions: socketHostOverrideOptions,
     answerOverrideAck: socketAnswerOverrideAck,
     requestOverrideOptions,
+    emitAnswerRevealCompleted,
   } = useSocket({
     roomCode,
     isHost: true,
@@ -656,6 +657,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           onTogglePause={handleTogglePause}
+          onAnswerRevealCompleted={emitAnswerRevealCompleted}
         />
       </div>
     );
@@ -701,6 +703,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           onTogglePause={handleTogglePause}
+          onAnswerRevealCompleted={emitAnswerRevealCompleted}
         />
         {matchOver && (
           <MainGameVictoryModal
