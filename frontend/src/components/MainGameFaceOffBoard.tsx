@@ -146,9 +146,10 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     if (snapshot.phase === 'AWAITING_READY') {
       setHasCompletedReadyCountdown(false);
       lastSpokenQuestionId.current = null;
+      lastHandledLockoutWinnerId.current = null;
       cancelSpeech();
     }
-  }, [snapshot.phase, snapshot.question?.id]);
+  }, [snapshot.phase, snapshot.question?.id, snapshot.roundNumber]);
 
   useEffect(() => {
     const wasNotBothReady = !previousBothReadyRef.current;
@@ -194,23 +195,38 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   const currentSeconds =
     isPaused && typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0
       ? pausedRemainingSeconds
-      : timerTick && timerTick.secondsRemaining !== undefined
+      : timerTick && timerTick.secondsRemaining !== undefined && snapshot.phase !== 'AWAITING_READY'
         ? timerTick.secondsRemaining
         : snapshot.remainingSeconds;
 
-  const isBuzzerLocked = snapshot.buzzerLocked || Boolean(buzzerLocked);
+  const isCurrentContenderBuzzer = Boolean(
+    buzzerLocked &&
+      (buzzerLocked.winnerPlayerId === snapshot.team1Contender?.id ||
+        buzzerLocked.winnerPlayerId === snapshot.team2Contender?.id)
+  );
+
+  const isBuzzerLocked =
+    snapshot.phase !== 'AWAITING_READY' &&
+    snapshot.phase !== 'BUZZER_ACTIVE' &&
+    (snapshot.buzzerLocked || isCurrentContenderBuzzer);
+
   const activeWinnerId =
-    snapshot.winnerPlayerId ||
-    promptPassPlay?.winnerPlayerId ||
-    buzzerLocked?.winnerPlayerId ||
-    snapshot.buzzedPlayerId ||
-    snapshot.activeRespondentId;
+    snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE'
+      ? null
+      : snapshot.winnerPlayerId ||
+        promptPassPlay?.winnerPlayerId ||
+        (isCurrentContenderBuzzer ? buzzerLocked?.winnerPlayerId : null) ||
+        snapshot.buzzedPlayerId ||
+        snapshot.activeRespondentId;
+
   const activeWinnerName =
-    snapshot.winnerNickname ||
-    promptPassPlay?.winnerNickname ||
-    buzzerLocked?.winnerNickname ||
-    snapshot.buzzedPlayerNickname ||
-    t.mainGame.contender;
+    snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE'
+      ? t.mainGame.contender
+      : snapshot.winnerNickname ||
+        promptPassPlay?.winnerNickname ||
+        (isCurrentContenderBuzzer ? buzzerLocked?.winnerNickname : null) ||
+        snapshot.buzzedPlayerNickname ||
+        t.mainGame.contender;
 
   const controllingTeam =
     roundControlAssigned?.controllingTeam || snapshot.controllingTeam;

@@ -512,9 +512,11 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
       };
 
       act(() => {
+        eventHandlers['buzzer_locked']({ roomCode: 'FEUD-9999', winnerPlayerId: 'p1', winnerNickname: 'Alice', winnerTeam: 'TEAM_1', endsAt: 100, duration: 15 });
         eventHandlers['next_round_started'](mockNextRound);
       });
       expect(result.current.nextRoundStarted).toEqual(mockNextRound);
+      expect(result.current.buzzerLocked).toBeNull();
 
       // Advance next round emit
       act(() => {

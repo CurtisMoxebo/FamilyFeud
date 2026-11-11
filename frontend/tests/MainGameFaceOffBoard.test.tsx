@@ -747,4 +747,44 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     expect(screen.getByTestId('face-off-card-1')).toHaveTextContent('45');
     expect(handleAnswerRevealCompleted).toHaveBeenCalledWith('FEUD-TEST');
   });
+
+  it('satisfies next round face-off: renders "VS" emblem and standard borders (not locked out) even if buzzerLocked prop was passed from previous round', () => {
+    // Stale buzzerLocked payload from previous round's face-off (winner was p1 in round 1)
+    const staleBuzzerLocked = {
+      roomCode: 'FEUD-TEST',
+      winnerPlayerId: 'p1',
+      winnerNickname: 'Alice',
+      winnerTeam: 'TEAM_1' as const,
+      endsAt: Date.now() + 15000,
+      duration: 15,
+    };
+
+    // Round 2 face-off contenders are p3 and p4 in AWAITING_READY phase
+    const round2Snapshot: FaceOffSessionState = {
+      ...baseSnapshot,
+      roundNumber: 2,
+      phase: 'AWAITING_READY',
+      buzzerLocked: false,
+      team1Contender: { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2, isReady: false },
+      team2Contender: { id: 'p4', nickname: 'Diana', team: 'TEAM_2', battingOrder: 2, isReady: false },
+    };
+
+    renderBoard({
+      snapshot: round2Snapshot,
+      buzzerLocked: staleBuzzerLocked,
+    });
+
+    // 1. Center arbiter MUST render "VS", NOT the 15-second countdown timer ring
+    expect(screen.getByText('VS')).toBeInTheDocument();
+    expect(screen.queryByTestId('face-off-timer-ring')).not.toBeInTheDocument();
+
+    // 2. Contender podiums MUST NOT have lockout overlay badges or red lockout borders
+    expect(screen.queryByTestId('c1-lockout-badge')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('c2-lockout-badge')).not.toBeInTheDocument();
+
+    const p1Podium = screen.getByTestId('face-off-podium-team1');
+    const p2Podium = screen.getByTestId('face-off-podium-team2');
+    expect(p1Podium.className).not.toContain('border-red-500');
+    expect(p2Podium.className).not.toContain('border-red-500');
+  });
 });

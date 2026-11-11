@@ -218,11 +218,29 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   const myTeamName = isTeam2 ? t.mainGame.team2 : t.mainGame.team1;
 
   // Buzzer lockout arbiter
-  const isBuzzerLocked = snapshot.buzzerLocked || Boolean(buzzerLocked);
+  const isCurrentContenderBuzzer = Boolean(
+    buzzerLocked &&
+      (buzzerLocked.winnerPlayerId === c1?.id || buzzerLocked.winnerPlayerId === c2?.id)
+  );
+
+  const isBuzzerLocked =
+    snapshot.phase !== 'AWAITING_READY' &&
+    snapshot.phase !== 'BUZZER_ACTIVE' &&
+    (snapshot.buzzerLocked || isCurrentContenderBuzzer);
+
   const activeWinnerId =
-    buzzerLocked?.winnerPlayerId || snapshot.buzzedPlayerId || snapshot.activeRespondentId;
+    snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE'
+      ? null
+      : (isCurrentContenderBuzzer ? buzzerLocked?.winnerPlayerId : null) ||
+        snapshot.buzzedPlayerId ||
+        snapshot.activeRespondentId;
+
   const activeWinnerName =
-    buzzerLocked?.winnerNickname || snapshot.buzzedPlayerNickname || 'Contender';
+    snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE'
+      ? 'Contender'
+      : (isCurrentContenderBuzzer ? buzzerLocked?.winnerNickname : null) ||
+        snapshot.buzzedPlayerNickname ||
+        'Contender';
 
   // Face-Off Duel Winner (US-13 Scenarios 1, 3, 4, 6, 7)
   const faceOffWinnerId =

@@ -686,6 +686,18 @@ function _useSocketInternal(options?: UseSocketOptions) {
     socket.on('face_off_state', (state: FaceOffSessionState) => {
       setFaceOffState(state);
       setTeamGuessingState(null);
+      if (state.phase === 'AWAITING_READY' || !state.buzzerLocked) {
+        setBuzzerLocked(null);
+        setBuzzerRejected(null);
+        setFaceOffTimeout(null);
+        setFaceOffReset(null);
+        setFaceOffAnswer(null);
+        setFaceOffError(null);
+        setPromptPassPlay(null);
+        setRoundControlAssigned(null);
+        setOpponentTurnPrompt(null);
+        setFaceOffBoardReveal(null);
+      }
     });
 
     socket.on('buzzer_locked', (payload: BuzzerLockedPayload) => {
@@ -731,6 +743,17 @@ function _useSocketInternal(options?: UseSocketOptions) {
     // Main Game Team Guessing Listeners (US-14)
     socket.on('team_guessing_state', (state: TeamGuessingSessionState) => {
       setTeamGuessingState(state);
+      setFaceOffState(null);
+      setBuzzerLocked(null);
+      setBuzzerRejected(null);
+      setFaceOffTimeout(null);
+      setFaceOffReset(null);
+      setFaceOffAnswer(null);
+      setFaceOffError(null);
+      setPromptPassPlay(null);
+      setRoundControlAssigned(null);
+      setOpponentTurnPrompt(null);
+      setFaceOffBoardReveal(null);
       if (state.phase === 'TEAM_GUESSING' && state.strikes < 3) {
         setTransitionStealPhase(null);
       }
@@ -800,6 +823,19 @@ function _useSocketInternal(options?: UseSocketOptions) {
       setGamePaused(null);
       setHostOverrideOptions([]);
       setAnswerOverrideAck(null);
+
+      // Reset Face-Off transient state for the new round
+      setBuzzerLocked(null);
+      setBuzzerRejected(null);
+      setFaceOffTimeout(null);
+      setFaceOffReset(null);
+      setFaceOffAnswer(null);
+      setFaceOffError(null);
+      setPromptPassPlay(null);
+      setRoundControlAssigned(null);
+      setOpponentTurnPrompt(null);
+      setFaceOffBoardReveal(null);
+      setTimerTick(null);
     });
     socket.on('session_granted', (payload: PlayerSessionCredentials) => {
       savePlayerSession(payload);
