@@ -617,5 +617,103 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       expect(screen.queryByTestId('controller-survey-said-banner')).not.toBeInTheDocument();
       expect(screen.getByTestId('face-off-pass-play-modal')).toBeInTheDocument();
     });
+
+    it('satisfies next round face-off: contender and spectator mobile screens see only ready screen without answer input or lockout card despite stale props', () => {
+      // Stale props from previous round
+      const staleProps = {
+        buzzerLocked: {
+          roomCode: 'FEUD-CTRL',
+          winnerPlayerId: 'p1',
+          winnerNickname: 'Alice',
+          winnerTeam: 'TEAM_1' as const,
+          endsAt: Date.now() + 15000,
+          duration: 15,
+        },
+        roundControlAssigned: {
+          roomCode: 'FEUD-CTRL',
+          winnerPlayerId: 'p1',
+          winnerTeam: 'TEAM_1' as const,
+          controllingTeam: 'TEAM_1' as const,
+          controllingTeamName: 'Team 1',
+          decision: 'play' as const,
+          message: 'Team 1 plays!',
+        },
+        faceOffAnswerSubmitted: {
+          roomCode: 'FEUD-CTRL',
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          rawAnswer: 'Previous Answer',
+        },
+      };
+
+      // Round 2 face-off contenders are p3 (Charlie, Team 1) and p4 (Diana, Team 2)
+      const round2Snapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        roundNumber: 2,
+        phase: 'AWAITING_READY',
+        buzzerLocked: false,
+        team1Players: [
+          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+          { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2 },
+        ],
+        team2Players: [
+          { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 },
+          { id: 'p4', nickname: 'Diana', team: 'TEAM_2', battingOrder: 2 },
+        ],
+        team1Contender: { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2, isReady: false },
+        team2Contender: { id: 'p4', nickname: 'Diana', team: 'TEAM_2', battingOrder: 2, isReady: false },
+      };
+
+      // 1. Render as Contender (Charlie, p3)
+      const { rerender } = render(
+        <LanguageProvider initialLanguage="EN">
+          <MainGameFaceOffController
+            snapshot={round2Snapshot}
+            currentNickname="Charlie"
+            currentPlayerId="p3"
+            roomCode="FEUD-CTRL"
+            roomName="Family Feud Duel"
+            {...staleProps}
+          />
+        </LanguageProvider>
+      );
+
+      // Contender sees "I'm Ready!" button
+      expect(screen.getByTestId('face-off-ready-btn')).toBeInTheDocument();
+      // NO extra elements: No answer form, no lockout card, no round control banner, no winner banner, no timer ring
+      expect(screen.queryByTestId('face-off-answer-form')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-answer-input')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-lockout-card')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('controller-winner-banner')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('controller-timer-ring')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('controller-round-control-banner')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('controller-survey-said-banner')).not.toBeInTheDocument();
+
+      // 2. Render as Spectator/Teammate (Alice, p1)
+      rerender(
+        <LanguageProvider initialLanguage="EN">
+          <MainGameFaceOffController
+            snapshot={round2Snapshot}
+            currentNickname="Alice"
+            currentPlayerId="p1"
+            roomCode="FEUD-CTRL"
+            roomName="Family Feud Duel"
+            {...staleProps}
+          />
+        </LanguageProvider>
+      );
+
+      // Spectator sees spectator badge with contenders listed
+      const spectatorBadge = screen.getByTestId('face-off-spectator-badge');
+      expect(spectatorBadge).toHaveTextContent(/Charlie/i);
+      expect(spectatorBadge).toHaveTextContent(/Diana/i);
+      // NO extra elements: No ready button, no answer form, no lockout card, no round control banner
+      expect(screen.queryByTestId('face-off-ready-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-answer-form')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-lockout-card')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('controller-winner-banner')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('controller-timer-ring')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('controller-round-control-banner')).not.toBeInTheDocument();
+    });
   });
 });

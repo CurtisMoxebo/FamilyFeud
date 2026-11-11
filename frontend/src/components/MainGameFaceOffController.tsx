@@ -121,6 +121,25 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
     }
   }, [answerRevealCompleted, activeAnnouncement]);
 
+  // Reset local state when entering AWAITING_READY or when round / question changes
+  const currentRoundKey = `${snapshot.gameId || 'game'}-${snapshot.roundNumber}-${snapshot.question?.id || 'q'}`;
+  const prevRoundKeyRef = useRef<string>(currentRoundKey);
+
+  useEffect(() => {
+    if (prevRoundKeyRef.current !== currentRoundKey || snapshot.phase === 'AWAITING_READY') {
+      prevRoundKeyRef.current = currentRoundKey;
+      setAnswerInput('');
+      setHasSubmitted(false);
+      setActiveAnnouncement(null);
+      handledSubmissionRef.current.clear();
+      hasVibratedWinRef.current = null;
+      lastBuzzHapticAtRef.current = 0;
+      if (snapshot.phase === 'AWAITING_READY' && initialReadyCountdown === undefined) {
+        setReadyCountdown(null);
+      }
+    }
+  }, [currentRoundKey, snapshot.phase, initialReadyCountdown]);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const formAnchorRef = useRef<HTMLFormElement>(null);
   const lastBuzzHapticAtRef = useRef<number>(0);
@@ -244,27 +263,40 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
 
   // Face-Off Duel Winner (US-13 Scenarios 1, 3, 4, 6, 7)
   const faceOffWinnerId =
-    snapshot.winnerPlayerId || promptPassPlay?.winnerPlayerId;
+    snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE'
+      ? null
+      : snapshot.winnerPlayerId || promptPassPlay?.winnerPlayerId;
   const faceOffWinnerName =
-    snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName;
+    snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE'
+      ? 'Contender'
+      : snapshot.winnerNickname || promptPassPlay?.winnerNickname || activeWinnerName;
 
   const isFaceOffWinner =
-    (currentPlayerId && faceOffWinnerId === currentPlayerId) ||
-    (faceOffWinnerName && faceOffWinnerName.toLowerCase() === trimmedNick);
+    Boolean(faceOffWinnerId) &&
+    ((currentPlayerId && faceOffWinnerId === currentPlayerId) ||
+      (faceOffWinnerName && faceOffWinnerName.toLowerCase() === trimmedNick));
 
   const isBuzzerWinner =
-    (currentPlayerId && (activeWinnerId === currentPlayerId || snapshot.buzzedPlayerId === currentPlayerId)) ||
-    (activeWinnerName && activeWinnerName.toLowerCase() === trimmedNick);
+    Boolean(activeWinnerId) &&
+    ((currentPlayerId && (activeWinnerId === currentPlayerId || snapshot.buzzedPlayerId === currentPlayerId)) ||
+      (activeWinnerName && activeWinnerName.toLowerCase() === trimmedNick));
 
   // Active respondent check (may be initial buzzer winner or cascaded opponent/teammate)
   const isActiveRespondent =
-    (currentPlayerId && snapshot.activeRespondentId === currentPlayerId) ||
-    (snapshot.activeRespondentId &&
-      (isC1 ? c1?.id === snapshot.activeRespondentId : isC2 ? c2?.id === snapshot.activeRespondentId : false)) ||
-    (activeWinnerId && currentPlayerId && currentPlayerId === activeWinnerId) ||
-    (activeWinnerName && activeWinnerName.toLowerCase() === trimmedNick);
+    snapshot.phase !== 'AWAITING_READY' &&
+    snapshot.phase !== 'BUZZER_ACTIVE' &&
+    ((currentPlayerId && snapshot.activeRespondentId === currentPlayerId) ||
+      (snapshot.activeRespondentId &&
+        (isC1 ? c1?.id === snapshot.activeRespondentId : isC2 ? c2?.id === snapshot.activeRespondentId : false)) ||
+      (activeWinnerId && currentPlayerId && currentPlayerId === activeWinnerId) ||
+      (activeWinnerName && activeWinnerName.toLowerCase() === trimmedNick));
 
-  const isLockedOut = isBuzzerLocked && !isActiveRespondent && !isSpectator;
+  const isLockedOut =
+    snapshot.phase !== 'AWAITING_READY' &&
+    snapshot.phase !== 'BUZZER_ACTIVE' &&
+    isBuzzerLocked &&
+    !isActiveRespondent &&
+    !isSpectator;
 
   // US-22 Scenario 3: Tactile strike vibration when buzzer is rejected / locked out
   useEffect(() => {
@@ -623,7 +655,13 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {/* ===================================================================== */}
       {/* PHASE 3: ANSWERING / BUZZER LOCKED */}
       {/* ===================================================================== */}
-      {(snapshot.phase === 'ANSWERING' || isBuzzerLocked) && (
+      {snapshot.phase !== 'AWAITING_READY' &&
+        snapshot.phase !== 'OPPONENT_GUESS' &&
+        snapshot.phase !== 'PASS_OR_PLAY' &&
+        snapshot.phase !== 'ROUND_CONTROL_ASSIGNED' &&
+        snapshot.phase !== 'DEADLOCK_RESET' &&
+        snapshot.phase !== 'RESOLVED' &&
+        (snapshot.phase === 'ANSWERING' || isBuzzerLocked) && (
         <div className="w-full flex flex-col items-center gap-4">
           {/* Winner Banner */}
           <div
@@ -739,7 +777,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {/* ===================================================================== */}
       {/* US-28: SUSPENSE BANNER WHILE HOST READS ANSWER BEFORE REVEAL */}
       {/* ===================================================================== */}
-      {activeAnnouncement && (
+      {activeAnnouncement && snapshot.phase !== 'AWAITING_READY' && (
         <div
           data-testid="controller-survey-said-banner"
           className="w-full p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-yellow-500/20 via-feud-gold/30 to-yellow-500/20 border-2 border-feud-gold/70 shadow-[0_0_25px_rgba(234,179,8,0.3)] flex flex-col items-center justify-center gap-2 text-center animate-pulse"
@@ -956,7 +994,7 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
       {/* ===================================================================== */}
       {/* PHASE 5: ROUND_CONTROL_ASSIGNED (US-13 Scenarios 6 & 7) */}
       {/* ===================================================================== */}
-      {(snapshot.phase === 'ROUND_CONTROL_ASSIGNED' || roundControlAssigned) && (
+      {snapshot.phase === 'ROUND_CONTROL_ASSIGNED' && (
         <div
           data-testid="controller-round-control-banner"
           className={`w-full p-5 rounded-3xl border-2 text-center shadow-2xl animate-fadeIn ${(snapshot.passOrPlayDecision || roundControlAssigned?.decision) === 'play'
