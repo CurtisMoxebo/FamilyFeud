@@ -95,6 +95,7 @@ export interface FaceOffBoardRevealPayload {
   playerNickname: string;
   playerTeam: 'TEAM_1' | 'TEAM_2';
   isNumberOneAnswer: boolean;
+  rawAnswer?: string;
 }
 
 export interface SubmitTeamGuessPayload {
@@ -485,7 +486,38 @@ export async function handleFaceOffTimeoutBroadcast(
     ...timeoutResult,
   });
 
-  if (timeoutResult.type === 'TIMEOUT_WINNER') {
+  // Emit strike_issued for timed out contender
+  io.to(`room:${normalizedCode}`).emit('strike_issued', {
+    roomCode: normalizedCode,
+    team: timeoutResult.timedOutPlayerTeam,
+    strikeCount: 1,
+    maxStrikes: 3,
+    isStrike: true,
+    isTimeout: true,
+    player: {
+      id: timeoutResult.timedOutPlayerId,
+      nickname: timeoutResult.timedOutPlayerNickname,
+    },
+    playerId: timeoutResult.timedOutPlayerId,
+    playerNickname: timeoutResult.timedOutPlayerNickname,
+    playerTeam: timeoutResult.timedOutPlayerTeam,
+    reason: 'TIMEOUT',
+  });
+
+  if (timeoutResult.type === 'HAND_OFF') {
+    // Scenario: Contender 1 timed out -> Floor passed to opponent contender
+    io.to(`room:${normalizedCode}`).emit('opponent_turn_prompt', {
+      roomCode: normalizedCode,
+      nextRespondentId: timeoutResult.nextPlayerId!,
+      nextRespondentNickname: timeoutResult.nextPlayerNickname!,
+      nextRespondentTeam: timeoutResult.nextPlayerTeam!,
+      endsAt: timeoutResult.endsAt!,
+      duration: timeoutResult.duration!,
+      initialPoints: 0,
+      initialRawAnswer: '',
+      message: timeoutResult.message,
+    });
+  } else if (timeoutResult.type === 'TIMEOUT_WINNER') {
     // Scenario: Opponent timed out during OPPONENT_GUESS -> Initial contender won
     io.to(`room:${normalizedCode}`).emit('prompt_pass_play', {
       roomCode: normalizedCode,
@@ -734,16 +766,17 @@ export function registerMainGameHandlers(
         return;
       }
 
+      // Execute authoritative scoring arbiter
+      const evalResult = await session.evaluateContenderAnswer(playerId, rawAnswer.trim());
+
       // Notify clients of raw answer submission
       io.to(`room:${normalizedCode}`).emit('face_off_answer_submitted', {
         roomCode: normalizedCode,
         playerId,
+        playerNickname: evalResult.guessResult.playerNickname,
         questionId: questionId || session.question.id,
         rawAnswer: rawAnswer.trim(),
       });
-
-      // Execute authoritative scoring arbiter
-      const evalResult = await session.evaluateContenderAnswer(playerId, rawAnswer.trim());
 
       // If matched, reveal the card on the host TV stage
       if (evalResult.revealedAnswer) {
@@ -757,6 +790,7 @@ export function registerMainGameHandlers(
           playerNickname: evalResult.guessResult.playerNickname,
           playerTeam: evalResult.guessResult.playerTeam,
           isNumberOneAnswer: evalResult.guessResult.isNumberOneAnswer,
+          rawAnswer: evalResult.guessResult.rawAnswer,
         };
         io.to(`room:${normalizedCode}`).emit('board_reveal', boardRevealData);
         io.to(`room:${normalizedCode}`).emit('face_off_board_reveal', boardRevealData);
@@ -770,6 +804,19 @@ export function registerMainGameHandlers(
         revealedAnswer: evalResult.revealedAnswer,
         message: evalResult.message,
       });
+
+      if (!evalResult.guessResult.isMatched || evalResult.guessResult.points === 0) {
+        io.to(`room:${normalizedCode}`).emit('strike_issued', {
+          roomCode: normalizedCode,
+          strikeCount: 1,
+          isStrike: true,
+          playerId: evalResult.guessResult.playerId,
+          playerNickname: evalResult.guessResult.playerNickname,
+          playerTeam: evalResult.guessResult.playerTeam,
+          rawAnswer: evalResult.guessResult.rawAnswer,
+          reason: 'WRONG_ANSWER',
+        });
+      }
 
       // State-specific broadcasts
       if (
@@ -1063,6 +1110,14 @@ export function registerMainGameHandlers(
 
         const evalResult = await session.evaluateGuess(playerId, rawAnswer);
 
+        // Notify clients of raw answer submission
+        io.to(`room:${normalizedCode}`).emit('team_guess_submitted', {
+          roomCode: normalizedCode,
+          playerId,
+          playerNickname: evalResult.guessResult.playerNickname,
+          rawAnswer: rawAnswer.trim(),
+        });
+
         // If matched and card revealed (Scenario 1 & 3)
         if (evalResult.revealedAnswer) {
           const scoreboard = getMatchScoreboard(normalizedCode);
@@ -1078,6 +1133,7 @@ export function registerMainGameHandlers(
             playerId: evalResult.guessResult.playerId,
             playerNickname: evalResult.guessResult.playerNickname,
             playerTeam: evalResult.guessResult.playerTeam,
+            rawAnswer: evalResult.guessResult.rawAnswer,
             isAllRevealed: evalResult.outcome === 'ROUND_CLEARED',
           };
           io.to(`room:${normalizedCode}`).emit('board_reveal', revealData);
@@ -1404,6 +1460,13 @@ export function registerMainGameHandlers(
 
         const evalResult = await session.evaluateStealGuess(playerId, rawAnswer.trim());
 
+        io.to(`room:${normalizedCode}`).emit('steal_guess_submitted', {
+          roomCode: normalizedCode,
+          playerId,
+          playerNickname: session.stealSpokesperson?.nickname || 'Spokesperson',
+          rawAnswer: rawAnswer.trim(),
+        });
+
         handleStealResolvedBroadcast(io, normalizedCode, evalResult);
 
         if (callback) {
@@ -1450,6 +1513,18 @@ export function registerMainGameHandlers(
       if (callback) callback({ success: true, state });
     }
   );
+
+  /**
+   * Host notifies room that answer announcement has completed and reveals can finalize (US-28).
+   * Event: 'answer_reveal_completed'
+   */
+  socket.on('answer_reveal_completed', (payload: { roomCode: string }) => {
+    if (!payload?.roomCode) return;
+    const normalizedCode = normalizeRoomCode(payload.roomCode);
+    io.to(`room:${normalizedCode}`).emit('answer_reveal_completed', {
+      roomCode: normalizedCode,
+    });
+  });
 
   /**
    * Allows clients to fetch the active Scoreboard state snapshot (US-16).
@@ -1752,8 +1827,6 @@ export function registerMainGameHandlers(
       });
 
       hostAdminService.clearRoomAdmin(normalizedCode, io);
-      // Reset scoreboard session
-      const resetState = scoreboard.resetForReplay(newGame.id, { totalRounds: 3 });
 
       // Retrieve players preserving team assignments
       const prevFaceOff = getFaceOffSession(normalizedCode);
@@ -1779,6 +1852,10 @@ export function registerMainGameHandlers(
             team: 'TEAM_2' as const,
             battingOrder: i + 1,
           }));
+
+      // Reset scoreboard session: total rounds equal to players per team
+      const replayTotalRounds = team1Players.length > 0 ? team1Players.length : scoreboard.totalRounds;
+      const resetState = scoreboard.resetForReplay(newGame.id, { totalRounds: replayTotalRounds });
 
       const q = questions[0];
       const newQuestion: FaceOffQuestion = {
@@ -1823,7 +1900,7 @@ export function registerMainGameHandlers(
         gameId: newGame.id,
         gameMode: 'MAIN_GAME',
         currentRound: 1,
-        totalRounds: 3,
+        totalRounds: resetState.totalRounds,
       });
       io.to(`room:${normalizedCode}`).emit('scoreboard_update', resetState);
       broadcastFaceOffState(io, newSession);

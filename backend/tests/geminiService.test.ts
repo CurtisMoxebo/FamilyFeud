@@ -123,6 +123,45 @@ describe('Backend Regression Suite: Gemini AI Question Generation Service (US-05
         });
       }).toThrow(/all answers had empty text/i);
     });
+
+    it('enforces between 4 and 8 answers inclusive in MAIN_GAME (trims > 8 answers down to 8)', () => {
+      const input: geminiService.GeneratedQuestion = {
+        questionText: 'Question with 9 answers',
+        answers: [
+          { text: 'Ans 1', points: 30 },
+          { text: 'Ans 2', points: 20 },
+          { text: 'Ans 3', points: 15 },
+          { text: 'Ans 4', points: 10 },
+          { text: 'Ans 5', points: 8 },
+          { text: 'Ans 6', points: 6 },
+          { text: 'Ans 7', points: 5 },
+          { text: 'Ans 8', points: 4 },
+          { text: 'Ans 9', points: 2 },
+        ],
+      };
+
+      const result = geminiService.normalizeQuestionAnswers(input, 'MAIN_GAME');
+      expect(result.answers.length).toBeLessThanOrEqual(8);
+      expect(result.answers.length).toBeGreaterThanOrEqual(4);
+      expect(result.answers).toHaveLength(8);
+      expect(result.answers.reduce((s, a) => s + a.points, 0)).toBe(100);
+    });
+
+    it('enforces between 4 and 8 answers inclusive in MAIN_GAME (pads < 4 answers up to 4)', () => {
+      const input: geminiService.GeneratedQuestion = {
+        questionText: 'Question with 2 answers',
+        answers: [
+          { text: 'Ans 1', points: 70 },
+          { text: 'Ans 2', points: 30 },
+        ],
+      };
+
+      const result = geminiService.normalizeQuestionAnswers(input, 'MAIN_GAME');
+      expect(result.answers.length).toBeLessThanOrEqual(8);
+      expect(result.answers.length).toBeGreaterThanOrEqual(4);
+      expect(result.answers).toHaveLength(4);
+      expect(result.answers.reduce((s, a) => s + a.points, 0)).toBe(100);
+    });
   });
 
   /* -------------------------------------------------------------
@@ -141,7 +180,7 @@ describe('Backend Regression Suite: Gemini AI Question Generation Service (US-05
       const prompt = geminiService.buildPrompt('MAIN_GAME', 'ES', 1, 2);
       expect(prompt).toContain('Spanish (Español)');
       expect(prompt).toContain('Round 2');
-      expect(prompt).toContain('4 and 8 ranked survey answers');
+      expect(prompt).toContain('between 4 and 8 ranked survey answers inclusive');
     });
   });
 

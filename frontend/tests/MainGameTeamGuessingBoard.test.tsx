@@ -26,6 +26,13 @@ vi.mock('../src/utils/tts', () => ({
   speakStealPhase: vi.fn(),
   speakStealSuccess: vi.fn(),
   speakStealFailed: vi.fn(),
+  speakRoundWinner: vi.fn(),
+  speakPlayerAnswerSurveySaid: vi.fn((_player, _answer, _lang, onComplete) => {
+    onComplete?.();
+  }),
+  speakRevealAnswer: vi.fn((_rank, _text, _lang, onComplete) => {
+    onComplete?.();
+  }),
   cancelSpeech: vi.fn(),
   isTtsMuted: vi.fn(() => false),
   setTtsMuted: vi.fn(),
@@ -382,6 +389,10 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       },
     });
 
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+
     // All slots 1, 2, 3, 4 should now be revealed with text and points
     expect(screen.getByTestId('team-board-card-1')).toHaveTextContent('KEYS');
     expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('GLASSES');
@@ -598,5 +609,438 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       baseSnapshot.question.questionText,
       'EN'
     );
+  });
+
+  it('satisfies US-28: speaks survey question upon entering TEAM_GUESSING phase after Face-Off with revealed answers present and does not cancel speech', () => {
+    vi.clearAllMocks();
+    render(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'TEAM_GUESSING',
+            revealedAnswers: [
+              {
+                id: 'ans-1',
+                answerText: 'Top Answer',
+                points: 40,
+                rankOrder: 1,
+                revealedByPlayerId: 'p1',
+                revealedByNickname: 'Alice',
+                revealedByTeam: 'TEAM_1',
+              },
+            ],
+            activePlayer: { id: 'p2', nickname: 'David', team: 'TEAM_1', battingOrder: 2 },
+          }}
+          timerTick={null}
+          strikeIssued={null}
+          roundCleared={null}
+          transitionStealPhase={null}
+          boardReveal={null}
+          stealResolved={null}
+          roundWinner={null}
+          language="EN"
+          roomName="Test Room"
+          roomCode="FEUD-9999"
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakQuestion).toHaveBeenCalledWith(
+      baseSnapshot.question.questionText,
+      'EN'
+    );
+    expect(tts.cancelSpeech).not.toHaveBeenCalled();
+  });
+
+  it('satisfies US-28: re-speaks survey question when the next player has to answer', () => {
+    const { rerender } = render(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'TEAM_GUESSING',
+            revealedAnswers: [],
+            activePlayer: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+          }}
+          timerTick={null}
+          strikeIssued={null}
+          roundCleared={null}
+          transitionStealPhase={null}
+          boardReveal={null}
+          stealResolved={null}
+          roundWinner={null}
+          language="EN"
+          roomName="Test Room"
+          roomCode="FEUD-9999"
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakQuestion).toHaveBeenCalledTimes(1);
+
+    // Turn advances to Player 2
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{
+            ...baseSnapshot,
+            phase: 'TEAM_GUESSING',
+            revealedAnswers: [],
+            activePlayer: { id: 'p2', nickname: 'David', team: 'TEAM_1', battingOrder: 2 },
+          }}
+          timerTick={null}
+          strikeIssued={null}
+          roundCleared={null}
+          transitionStealPhase={null}
+          boardReveal={null}
+          stealResolved={null}
+          roundWinner={null}
+          language="EN"
+          roomName="Test Room"
+          roomCode="FEUD-9999"
+        />
+      </LanguageProvider>
+    );
+
+    // Speaks question again for the next player
+    expect(tts.speakQuestion).toHaveBeenCalledTimes(2);
+    expect(tts.speakQuestion).toHaveBeenLastCalledWith(
+      baseSnapshot.question.questionText,
+      'EN'
+    );
+  });
+
+  it('satisfies US-28: announces player answer and survey said before revealing matched board card', () => {
+    let capturedCallback: (() => void) | undefined;
+    vi.mocked(tts.speakPlayerAnswerSurveySaid).mockImplementation(
+      (_player, _answer, _lang, onComplete) => {
+        capturedCallback = onComplete;
+      }
+    );
+
+    const { rerender } = renderComponent();
+
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={baseSnapshot}
+          roomName="Championship Feud"
+          roomCode="FEUD-9999"
+          boardReveal={{
+            roomCode: 'FEUD-9999',
+            rankOrder: 2,
+            answerText: 'WALLET',
+            points: 25,
+            roundBank: 80,
+            playerId: 'p1',
+            playerNickname: 'Alice',
+            playerTeam: 'TEAM_1',
+            rawAnswer: 'wallet',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakPlayerAnswerSurveySaid).toHaveBeenCalledWith(
+      'Alice',
+      'wallet',
+      'EN',
+      expect.any(Function)
+    );
+
+    // Suspense banner is rendered
+    expect(screen.getByTestId('survey-said-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent(/Alice/i);
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent(/wallet/i);
+
+    // Card 2 is NOT revealed yet while speech is ongoing
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('2');
+    expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('WALLET');
+
+    // Speech finishes: trigger callback
+    act(() => {
+      capturedCallback?.();
+    });
+
+    // Banner dismissed, card 2 revealed with text and points, ding and chime played
+    expect(screen.queryByTestId('survey-said-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('WALLET');
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('25');
+    expect(soundEffects.playCorrectDing).toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(soundEffects.playPointsChime).toHaveBeenCalled();
+  });
+
+  it('satisfies US-28: announces player answer and survey said before triggering strike overlay on miss', () => {
+    let capturedCallback: (() => void) | undefined;
+    vi.mocked(tts.speakPlayerAnswerSurveySaid).mockImplementation(
+      (_player, _answer, _lang, onComplete) => {
+        capturedCallback = onComplete;
+      }
+    );
+
+    const { rerender } = renderComponent();
+
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={baseSnapshot}
+          roomName="Championship Feud"
+          roomCode="FEUD-9999"
+          strikeIssued={{
+            roomCode: 'FEUD-9999',
+            team: 'TEAM_1',
+            strikeCount: 2,
+            maxStrikes: 3,
+            isDuplicate: false,
+            isTimeout: false,
+            player: {
+              id: 'p1',
+              nickname: 'Alice',
+            },
+            rawAnswer: 'Elephant',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    expect(tts.speakPlayerAnswerSurveySaid).toHaveBeenCalledWith(
+      'Alice',
+      'Elephant',
+      'EN',
+      expect.any(Function)
+    );
+
+    // Suspense banner rendered
+    expect(screen.getByTestId('survey-said-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent(/Alice/i);
+    expect(screen.getByTestId('survey-said-banner')).toHaveTextContent(/Elephant/i);
+
+    // Strike overlay NOT shown yet while speech is running
+    expect(screen.queryByTestId('giant-strike-overlay')).not.toBeInTheDocument();
+    expect(soundEffects.playStrikeBuzzer).not.toHaveBeenCalled();
+
+    // Strike box 2 is NOT added yet while the host is reading
+    expect(screen.getByTestId('strike-box-2')).toHaveTextContent('2');
+
+    // Speech completes
+    act(() => {
+      capturedCallback?.();
+    });
+
+    // Strike overlay, buzzer, and strike box now activate after host finishes reading
+    expect(screen.queryByTestId('survey-said-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('giant-strike-overlay')).toBeInTheDocument();
+    expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(2);
+    expect(screen.getByTestId('strike-box-2')).toHaveTextContent('X');
+  });
+
+  it('delays steal phase announcement until after host reads 3rd strike wrong answer', () => {
+    let capturedCallback: (() => void) | undefined;
+    vi.mocked(tts.speakPlayerAnswerSurveySaid).mockImplementation(
+      (_player, _answer, _lang, onComplete) => {
+        capturedCallback = onComplete;
+      }
+    );
+
+    const { rerender } = renderComponent();
+
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamGuessingBoard
+          snapshot={{ ...baseSnapshot, strikes: 2, phase: 'TEAM_GUESSING' }}
+          roomName="Championship Feud"
+          roomCode="FEUD-9999"
+          strikeIssued={{
+            roomCode: 'FEUD-9999',
+            team: 'TEAM_1',
+            strikeCount: 3,
+            maxStrikes: 3,
+            isDuplicate: false,
+            isTimeout: false,
+            player: {
+              id: 'p1',
+              nickname: 'Alice',
+            },
+            rawAnswer: 'Giraffe',
+          }}
+          transitionStealPhase={{
+            roomCode: 'FEUD-9999',
+            controllingTeam: 'TEAM_1',
+            opposingTeam: 'TEAM_2',
+            roundBank: 55,
+            reason: 'THREE_STRIKES',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    // Host is speaking the 3rd wrong answer
+    expect(tts.speakPlayerAnswerSurveySaid).toHaveBeenCalledWith(
+      'Alice',
+      'Giraffe',
+      'EN',
+      expect.any(Function)
+    );
+
+    // Strike 3 NOT shown yet on board, steal phase NOT announced yet
+    expect(screen.getByTestId('strike-box-3')).toHaveTextContent('3');
+    expect(tts.speakStealPhase).not.toHaveBeenCalled();
+
+    // Wrong answer speech finishes
+    act(() => {
+      capturedCallback?.();
+    });
+
+    // Strike 3 is added to the board
+    expect(screen.getByTestId('strike-box-3')).toHaveTextContent('X');
+    expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(3);
+  });
+
+  it('always renders exactly 8 slots counted vertically (1 5 / 2 6 / 3 7 / 4 8) with empty placeholders for unused slots', () => {
+    // baseSnapshot has totalAnswersCount: 4
+    renderComponent();
+
+    // Verify all 4 active answer cards are present
+    expect(screen.getByTestId('team-board-card-1')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-card-2')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-card-3')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-card-4')).toBeInTheDocument();
+
+    // Verify slots 5, 6, 7, 8 are empty placeholders holding the 8-slot grid layout
+    expect(screen.getByTestId('team-board-empty-slot-5')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-empty-slot-6')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-empty-slot-7')).toBeInTheDocument();
+    expect(screen.getByTestId('team-board-empty-slot-8')).toBeInTheDocument();
+
+    // Verify vertical counting order in DOM grid: 1, 5, 2, 6, 3, 7, 4, 8
+    const gridContainer = screen.getByTestId('team-board-card-1').parentElement;
+    expect(gridContainer).toBeInTheDocument();
+    const childTestIds = Array.from(gridContainer!.children).map((el) => el.getAttribute('data-testid'));
+    expect(childTestIds).toEqual([
+      'team-board-card-1',
+      'team-board-empty-slot-5',
+      'team-board-card-2',
+      'team-board-empty-slot-6',
+      'team-board-card-3',
+      'team-board-empty-slot-7',
+      'team-board-card-4',
+      'team-board-empty-slot-8',
+    ]);
+  });
+
+  it('satisfies round over sequence: announces result, reveals unread answers sequentially from smallest to largest points, waits 5 seconds, and advances to next round', () => {
+    const onNextRound = vi.fn();
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 55,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      onNextRound,
+      stealResolved: {
+        roomCode: 'FEUD-9999',
+        success: false,
+        outcome: 'STEAL_FAILED',
+        winningTeam: 'TEAM_1',
+        pointsAwarded: 55,
+        roundBank: 55,
+        stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        remainingAnswers: [
+          { id: 'a2', answerText: 'GLASSES', points: 25, rankOrder: 2 },
+          { id: 'a3', answerText: 'PHONE', points: 20, rankOrder: 3 },
+          { id: 'a4', answerText: 'REMOTE', points: 15, rankOrder: 4 },
+        ],
+        message: 'Steal failed!',
+      },
+    });
+
+    // 1. Result announced via TTS and buzzer
+    expect(tts.speakStealFailed).toHaveBeenCalledWith('Team 1', 55, 'EN');
+    expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(1);
+
+    // Initial state: slot 1 is revealed from baseSnapshot, but unread slots 2, 3, 4 are not yet revealed
+    expect(screen.getByTestId('team-board-card-1')).toHaveTextContent('KEYS');
+    expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('GLASSES');
+    expect(screen.getByTestId('team-board-card-3')).not.toHaveTextContent('PHONE');
+    expect(screen.getByTestId('team-board-card-4')).not.toHaveTextContent('REMOTE');
+
+    // 2. Advance past announcement delay (2200ms) to trigger first unread reveal (SMALLEST points: REMOTE, 15 pts)
+    act(() => {
+      vi.advanceTimersByTime(2200);
+    });
+    expect(screen.getByTestId('team-board-card-4')).toHaveTextContent('REMOTE');
+    expect(screen.getByTestId('team-board-card-4')).toHaveTextContent('15');
+    expect(screen.getByTestId('team-board-card-3')).not.toHaveTextContent('PHONE');
+    expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('GLASSES');
+    expect(tts.speakRevealAnswer).toHaveBeenNthCalledWith(1, 4, 'REMOTE', 'EN', expect.any(Function));
+
+    // 3. Advance 1000ms for second reveal (PHONE, 20 pts)
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByTestId('team-board-card-3')).toHaveTextContent('PHONE');
+    expect(screen.getByTestId('team-board-card-3')).toHaveTextContent('20');
+    expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('GLASSES');
+    expect(tts.speakRevealAnswer).toHaveBeenNthCalledWith(2, 3, 'PHONE', 'EN', expect.any(Function));
+
+    // 4. Advance 1000ms for third reveal (LARGEST points: GLASSES, 25 pts)
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('GLASSES');
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('25');
+    expect(tts.speakRevealAnswer).toHaveBeenNthCalledWith(3, 2, 'GLASSES', 'EN', expect.any(Function));
+
+    // 5. Advance 800ms to enter 5-second countdown
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(screen.getByTestId('next-round-countdown')).toBeInTheDocument();
+    expect(onNextRound).not.toHaveBeenCalled();
+
+    // 6. Advance 5000ms for countdown to expire -> onNextRound called automatically!
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(onNextRound).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows host to click next-round-btn manually to advance immediately without waiting for countdown', () => {
+    const onNextRound = vi.fn();
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 55,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      onNextRound,
+      stealResolved: {
+        roomCode: 'FEUD-9999',
+        success: true,
+        outcome: 'STEAL_SUCCESS',
+        winningTeam: 'TEAM_2',
+        pointsAwarded: 55,
+        roundBank: 55,
+        stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        matchedAnswer: { id: 'a2', answerText: 'GLASSES', points: 25, rankOrder: 2 },
+        remainingAnswers: [],
+        message: 'Steal successful!',
+      },
+    });
+
+    const nextRoundBtn = screen.getByTestId('next-round-btn');
+    expect(nextRoundBtn).toBeInTheDocument();
+    fireEvent.click(nextRoundBtn);
+    expect(onNextRound).toHaveBeenCalledTimes(1);
   });
 });

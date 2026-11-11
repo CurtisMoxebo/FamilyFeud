@@ -11,6 +11,7 @@ export interface MainGameScoreboardHeaderProps {
   isSuddenDeath?: boolean;
   highlightTeam?: 'TEAM_1' | 'TEAM_2' | null;
   compact?: boolean;
+  showYourTeamBadge?: boolean;
   className?: string;
 }
 
@@ -23,6 +24,7 @@ export const MainGameScoreboardHeader: React.FC<MainGameScoreboardHeaderProps> =
   isSuddenDeath = false,
   highlightTeam = null,
   compact = false,
+  showYourTeamBadge = !compact,
   className = '',
 }) => {
   const { t } = useTranslation();
@@ -61,7 +63,7 @@ export const MainGameScoreboardHeader: React.FC<MainGameScoreboardHeaderProps> =
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-blue-300 truncate">
                 {t.mainGame.team1}
               </span>
-              {isTeam1Highlighted && (
+              {isTeam1Highlighted && showYourTeamBadge && (
                 <span
                   data-testid="your-team-badge"
                   className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full bg-blue-400 text-slate-950 tracking-wider shadow"
@@ -133,7 +135,7 @@ export const MainGameScoreboardHeader: React.FC<MainGameScoreboardHeaderProps> =
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-end gap-1.5 flex-wrap">
-              {isTeam2Highlighted && (
+              {isTeam2Highlighted && showYourTeamBadge && (
                 <span
                   data-testid="your-team-badge"
                   className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full bg-emerald-400 text-slate-950 tracking-wider shadow"

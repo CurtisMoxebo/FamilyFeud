@@ -1036,7 +1036,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   return (
     <div
       data-testid="fast-money-host-board"
-      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-2 sm:gap-3 2xl:gap-3.5 animate-fade-in"
+      className="w-full h-full max-h-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center justify-between overflow-hidden animate-fade-in"
     >
       {/* Top TV Scoreboard Header */}
       <div className="w-full bg-feud-slate-card/95 backdrop-blur-xl border border-feud-slate-border rounded-xl sm:rounded-2xl p-3 sm:p-4 2xl:p-4.5 shadow-xl">
@@ -1307,7 +1307,7 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
       </div>
 
       {/* Answer & Point Slots Board: Permanent Dual-Column Layout for Both Players */}
-      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-xl sm:rounded-2xl p-3 sm:p-4 2xl:p-5 shadow-xl">
+      <div className="w-full flex-1 min-h-0 flex flex-col justify-between overflow-hidden bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-xl sm:rounded-2xl p-2.5 sm:p-3 2xl:p-4 shadow-xl">
         <div>
           <div className="flex items-center justify-between border-b border-feud-slate-border/80 pb-2 mb-2.5 sm:mb-3">
             <h3 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-200">

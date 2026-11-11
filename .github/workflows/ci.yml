@@ -20,6 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE20: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -128,11 +129,11 @@ jobs:
 
       - name: Execute Backend Regression Tests & Coverage
         working-directory: ./backend
-        run: npm run test:coverage -- --reporter=verbose
+        run: npm run test:coverage -- --reporter=verbose --reporter=json --outputFile=coverage/test-results.json
 
       - name: Publish Backend Coverage Summary
         if: always()
-        run: node .github/scripts/generate-coverage-summary.js "Backend API" backend/coverage/coverage-summary.json
+        run: node .github/scripts/generate-coverage-summary.js "Backend API" backend/coverage/coverage-summary.json backend/coverage/test-results.json
 
       - name: Upload Backend Coverage Report
         uses: actions/upload-artifact@v4
@@ -169,11 +170,11 @@ jobs:
 
       - name: Execute Frontend Regression Tests & Coverage
         working-directory: ./frontend
-        run: npm run test:coverage -- --reporter=verbose
+        run: npm run test:coverage -- --reporter=verbose --reporter=json --outputFile=coverage/test-results.json
 
       - name: Publish Frontend Coverage Summary
         if: always()
-        run: node .github/scripts/generate-coverage-summary.js "Frontend Client" frontend/coverage/coverage-summary.json
+        run: node .github/scripts/generate-coverage-summary.js "Frontend Client" frontend/coverage/coverage-summary.json frontend/coverage/test-results.json
 
       - name: Upload Frontend Coverage Report
         uses: actions/upload-artifact@v4

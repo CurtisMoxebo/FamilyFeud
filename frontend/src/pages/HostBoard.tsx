@@ -116,6 +116,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const {
     roomState,
     roomError,
+    leaveRoom,
     startGame,
     teamsAssigned: socketTeamsAssigned,
     faceOffState: socketFaceOffState,
@@ -153,6 +154,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     hostOverrideOptions: socketHostOverrideOptions,
     answerOverrideAck: socketAnswerOverrideAck,
     requestOverrideOptions,
+    emitAnswerRevealCompleted,
   } = useSocket({
     roomCode,
     isHost: true,
@@ -190,14 +192,15 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const answerOverrideAck = socketAnswerOverrideAck ?? initialAnswerOverrideAck;
 
   const [isManualOverrideOpen, setIsManualOverrideOpen] = useState<boolean>(false);
+  const [teamsShowcased, setTeamsShowcased] = useState<boolean>(() => Boolean(initialFaceOffState));
 
   const isFastMoneyRoom = room?.gameMode === 'FAST_MONEY';
   const canManualOverride = Boolean(
     !isFastMoneyRoom &&
-      teamGuessingState &&
-      (teamGuessingState.phase === 'TEAM_GUESSING' ||
-        teamGuessingState.phase === 'STEAL_PHASE') &&
-      !matchOver
+    teamGuessingState &&
+    (teamGuessingState.phase === 'TEAM_GUESSING' ||
+      teamGuessingState.phase === 'STEAL_PHASE') &&
+    !matchOver
   );
 
   useEffect(() => {
@@ -220,10 +223,15 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       fastMoneyHostState &&
       !gameOver &&
       fastMoneyHostState.phase !== 'GAME_OVER') ||
-      (!isFastMoneyRoom && teamGuessingState && !matchOver) ||
-      (!isFastMoneyRoom && faceOffState && !matchOver) ||
-      isPaused
+    (!isFastMoneyRoom && teamGuessingState && !matchOver) ||
+    (!isFastMoneyRoom && faceOffState && !matchOver) ||
+    isPaused
   );
+
+  const handleLeaveLobby = useCallback(() => {
+    leaveRoom({ roomCode: room?.roomCode || roomCode, isHost: true });
+    navigate('/');
+  }, [leaveRoom, room?.roomCode, roomCode, navigate]);
 
   const handleTogglePause = useCallback(() => {
     if (!room) return;
@@ -273,6 +281,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   };
 
   const handleReplay = () => {
+    setTeamsShowcased(false);
     if (onReplay) {
       onReplay();
     } else if (requestReplay && room) {
@@ -480,11 +489,10 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onClick={handleToggleManualOverride}
           data-testid="host-manual-override-toggle"
           aria-expanded={isManualOverrideOpen}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${
-            isManualOverrideOpen
-              ? 'bg-indigo-500 hover:bg-indigo-400 text-white border-indigo-300 shadow-indigo-500/25'
-              : 'bg-slate-800/90 hover:bg-slate-700 text-indigo-300 border-indigo-500/40'
-          }`}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider border transition-all cursor-pointer shadow-md ${isManualOverrideOpen
+            ? 'bg-indigo-500 hover:bg-indigo-400 text-white border-indigo-300 shadow-indigo-500/25'
+            : 'bg-slate-800/90 hover:bg-slate-700 text-indigo-300 border-indigo-500/40'
+            }`}
         >
           <Gavel className="w-3.5 h-3.5" />
           <span>
@@ -500,40 +508,42 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     isPaused ? (
       <div
         data-testid="host-game-paused-banner"
-        role="status"
+        role="dialog"
+        aria-modal="true"
         aria-live="assertive"
-        className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] mb-4 p-5 rounded-3xl bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-2 border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.45)] flex flex-col sm:flex-row items-center justify-between gap-4 z-40"
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
       >
-        <div className="flex items-center gap-3.5 text-center sm:text-left">
-          <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-400/50 text-amber-300">
-            <Pause className="w-7 h-7" />
+        <div className="w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-slate-900 via-amber-950/80 to-slate-900 border-2 border-amber-400 shadow-[0_0_50px_rgba(245,158,11,0.5)] flex flex-col items-center text-center">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500/20 border-2 border-amber-400/60 text-amber-300 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse">
+            <Pause className="w-8 h-8 sm:w-10 sm:h-10 fill-current" />
           </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-amber-300">
-              {t.admin.gamePausedBanner}
-            </div>
-            <p className="text-xs sm:text-sm font-semibold text-slate-300 mt-0.5">
-              {t.admin.gamePausedSubtitle}
-              {typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0 && (
-                <span
-                  data-testid="host-paused-remaining-time"
-                  className="ml-2 inline-block px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/40 text-amber-200 font-mono font-bold"
-                >
-                  {pausedRemainingSeconds}s
-                </span>
-              )}
-            </p>
-          </div>
+
+          <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-widest text-amber-300 mb-2">
+            {t.admin.gamePausedBanner}
+          </h2>
+
+          <p className="text-sm sm:text-base font-semibold text-slate-300 mb-6">
+            {t.admin.gamePausedSubtitle}
+            {typeof pausedRemainingSeconds === 'number' && pausedRemainingSeconds > 0 && (
+              <span
+                data-testid="host-paused-remaining-time"
+                className="ml-2 inline-block px-3 py-1 rounded-xl bg-amber-500/25 border border-amber-400/50 text-amber-200 font-mono font-extrabold text-base sm:text-lg"
+              >
+                {pausedRemainingSeconds}s
+              </span>
+            )}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => resumeGame()}
+            data-testid="host-banner-resume-btn"
+            className="inline-flex items-center gap-2.5 px-8 py-3.5 sm:px-10 sm:py-4 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 hover:from-emerald-300 hover:to-green-300 text-slate-950 font-black text-base sm:text-lg uppercase tracking-wider shadow-[0_0_25px_rgba(52,211,153,0.5)] cursor-pointer transition-all hover:scale-105 active:scale-95"
+          >
+            <Play className="w-5 h-5 fill-current" />
+            <span>{t.admin.resumeTimer}</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => resumeGame()}
-          data-testid="host-banner-resume-btn"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg cursor-pointer transition-all hover:scale-105"
-        >
-          <Play className="w-4 h-4 fill-current" />
-          <span>{t.admin.resumeTimer}</span>
-        </button>
       </div>
     ) : null;
 
@@ -549,7 +559,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
     const p2Nickname = connectedPlayers[1]?.nickname ?? players[1]?.nickname;
 
     return (
-      <div className="w-full flex flex-col items-center justify-center">
+      <div className="w-full h-full max-h-full flex flex-col items-center justify-center overflow-hidden">
         {renderAlert()}
         {renderAdminControls()}
         {renderPausedBanner()}
@@ -585,33 +595,33 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const activeTeams =
     teamsAssigned ??
     (!isFastMoney &&
-    (roomState?.status === 'ACTIVE' || room.status === 'ACTIVE') &&
-    players.some((p) => p.team === 'TEAM_1' || p.team === 'TEAM_2')
+      (roomState?.status === 'ACTIVE' || room.status === 'ACTIVE') &&
+      players.some((p) => p.team === 'TEAM_1' || p.team === 'TEAM_2')
       ? {
-          roomCode: room.roomCode,
-          team1: players
-            .filter((p) => p.team === 'TEAM_1')
-            .map((p, idx) => ({
-              id: p.id,
-              nickname: p.nickname,
-              team: 'TEAM_1' as const,
-              battingOrder: idx + 1,
-            })),
-          team2: players
-            .filter((p) => p.team === 'TEAM_2')
-            .map((p, idx) => ({
-              id: p.id,
-              nickname: p.nickname,
-              team: 'TEAM_2' as const,
-              battingOrder: idx + 1,
-            })),
-        }
+        roomCode: room.roomCode,
+        team1: players
+          .filter((p) => p.team === 'TEAM_1')
+          .map((p, idx) => ({
+            id: p.id,
+            nickname: p.nickname,
+            team: 'TEAM_1' as const,
+            battingOrder: idx + 1,
+          })),
+        team2: players
+          .filter((p) => p.team === 'TEAM_2')
+          .map((p, idx) => ({
+            id: p.id,
+            nickname: p.nickname,
+            team: 'TEAM_2' as const,
+            battingOrder: idx + 1,
+          })),
+      }
       : null);
 
   // Main Game Team Guessing Stage (US-14)
   if (!isFastMoney && teamGuessingState) {
     return (
-      <div className="w-full flex flex-col items-center">
+      <div className="w-full h-full max-h-full flex flex-col items-center justify-center overflow-hidden">
         {renderAlert()}
         {renderAdminControls()}
         {renderPausedBanner()}
@@ -640,12 +650,32 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onNextRound={handleAdvanceNextRound}
           onReplay={handleReplay}
           language={room.language}
+          audioEnabled={audioEnabled}
           roomName={room.roomName}
           roomCode={room.roomCode}
-          onLeave={() => navigate('/')}
+          onLeave={handleLeaveLobby}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           onTogglePause={handleTogglePause}
+          onAnswerRevealCompleted={emitAnswerRevealCompleted}
+        />
+      </div>
+    );
+  }
+
+  // Main Game Team Showcase Stage (US-28)
+  if (!isFastMoney && activeTeams && !teamsShowcased) {
+    return (
+      <div className="w-full h-full max-h-full flex flex-col items-center justify-center overflow-hidden">
+        {renderAlert()}
+        {renderAdminControls()}
+        <MainGameTeamsStage
+          roomCode={room.roomCode}
+          roomName={room.roomName}
+          team1={activeTeams.team1}
+          team2={activeTeams.team2}
+          onProceedToFaceOff={() => setTeamsShowcased(true)}
+          onLeave={handleLeaveLobby}
         />
       </div>
     );
@@ -654,7 +684,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   // Main Game Face-Off Stage (US-12)
   if (!isFastMoney && faceOffState) {
     return (
-      <div className="relative w-full flex flex-col items-center">
+      <div className="relative w-full h-full max-h-full flex flex-col items-center justify-center overflow-hidden">
         {renderAlert()}
         {renderAdminControls()}
         {renderPausedBanner()}
@@ -665,39 +695,25 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           pausedRemainingSeconds={pausedRemainingSeconds}
           buzzerLocked={buzzerLocked}
           timeoutResult={faceOffTimeout}
+          strikeIssued={strikeIssued}
           scoreboardState={scoreboardState}
           language={room.language}
           roomName={room.roomName}
           roomCode={room.roomCode}
-          onLeave={() => navigate('/')}
+          onLeave={handleLeaveLobby}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           onTogglePause={handleTogglePause}
+          onAnswerRevealCompleted={emitAnswerRevealCompleted}
         />
         {matchOver && (
           <MainGameVictoryModal
             matchOver={matchOver}
             onReplay={handleReplay}
-            onLeave={() => navigate('/')}
+            onLeave={handleLeaveLobby}
             isHost={true}
           />
         )}
-      </div>
-    );
-  }
-
-  if (!isFastMoney && activeTeams) {
-    return (
-      <div className="w-full flex flex-col items-center">
-        {renderAlert()}
-        {renderAdminControls()}
-        <MainGameTeamsStage
-          roomCode={room.roomCode}
-          roomName={room.roomName}
-          team1={activeTeams.team1}
-          team2={activeTeams.team2}
-          onLeave={() => navigate('/')}
-        />
       </div>
     );
   }
@@ -713,21 +729,21 @@ export const HostBoard: React.FC<HostBoardProps> = ({
   const disabledReason = isFastMoney
     ? t.lobby.fastMoneyWaiting.replace('{count}', String(playerCount))
     : playerCount < 2
-    ? t.lobby.mainGameEvenCountRequired
-    : playerCount % 2 !== 0
-    ? t.lobby.oddPlayerCountWarning
-        .replace('{count}', String(playerCount))
-        .replace('{target}', String(playerCount + 1))
-    : roomState?.startDisabledReason ?? t.lobby.mainGameEvenCountRequired;
+      ? t.lobby.mainGameEvenCountRequired
+      : playerCount % 2 !== 0
+        ? t.lobby.oddPlayerCountWarning
+          .replace('{count}', String(playerCount))
+          .replace('{target}', String(playerCount + 1))
+        : roomState?.startDisabledReason ?? t.lobby.mainGameEvenCountRequired;
 
   return (
     <div
       data-testid="host-widescreen-container"
-      className="w-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center gap-3 sm:gap-4 2xl:gap-5"
+      className="w-full h-full max-h-full max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1600px] 4k:max-w-[2000px] flex flex-col items-center justify-between gap-2.5 sm:gap-3 2xl:gap-4 overflow-hidden"
     >
       {renderAlert()}
       {/* Host TV Header Banner */}
-      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 2xl:p-6 shadow-2xl">
+      <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-3 sm:p-4 2xl:p-5 shadow-2xl shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-feud-slate-border/80 pb-3 sm:pb-4">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="p-2 sm:p-2.5 rounded-xl bg-feud-blue-light/50 border border-feud-blue-glow/30 text-feud-gold">
@@ -767,7 +783,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={handleLeaveLobby}
               data-testid="host-back-home-btn"
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 transition-colors cursor-pointer"
             >
@@ -828,8 +844,8 @@ export const HostBoard: React.FC<HostBoardProps> = ({
                 {room.language === 'FR'
                   ? 'Français (FR)'
                   : room.language === 'ES'
-                  ? 'Español (ES)'
-                  : 'English (EN)'}
+                    ? 'Español (ES)'
+                    : 'English (EN)'}
               </div>
             </div>
           </div>
@@ -864,228 +880,70 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         </div>
       </div>
 
-      {/* Fast Money Mode: Responsive Side-by-Side Lobby (Left: Players List, Right: QR Code) */}
-      {isFastMoney ? (
-        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 items-stretch">
-          {/* Left Section: Connected Players Roster & Capacity Control */}
-          <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 2xl:p-6 shadow-2xl flex flex-col justify-between">
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-feud-slate-border/80 pb-3 mb-3 sm:mb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-feud-gold/20 text-feud-gold border border-feud-gold/30">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-extrabold text-white">{t.lobby.rosterTitle}</h3>
-                    <p className="text-[11px] sm:text-xs text-slate-300">{t.lobby.fastMoneyCapacity}</p>
-                  </div>
-                </div>
-
-                {/* Live Player Count Badge */}
-                <div
-                  data-testid="host-roster-count"
-                  className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-feud-blue-light/50 border border-feud-blue-glow/40 text-blue-200"
-                >
-                  {playerCount} / {maxPlayers} Players
-                </div>
-              </div>
-
-              {/* Player Roster List (Vertical List for Fast Money) */}
-              {players.length === 0 ? (
-                <div
-                  data-testid="host-empty-roster"
-                  className="text-center py-5 sm:py-6 text-slate-400 text-xs sm:text-sm italic border border-dashed border-slate-700/60 rounded-xl mb-4"
-                >
-                  {t.host.waitingPlayers}
-                </div>
-              ) : (
-                <div data-testid="host-player-roster" className="flex flex-col gap-2.5 mb-4">
-                  {players.map((p) => (
-                    <div
-                      key={p.id}
-                      data-testid={`host-player-card-${p.nickname}`}
-                      className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
-                        p.isConnected
-                          ? 'bg-slate-800/80 border-slate-700/80 text-white shadow-md'
-                          : 'bg-slate-900/40 border-red-900/30 text-slate-500 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                            p.isConnected
-                              ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]'
-                              : 'bg-red-500'
-                          }`}
-                        />
-                        <span className="font-bold text-sm truncate">{p.nickname}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                            p.isConnected
-                              ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                              : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                          }`}
-                        >
-                          {p.isConnected ? t.lobby.statusReady : t.lobby.statusDisconnected}
-                        </span>
-                        <button
-                          type="button"
-                          title={t.lobby.removePlayer}
-                          data-testid={`host-kick-player-btn-${p.nickname}`}
-                          onClick={() => kickPlayer(p.id)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                        >
-                          <UserX className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Dynamic Start Game Button */}
-            <div className="flex flex-col items-center pt-1">
-              <button
-                type="button"
-                data-testid="host-start-game-btn"
-                disabled={!canStart || isStartingGame}
-                onClick={handleStartGame}
-                className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-extrabold text-base uppercase tracking-wider transition-all duration-200 ${
-                  canStart && !isStartingGame
-                    ? 'bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-105 cursor-pointer animate-pulse'
-                    : isStartingGame
-                    ? 'bg-gradient-to-r from-feud-gold/70 via-yellow-400/70 to-amber-500/70 text-slate-950 cursor-wait opacity-80'
-                    : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
-                }`}
-              >
-                {isStartingGame ? (
-                  <>
-                    <Loader2 data-testid="host-start-game-spinner" className="w-4 h-4 animate-spin text-slate-950" />
-                    <span>
-                      {canStart && playerCount > 0
-                        ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
-                        : t.lobby.startGame}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>
-                      {canStart && playerCount > 0
-                        ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
-                        : t.lobby.startGame}
-                    </span>
-                  </>
-                )}
-              </button>
-
-              {!canStart && (
-                <p
-                  data-testid="host-start-disabled-reason"
-                  className="text-xs text-amber-400/90 font-medium mt-2 flex items-center gap-1.5"
-                >
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{disabledReason}</span>
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Right Section: Lobby Invitation & QR Code Screen */}
-          <div className="w-full bg-feud-slate-card/70 backdrop-blur-md border border-feud-slate-border rounded-2xl sm:rounded-3xl p-4 sm:p-5 2xl:p-6 text-center shadow-xl flex flex-col items-center justify-center">
-            <h3 className="text-lg sm:text-xl font-bold text-white mb-1">{t.host.waitingPlayers}</h3>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-xs mx-auto mb-3">
-              {t.joinRoom.subtitle}
-            </p>
-
-            {/* High-Contrast QR Code Card */}
-            <div className="p-2.5 sm:p-3 bg-white rounded-xl shadow-xl border-2 sm:border-3 border-feud-gold/40 flex flex-col items-center justify-center transition-transform hover:scale-105 duration-200">
-              <QRCodeSVG
-                value={joinUrl}
-                size={140}
-                level="H"
-                includeMargin={false}
-                fgColor="#0f172a"
-                bgColor="#ffffff"
-                data-testid="host-qr-code"
-                className="w-28 h-28 sm:w-32 sm:h-32 2xl:w-36 2xl:h-36"
-              />
-            </div>
-
-            {/* Scan to Join Instruction */}
-            <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-feud-gold px-3 py-1 rounded-full bg-feud-gold/10 border border-feud-gold/20">
-              <Smartphone className="w-3.5 h-3.5 text-feud-gold" />
-              <span data-testid="host-scan-instruction">{t.joinRoom.scanToJoin}</span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Main Game Mode: Standard full-width blocks */}
-          <div className="w-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-3xl p-6 sm:p-8 shadow-2xl">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-feud-slate-border/80 pb-4 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-feud-gold/20 text-feud-gold border border-feud-gold/30">
-                  <Users className="w-6 h-6" />
+      {/* Responsive Side-by-Side Lobby (Left: Players List, Right: QR Code) */}
+      <div className="w-full flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-stretch overflow-hidden">
+        {/* Left Section: Connected Players Roster & Capacity Control */}
+        <div className="w-full h-full max-h-full bg-feud-slate-card/90 backdrop-blur-xl border border-feud-slate-border rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 2xl:p-5 shadow-2xl flex flex-col justify-between overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-feud-slate-border/80 pb-2.5 mb-2.5 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-feud-gold/20 text-feud-gold border border-feud-gold/30">
+                  <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-extrabold text-white">{t.lobby.rosterTitle}</h3>
-                  <p className="text-xs text-slate-300">{t.lobby.mainGameCapacity}</p>
+                  <h3 className="text-lg sm:text-xl font-extrabold text-white">{t.lobby.rosterTitle}</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-300">
+                    {isFastMoney ? t.lobby.fastMoneyCapacity : t.lobby.mainGameCapacity}
+                  </p>
                 </div>
               </div>
 
               {/* Live Player Count Badge */}
               <div
                 data-testid="host-roster-count"
-                className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-feud-blue-light/50 border border-feud-blue-glow/40 text-blue-200"
+                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-feud-blue-light/50 border border-feud-blue-glow/40 text-blue-200"
               >
                 {playerCount} / {maxPlayers} Players
               </div>
             </div>
 
-            {/* Player Roster Grid */}
+            {/* Player Roster List */}
             {players.length === 0 ? (
               <div
                 data-testid="host-empty-roster"
-                className="text-center py-8 text-slate-400 text-sm italic border border-dashed border-slate-700/60 rounded-2xl mb-6"
+                className="text-center py-4 text-slate-400 text-xs sm:text-sm italic border border-dashed border-slate-700/60 rounded-xl mb-2"
               >
                 {t.host.waitingPlayers}
               </div>
             ) : (
               <div
                 data-testid="host-player-roster"
-                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-3 mb-6"
+                className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto pr-1 mb-2 content-start"
               >
                 {players.map((p) => (
                   <div
                     key={p.id}
                     data-testid={`host-player-card-${p.nickname}`}
-                    className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
-                      p.isConnected
-                        ? 'bg-slate-800/80 border-slate-700/80 text-white shadow-md'
-                        : 'bg-slate-900/40 border-red-900/30 text-slate-500 opacity-60'
-                    }`}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${p.isConnected
+                      ? 'bg-slate-800/80 border-slate-700/80 text-white shadow-md'
+                      : 'bg-slate-900/40 border-red-900/30 text-slate-500 opacity-60'
+                      }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 mr-1.5">
                       <div
-                        className={`w-3 h-3 rounded-full shrink-0 ${
-                          p.isConnected
-                            ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]'
-                            : 'bg-red-500'
-                        }`}
+                        className={`w-2 h-2 rounded-full shrink-0 ${p.isConnected
+                          ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]'
+                          : 'bg-red-500'
+                          }`}
                       />
-                      <span className="font-bold text-sm truncate">{p.nickname}</span>
+                      <span className="font-bold text-xs sm:text-sm truncate">{p.nickname}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <span
-                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                          p.isConnected
-                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                        }`}
+                        className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${p.isConnected
+                          ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                          : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                          }`}
                       >
                         {p.isConnected ? t.lobby.statusReady : t.lobby.statusDisconnected}
                       </span>
@@ -1096,91 +954,90 @@ export const HostBoard: React.FC<HostBoardProps> = ({
                         onClick={() => kickPlayer(p.id)}
                         className="p-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                       >
-                        <UserX className="w-4 h-4" />
+                        <UserX className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
+          </div>
 
-            {/* Dynamic Start Game Button */}
-            <div className="flex flex-col items-center pt-2">
-              <button
-                type="button"
-                data-testid="host-start-game-btn"
-                disabled={!canStart || isStartingGame}
-                onClick={handleStartGame}
-                className={`w-full sm:w-auto min-w-[280px] flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-extrabold text-lg uppercase tracking-wider transition-all duration-200 ${
-                  canStart && !isStartingGame
-                    ? 'bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_25px_rgba(245,158,11,0.5)] hover:scale-105 cursor-pointer animate-pulse'
-                    : isStartingGame
-                    ? 'bg-gradient-to-r from-feud-gold/70 via-yellow-400/70 to-amber-500/70 text-slate-950 cursor-wait opacity-80'
-                    : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
+          {/* Dynamic Start Game Button */}
+          <div className="flex flex-col items-center pt-1">
+            <button
+              type="button"
+              data-testid="host-start-game-btn"
+              disabled={!canStart || isStartingGame}
+              onClick={handleStartGame}
+              className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-extrabold text-base uppercase tracking-wider transition-all duration-200 ${canStart && !isStartingGame
+                ? 'bg-gradient-to-r from-feud-gold via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.5)] hover:scale-105 cursor-pointer animate-pulse'
+                : isStartingGame
+                  ? 'bg-gradient-to-r from-feud-gold/70 via-yellow-400/70 to-amber-500/70 text-slate-950 cursor-wait opacity-80'
+                  : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-60'
                 }`}
-              >
-                {isStartingGame ? (
-                  <>
-                    <Loader2 data-testid="host-start-game-spinner" className="w-5 h-5 animate-spin text-slate-950" />
-                    <span>
-                      {canStart && playerCount > 0
-                        ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
-                        : t.lobby.startGame}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-5 h-5 fill-current" />
-                    <span>
-                      {canStart && playerCount > 0
-                        ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
-                        : t.lobby.startGame}
-                    </span>
-                  </>
-                )}
-              </button>
-
-              {!canStart && (
-                <p
-                  data-testid="host-start-disabled-reason"
-                  className="text-xs text-amber-400/90 font-medium mt-3 flex items-center gap-1.5"
-                >
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{disabledReason}</span>
-                </p>
+            >
+              {isStartingGame ? (
+                <>
+                  <Loader2 data-testid="host-start-game-spinner" className="w-4 h-4 animate-spin text-slate-950" />
+                  <span>
+                    {canStart && playerCount > 0
+                      ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
+                      : t.lobby.startGame}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>
+                    {canStart && playerCount > 0
+                      ? t.lobby.startGameWithCount.replace('{count}', String(playerCount))
+                      : t.lobby.startGame}
+                  </span>
+                </>
               )}
-            </div>
+            </button>
+
+            {!canStart && (
+              <p
+                data-testid="host-start-disabled-reason"
+                className="text-xs text-amber-400/90 font-medium mt-2 flex items-center gap-1.5"
+              >
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{disabledReason}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Right Section: Lobby Invitation & QR Code Screen */}
+        <div className="w-full h-full max-h-full bg-feud-slate-card/70 backdrop-blur-md border border-feud-slate-border rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 2xl:p-5 text-center shadow-xl flex flex-col items-center justify-center overflow-hidden">
+          <h3 className="text-lg sm:text-xl font-bold text-white mb-1">{t.host.waitingPlayers}</h3>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-xs mx-auto mb-2">
+            {t.joinRoom.subtitle}
+          </p>
+
+          {/* High-Contrast QR Code Card */}
+          <div className="p-3 sm:p-4 bg-white rounded-2xl sm:rounded-3xl shadow-2xl border-2 sm:border-4 border-feud-gold/40 flex flex-col items-center justify-center transition-transform hover:scale-105 duration-200 my-1 sm:my-2">
+            <QRCodeSVG
+              value={joinUrl}
+              size={220}
+              level="H"
+              includeMargin={false}
+              fgColor="#0f172a"
+              bgColor="#ffffff"
+              data-testid="host-qr-code"
+              className="w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 2xl:w-64 2xl:h-64"
+            />
           </div>
 
-          {/* Lobby Invitation & QR Code Screen */}
-          <div className="w-full bg-feud-slate-card/70 backdrop-blur-md border border-feud-slate-border rounded-3xl p-8 text-center shadow-xl flex flex-col items-center">
-            <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{t.host.waitingPlayers}</h3>
-            <p className="text-sm text-slate-400 max-w-md mx-auto mb-6">
-              {t.joinRoom.subtitle}
-            </p>
-
-            {/* High-Contrast QR Code Card */}
-            <div className="p-4 bg-white rounded-2xl shadow-2xl border-4 border-feud-gold/40 flex flex-col items-center justify-center transition-transform hover:scale-105 duration-200">
-              <QRCodeSVG
-                value={joinUrl}
-                size={180}
-                level="H"
-                includeMargin={false}
-                fgColor="#0f172a"
-                bgColor="#ffffff"
-                data-testid="host-qr-code"
-                className="w-40 h-40 sm:w-44 sm:h-44 2xl:w-52 2xl:h-52 3xl:w-60 3xl:h-60"
-              />
-            </div>
-
-            {/* Scan to Join Instruction */}
-            <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-feud-gold px-4 py-2 rounded-full bg-feud-gold/10 border border-feud-gold/20">
-              <Smartphone className="w-4 h-4 text-feud-gold" />
-              <span data-testid="host-scan-instruction">{t.joinRoom.scanToJoin}</span>
-            </div>
+          {/* Scan to Join Instruction */}
+          <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-feud-gold px-3 py-1 rounded-full bg-feud-gold/10 border border-feud-gold/20 shrink-0">
+            <Smartphone className="w-3.5 h-3.5 text-feud-gold" />
+            <span data-testid="host-scan-instruction">{t.joinRoom.scanToJoin}</span>
           </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 };

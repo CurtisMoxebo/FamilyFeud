@@ -169,6 +169,8 @@ export interface TranslationDictionary {
     versus: string;
     teamRoster: string;
     readyForFaceOff: string;
+    startFaceOffBtn: string;
+    topAnswersOnBoard: string;
     faceOffTitle: string;
     roundNumber: string;
     faceOffContenders: string;
@@ -178,6 +180,7 @@ export interface TranslationDictionary {
     buzzerBtn: string;
     buzzerLocked: string;
     buzzerWinner: string;
+    youBuzzedFirst: string;
     spectatorCheer: string;
     faceOffTimeRemaining: string;
     faceOffInputPlaceholder: string;
@@ -192,6 +195,7 @@ export interface TranslationDictionary {
     passBtn: string;
     canYouBeat: string;
     opponentChance: string;
+    youMissedChance: string;
     numberOneAnswerFound: string;
     teamChosePlay: string;
     controlPassesTo: string;
@@ -240,12 +244,13 @@ export interface TranslationDictionary {
     matchChampionsBadge: string;
     submitOrPassPrompt: string;
     atStake: string;
-    bankAtStake: string;
     buzzerLockedOpponentFirst: string;
     spectatorRoundNotice: string;
     buzzerRejected: string;
     designatedContenderNotice: string;
     contender: string;
+    startsIn: string;
+    gameStartsIn: string;
   };
   admin: {
     pauseTimer: string;

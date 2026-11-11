@@ -1042,8 +1042,11 @@ export function registerLobbyHandlers(
 
           broadcastFaceOffState(io, session);
 
-          // US-16: Initialize match scoreboard and broadcast initial score state
-          const scoreboard = initMatchScoreboard(normalizedCode, game.id, { totalRounds: 3 });
+          // US-16: Initialize match scoreboard with rounds equivalent to number of players per team
+          const totalRounds = partitionResult && partitionResult.team1.length > 0
+            ? partitionResult.team1.length
+            : 3;
+          const scoreboard = initMatchScoreboard(normalizedCode, game.id, { totalRounds });
           io.to(`room:${normalizedCode}`).emit('scoreboard_update', scoreboard.getState());
         }
 
@@ -1092,6 +1095,91 @@ export function registerLobbyHandlers(
         };
         socket.emit('room_error', err);
         if (callback) callback({ success: false, error: err.message });
+      }
+    }
+  );
+
+  // Handle leave_room event (e.g. host leaves lobby -> disconnect all players)
+  socket.on(
+    'leave_room',
+    async (
+      data?: { roomCode?: string; isHost?: boolean },
+      callback?: (res: { success: boolean }) => void
+    ) => {
+      try {
+        const rawCode = data?.roomCode || socket.data?.roomCode;
+        if (!rawCode) {
+          if (callback) callback({ success: true });
+          return;
+        }
+
+        const normalizedCode = normalizeRoomCode(rawCode);
+        const isHost = Boolean(data?.isHost || socket.data?.isHost);
+
+        if (isHost) {
+          logger.info(`[LOBBY:HOST_LEAVE] Host left room ${normalizedCode}. Disconnecting all players.`);
+
+          // 1. Fetch all connected sockets in this room
+          const socketsInRoom = await io.in(`room:${normalizedCode}`).fetchSockets();
+
+          // 2. Notify and disconnect each player socket
+          for (const s of socketsInRoom) {
+            if (s.id !== socket.id) {
+              s.emit('player_kicked', {
+                roomCode: normalizedCode,
+                reason: 'The host has left the lobby. The game session has ended.',
+              });
+              s.leave(`room:${normalizedCode}`);
+              s.disconnect(true);
+            }
+          }
+
+          // 3. Clean up sessions and active grace timers
+          const room = await db.room.findUnique({
+            where: { roomCode: normalizedCode },
+            include: { players: true },
+          });
+
+          if (room) {
+            for (const p of room.players) {
+              sessionRecoveryService.cancelGraceTimer(p.id);
+              sessionRecoveryService.removePlayerSession(p.id);
+            }
+
+            await db.player.updateMany({
+              where: { roomId: room.id },
+              data: { isConnected: false },
+            });
+
+            await db.room.update({
+              where: { id: room.id },
+              data: { status: 'FINISHED' },
+            }).catch(() => {});
+          }
+
+          sessionRecoveryService.removeHostSession(normalizedCode);
+          socket.leave(`room:${normalizedCode}`);
+          socket.disconnect(true);
+
+          if (callback) callback({ success: true });
+        } else {
+          // Regular player leaving
+          const playerId = socket.data?.playerId;
+          if (playerId) {
+            await db.player.update({
+              where: { id: playerId },
+              data: { isConnected: false },
+            }).catch(() => {});
+            sessionRecoveryService.cancelGraceTimer(playerId);
+            sessionRecoveryService.removePlayerSession(playerId);
+          }
+          socket.leave(`room:${normalizedCode}`);
+          socket.disconnect(true);
+          if (callback) callback({ success: true });
+        }
+      } catch (err) {
+        logger.error(`Error handling leave_room for socket ${socket.id}:`, err);
+        if (callback) callback({ success: false });
       }
     }
   );

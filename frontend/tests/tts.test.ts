@@ -28,6 +28,10 @@ import {
   STEAL_SUCCESS_PHRASES,
   speakStealFailed,
   STEAL_FAILED_PHRASES,
+  speakPlayerAnswerSurveySaid,
+  speakRevealAnswer,
+  getRevealAnswerPhrase,
+  REVEAL_ANSWER_PHRASES,
 } from '../src/utils/tts';
 
 describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
@@ -641,6 +645,49 @@ describe('Frontend Utility Suite: Host Speech Synthesis (tts.ts)', () => {
       expect(STEAL_FAILED_PHRASES.EN('Team 1', 50)).toBe('Steal failed! Team 1 retains 50 points!');
       expect(STEAL_FAILED_PHRASES.FR('Équipe 1', 50)).toBe("Vol échoué ! L'Équipe 1 conserve 50 points !");
       expect(STEAL_FAILED_PHRASES.ES('Equipo 1', 50)).toBe('¡Robo fallido! ¡El Equipo 1 retiene 50 puntos!');
+    });
+
+    it('satisfies US-28: speaks "{Player} said {Answer}, survey said..." across languages', () => {
+      const onComplete = vi.fn();
+      mockSpeak.mockClear();
+
+      speakPlayerAnswerSurveySaid('Alice', 'Car', 'EN', onComplete);
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Alice said Car, survey said...');
+      mockSpeak.mock.calls[0][0].onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+
+      mockSpeak.mockClear();
+      speakPlayerAnswerSurveySaid('Alice', 'Voiture', 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Alice a dit Voiture, le sondage dit...');
+
+      mockSpeak.mockClear();
+      speakPlayerAnswerSurveySaid('Alice', 'Auto', 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Alice dijo Auto, la encuesta dice...');
+    });
+
+    it('satisfies US-28: speaks "Number {rankOrder}, {answerText}" when revealing unread answers at end of round', () => {
+      const onComplete = vi.fn();
+      mockSpeak.mockClear();
+
+      speakRevealAnswer(5, 'Keys', 'EN', onComplete);
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Number 5, Keys');
+      mockSpeak.mock.calls[0][0].onend();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+
+      mockSpeak.mockClear();
+      speakRevealAnswer(4, 'Clés', 'FR');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Numéro 4, Clés');
+
+      mockSpeak.mockClear();
+      speakRevealAnswer(3, 'Llaves', 'ES');
+      expect(mockSpeak.mock.calls[0][0].text).toBe('Número 3, Llaves');
+    });
+
+    it('provides REVEAL_ANSWER_PHRASES mappings for EN, FR, ES', () => {
+      expect(REVEAL_ANSWER_PHRASES.EN(5, 'Keys')).toBe('Number 5, Keys');
+      expect(REVEAL_ANSWER_PHRASES.FR(4, 'Clés')).toBe('Numéro 4, Clés');
+      expect(REVEAL_ANSWER_PHRASES.ES(3, 'Llaves')).toBe('Número 3, Llaves');
+      expect(getRevealAnswerPhrase(5, 'Keys', 'unknown')).toBe('Number 5, Keys');
     });
   });
 });

@@ -293,7 +293,7 @@ describe('US-20 Step 3: Player Automatic Reconnection & State Recovery Suite', (
 
     expect(screen.queryByTestId('player-nickname-input')).not.toBeInTheDocument();
     expect(screen.getByTestId('main-game-team-controller')).toBeInTheDocument();
-    expect(screen.getByTestId('your-team-badge')).toBeInTheDocument();
+    expect(screen.queryByTestId('your-team-badge')).not.toBeInTheDocument();
     expect(screen.getByTestId('player-round-bank')).toHaveTextContent('30');
   });
 

@@ -414,7 +414,7 @@ describe('US-21 Step 4: Judge Manual Answer Override & Strike Retraction (Scenar
     // Player never sees Host Manual Override controls or unrevealed answer text
     expect(screen.queryByTestId('host-manual-override-toggle')).not.toBeInTheDocument();
     expect(screen.queryByTestId('host-override-slot-btn-1')).not.toBeInTheDocument();
-    expect(screen.getByTestId('player-card-slot-1')).not.toHaveTextContent('Car');
+    expect(screen.queryByTestId('player-card-slot-1')).not.toBeInTheDocument();
 
     // Strike 1 & mobile strike alert initially shown
     expect(screen.getByTestId('player-strike-box-1')).toHaveTextContent('X');
@@ -444,8 +444,7 @@ describe('US-21 Step 4: Judge Manual Answer Override & Strike Retraction (Scenar
       </LanguageProvider>
     );
 
-    expect(screen.getByTestId('player-card-slot-1')).toHaveTextContent('Car');
-    expect(screen.getByTestId('player-card-slot-1')).toHaveTextContent('45');
+    expect(screen.queryByTestId('player-card-slot-1')).not.toBeInTheDocument();
     expect(screen.getByTestId('player-round-bank')).toHaveTextContent('70');
     expect(screen.getByTestId('player-strike-box-1')).toHaveTextContent('1');
     expect(screen.queryByTestId('mobile-strike-alert')).not.toBeInTheDocument();

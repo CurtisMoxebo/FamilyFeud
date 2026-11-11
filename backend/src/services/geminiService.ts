@@ -36,13 +36,16 @@ export interface QuestionGenerationOptions {
  * 2. Sorts answers in descending order by points.
  * 3. Adjusts any rounding difference on the #1 answer so total strictly equals 100.
  */
-export function normalizeQuestionAnswers(question: GeneratedQuestion): GeneratedQuestion {
+export function normalizeQuestionAnswers(
+  question: GeneratedQuestion,
+  gameMode?: SupportedGameMode
+): GeneratedQuestion {
   if (!question || !Array.isArray(question.answers) || question.answers.length === 0) {
     throw new Error('Invalid question: answers array cannot be empty');
   }
 
   // Clean and sort answers descending
-  const normalizedAnswers: GeneratedAnswer[] = question.answers
+  let normalizedAnswers: GeneratedAnswer[] = question.answers
     .map((a) => ({
       text: typeof a.text === 'string' ? a.text.trim() : String(a.text || ''),
       points: Math.max(1, Math.round(Number(a.points) || 1)),
@@ -52,6 +55,26 @@ export function normalizeQuestionAnswers(question: GeneratedQuestion): Generated
 
   if (normalizedAnswers.length === 0) {
     throw new Error('Invalid question: all answers had empty text');
+  }
+
+  // In Main Game mode, questions must have between 4 and 8 answers inclusive (4, 5, 6, 7, or 8 answers)
+  if (gameMode === 'MAIN_GAME') {
+    if (normalizedAnswers.length > 8) {
+      normalizedAnswers = normalizedAnswers.slice(0, 8);
+    } else if (normalizedAnswers.length < 4) {
+      const defaultPlaceholders = [
+        'Other Common Response',
+        'Additional Survey Answer',
+        'Popular Alternative',
+        'Other Answer',
+      ];
+      while (normalizedAnswers.length < 4) {
+        normalizedAnswers.push({
+          text: defaultPlaceholders[normalizedAnswers.length] || `Answer #${normalizedAnswers.length + 1}`,
+          points: 2,
+        });
+      }
+    }
   }
 
   // Calculate current point sum
@@ -111,7 +134,7 @@ export function buildPrompt(
   const modeInstruction =
     gameMode === 'FAST_MONEY'
       ? `Generate exactly ${count} fast-paced, intuitive Family Feud survey questions for the Fast Money round. For each question, provide 4 to 6 realistic survey answers.`
-      : `Generate exactly ${count} survey question for Main Game Round ${roundNumber}. The question must have between 4 and 8 ranked survey answers (ideally 5 to 8).`;
+      : `Generate exactly ${count} survey question for Main Game Round ${roundNumber}. The question must have between 4 and 8 ranked survey answers inclusive (4, 5, 6, 7, or 8 ranked survey answers, never fewer than 4 and never more than 8).`;
 
   const validExcluded = (excludedQuestions || [])
     .map((q) => (typeof q === 'string' ? q.trim() : ''))
@@ -319,10 +342,13 @@ export async function generateQuestions(
         points: Number(a.points) || 1,
       }));
 
-      return normalizeQuestionAnswers({
-        questionText: qText,
-        answers,
-      });
+      return normalizeQuestionAnswers(
+        {
+          questionText: qText,
+          answers,
+        },
+        gameMode
+      );
     });
 
     // Post-generation collision detection & deduplication (US-27 Scenario 2 & 3)

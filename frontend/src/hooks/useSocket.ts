@@ -27,6 +27,8 @@ import {
   FaceOffTimeoutPayload,
   FaceOffResetPayload,
   FaceOffAnswerSubmittedPayload,
+  TeamGuessSubmittedPayload,
+  AnswerRevealCompletedPayload,
   PromptPassPlayPayload,
   RoundControlAssignedPayload,
   OpponentTurnPromptPayload,
@@ -133,6 +135,8 @@ function _useSocketInternal(options?: UseSocketOptions) {
   const [stealResolved, setStealResolved] = useState<StealResolvedPayload | null>(null);
   const [roundWinner, setRoundWinner] = useState<RoundWinnerPayload | null>(null);
   const [scoreboardState, setScoreboardState] = useState<ScoreboardUpdatePayload | null>(null);
+  const [teamGuessSubmitted, setTeamGuessSubmitted] = useState<TeamGuessSubmittedPayload | null>(null);
+  const [answerRevealCompleted, setAnswerRevealCompleted] = useState<AnswerRevealCompletedPayload | null>(null);
   const [matchOver, setMatchOver] = useState<MatchOverPayload | null>(null);
   const [suddenDeathInitiated, setSuddenDeathInitiated] = useState<SuddenDeathInitiatedPayload | null>(null);
   const [nextRoundStarted, setNextRoundStarted] = useState<NextRoundStartedPayload | null>(null);
@@ -427,6 +431,12 @@ function _useSocketInternal(options?: UseSocketOptions) {
     }
   }, []);
 
+  const emitAnswerRevealCompleted = useCallback((roomCode: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('answer_reveal_completed', { roomCode });
+    }
+  }, []);
+
   const getScoreboardState = useCallback((roomCode: string) => {
     if (socketRef.current) {
       socketRef.current.emit('get_scoreboard_state', { roomCode });
@@ -455,9 +465,13 @@ function _useSocketInternal(options?: UseSocketOptions) {
     setFaceOffBoardReveal(null);
   }, []);
 
-  const leaveRoom = useCallback(() => {
+  const leaveRoom = useCallback((payload?: { roomCode?: string; isHost?: boolean }) => {
     if (socketRef.current) {
-      socketRef.current.emit('leave_room');
+      if (payload) {
+        socketRef.current.emit('leave_room', payload);
+      } else {
+        socketRef.current.emit('leave_room');
+      }
     }
     setRoomState(null);
     setRoomError(null);
@@ -668,9 +682,22 @@ function _useSocketInternal(options?: UseSocketOptions) {
       setGameOver(payload);
     });
 
-    // Main Game Face-Off Listeners (US-12)
+    // Main Game Face-Off Listeners (US-12 & US-28)
     socket.on('face_off_state', (state: FaceOffSessionState) => {
       setFaceOffState(state);
+      setTeamGuessingState(null);
+      if (state.phase === 'AWAITING_READY' || !state.buzzerLocked) {
+        setBuzzerLocked(null);
+        setBuzzerRejected(null);
+        setFaceOffTimeout(null);
+        setFaceOffReset(null);
+        setFaceOffAnswer(null);
+        setFaceOffError(null);
+        setPromptPassPlay(null);
+        setRoundControlAssigned(null);
+        setOpponentTurnPrompt(null);
+        setFaceOffBoardReveal(null);
+      }
     });
 
     socket.on('buzzer_locked', (payload: BuzzerLockedPayload) => {
@@ -716,6 +743,17 @@ function _useSocketInternal(options?: UseSocketOptions) {
     // Main Game Team Guessing Listeners (US-14)
     socket.on('team_guessing_state', (state: TeamGuessingSessionState) => {
       setTeamGuessingState(state);
+      setFaceOffState(null);
+      setBuzzerLocked(null);
+      setBuzzerRejected(null);
+      setFaceOffTimeout(null);
+      setFaceOffReset(null);
+      setFaceOffAnswer(null);
+      setFaceOffError(null);
+      setPromptPassPlay(null);
+      setRoundControlAssigned(null);
+      setOpponentTurnPrompt(null);
+      setFaceOffBoardReveal(null);
       if (state.phase === 'TEAM_GUESSING' && state.strikes < 3) {
         setTransitionStealPhase(null);
       }
@@ -749,6 +787,18 @@ function _useSocketInternal(options?: UseSocketOptions) {
       setRoundWinner(payload);
     });
 
+    socket.on('team_guess_submitted', (payload: TeamGuessSubmittedPayload) => {
+      setTeamGuessSubmitted(payload);
+    });
+
+    socket.on('steal_guess_submitted', (payload: TeamGuessSubmittedPayload) => {
+      setTeamGuessSubmitted(payload);
+    });
+
+    socket.on('answer_reveal_completed', (payload: AnswerRevealCompletedPayload) => {
+      setAnswerRevealCompleted(payload);
+    });
+
     socket.on('scoreboard_update', (payload: ScoreboardUpdatePayload) => {
       setScoreboardState(payload);
     });
@@ -763,9 +813,29 @@ function _useSocketInternal(options?: UseSocketOptions) {
 
     socket.on('next_round_started', (payload: NextRoundStartedPayload) => {
       setNextRoundStarted(payload);
+      setTeamGuessingState(null);
+      setRoundWinner(null);
+      setRoundCleared(null);
+      setStealResolved(null);
+      setMainGameBoardReveal(null);
+      setStrikeIssued(null);
+      setTransitionStealPhase(null);
       setGamePaused(null);
       setHostOverrideOptions([]);
       setAnswerOverrideAck(null);
+
+      // Reset Face-Off transient state for the new round
+      setBuzzerLocked(null);
+      setBuzzerRejected(null);
+      setFaceOffTimeout(null);
+      setFaceOffReset(null);
+      setFaceOffAnswer(null);
+      setFaceOffError(null);
+      setPromptPassPlay(null);
+      setRoundControlAssigned(null);
+      setOpponentTurnPrompt(null);
+      setFaceOffBoardReveal(null);
+      setTimerTick(null);
     });
     socket.on('session_granted', (payload: PlayerSessionCredentials) => {
       savePlayerSession(payload);
@@ -971,6 +1041,9 @@ function _useSocketInternal(options?: UseSocketOptions) {
     stealResolved,
     roundWinner,
     scoreboardState,
+    teamGuessSubmitted,
+    answerRevealCompleted,
+    emitAnswerRevealCompleted,
     matchOver,
     suddenDeathInitiated,
     nextRoundStarted,
@@ -1033,11 +1106,19 @@ function _useSocketInternal(options?: UseSocketOptions) {
 
 export type UseSocketReturn = Omit<
   ReturnType<typeof _useSocketInternal>,
-  'repeatFastMoneyQuestion' | 'repeatQuestionAlert' | 'clearRepeatQuestionAlert'
+  | 'repeatFastMoneyQuestion'
+  | 'repeatQuestionAlert'
+  | 'clearRepeatQuestionAlert'
+  | 'teamGuessSubmitted'
+  | 'answerRevealCompleted'
+  | 'emitAnswerRevealCompleted'
 > & {
   repeatFastMoneyQuestion?: (roomCode: string, playerId: string, questionId?: string) => void;
   repeatQuestionAlert?: QuestionRepeatRequestedPayload | null;
   clearRepeatQuestionAlert?: () => void;
+  teamGuessSubmitted?: TeamGuessSubmittedPayload | null;
+  answerRevealCompleted?: AnswerRevealCompletedPayload | null;
+  emitAnswerRevealCompleted?: (roomCode: string) => void;
 };
 
 export function useSocket(options?: UseSocketOptions): UseSocketReturn {

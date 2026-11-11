@@ -432,7 +432,164 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
     expect(screen.getByTestId('team1-grand-total')).toHaveTextContent('120');
     expect(screen.getByTestId('team2-grand-total')).toHaveTextContent('65');
     expect(screen.getByTestId('header-round-bank')).toHaveTextContent('45');
-    // Alice is on Team 1 (controlling team in baseSnapshot), so Team 1 is highlighted
-    expect(screen.getByTestId('your-team-badge')).toBeInTheDocument();
+    // Alice is on Team 1 (controlling team in baseSnapshot), so Team 1 is highlighted without badge in mobile
+    expect(screen.queryByTestId('your-team-badge')).not.toBeInTheDocument();
+    expect(screen.getByTestId('team1-grand-total-card')).toHaveClass('ring-blue-400/40');
+  });
+
+  it('satisfies US-28: renders only members of own team in 2 columns instead of the survey board', () => {
+    renderComponent({
+      currentNickname: 'Alice',
+      currentPlayerId: 'p1',
+    });
+
+    // Survey board slots are not in document
+    expect(screen.queryByTestId('mobile-survey-board-summary')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('player-card-slot-1')).not.toBeInTheDocument();
+
+    // Only own team roster is rendered (Team 1) in 2 columns
+    expect(screen.getByTestId('mobile-my-team-roster')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-team-player-p1')).toHaveTextContent('Alice');
+    expect(screen.getByTestId('mobile-team-player-p1')).toHaveTextContent('(You)');
+    expect(screen.getByTestId('mobile-team-player-p2')).toHaveTextContent('Bob');
+
+    // Opposing team players (Charlie) are NOT rendered in team roster
+    expect(screen.queryByTestId('mobile-team-player-p3')).not.toBeInTheDocument();
+  });
+
+  it('satisfies US-28: displays suspense banner on guess submission and withholds strike alert until host finishes reading answer', () => {
+    const { rerender } = renderComponent();
+
+    // Alice submits guess "Dog"
+    const input = screen.getByTestId('player-guess-input');
+    fireEvent.change(input, { target: { value: 'Dog' } });
+    const submitBtn = screen.getByTestId('player-submit-guess-btn');
+    fireEvent.click(submitBtn);
+
+    // Controller displays suspense banner
+    expect(screen.getByTestId('controller-survey-said-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('controller-survey-said-banner')).toHaveTextContent('Alice said “Dog”');
+    expect(screen.getByTestId('controller-survey-said-banner')).toHaveTextContent('Survey said...');
+
+    // Server emits strike_issued, but announcement is still pending
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamController
+          snapshot={baseSnapshot}
+          currentNickname="Alice"
+          currentPlayerId="p1"
+          roomCode="FEUD-5555"
+          roomName="Family Feud Championship"
+          strikeIssued={{
+            roomCode: 'FEUD-5555',
+            team: 'TEAM_1',
+            strikeCount: 2,
+            maxStrikes: 3,
+            player: { id: 'p1', nickname: 'Alice' },
+            rawAnswer: 'Dog',
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    // Strike alert overlay is withheld while announcement is pending
+    expect(screen.queryByTestId('mobile-strike-alert')).not.toBeInTheDocument();
+    expect(screen.getByTestId('controller-survey-said-banner')).toBeInTheDocument();
+
+    // Host finishes reading: answerRevealCompleted arrives
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamController
+          snapshot={baseSnapshot}
+          currentNickname="Alice"
+          currentPlayerId="p1"
+          roomCode="FEUD-5555"
+          roomName="Family Feud Championship"
+          answerRevealCompleted={{ roomCode: 'FEUD-5555' }}
+        />
+      </LanguageProvider>
+    );
+
+    // Suspense banner clears and strike alert is now revealed!
+    expect(screen.queryByTestId('controller-survey-said-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mobile-strike-alert')).toBeInTheDocument();
+  });
+
+  it('satisfies US-28: strikes are withheld on mobile strike boxes and alert banner until host has read the answer', () => {
+    // Controller is active during team turn with 0 strikes
+    const { rerender } = renderComponent({
+      snapshot: {
+        ...baseSnapshot,
+        strikes: 0,
+      },
+      currentNickname: 'David',
+      currentPlayerId: 'p2',
+    });
+
+    // Teammate Alice answers wrong: server emits updated snapshot with strikes: 1, teamGuessSubmitted and strikeIssued
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamController
+          snapshot={{
+            ...baseSnapshot,
+            strikes: 1,
+          }}
+          currentNickname="David"
+          currentPlayerId="p2"
+          roomCode="FEUD-5555"
+          roomName="Family Feud Championship"
+          teamGuessSubmitted={{
+            roomCode: 'FEUD-5555',
+            playerId: 'p1',
+            playerNickname: 'Alice',
+            rawAnswer: 'Airplane',
+          }}
+          strikeIssued={{
+            roomCode: 'FEUD-5555',
+            team: 'TEAM_1',
+            strikeCount: 1,
+            maxStrikes: 3,
+            player: { id: 'p1', nickname: 'Alice' },
+            rawAnswer: 'Airplane',
+            isTimeout: false,
+            isPass: false,
+          }}
+        />
+      </LanguageProvider>
+    );
+
+    // 1. Strike boxes still show un-struck numbers before host finishes reading
+    expect(screen.getByTestId('player-strike-box-1')).toHaveTextContent('1');
+    expect(screen.getByTestId('player-strike-box-2')).toHaveTextContent('2');
+    expect(screen.getByTestId('player-strike-box-3')).toHaveTextContent('3');
+
+    // 2. Strike alert banner is withheld while host is reading
+    expect(screen.queryByTestId('mobile-strike-alert')).not.toBeInTheDocument();
+
+    // 3. Suspense banner is visible on mobile
+    expect(screen.getByTestId('controller-survey-said-banner')).toBeInTheDocument();
+    expect(screen.getByTestId('controller-survey-said-banner')).toHaveTextContent('Alice said “Airplane”');
+
+    // 4. Host finishes reading answer: answerRevealCompleted is received
+    rerender(
+      <LanguageProvider>
+        <MainGameTeamController
+          snapshot={{
+            ...baseSnapshot,
+            strikes: 1,
+          }}
+          currentNickname="David"
+          currentPlayerId="p2"
+          roomCode="FEUD-5555"
+          roomName="Family Feud Championship"
+          answerRevealCompleted={{ roomCode: 'FEUD-5555' }}
+        />
+      </LanguageProvider>
+    );
+
+    // 5. Strike is now revealed on mobile at the exact same time as host!
+    expect(screen.queryByTestId('controller-survey-said-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('player-strike-box-1')).toHaveTextContent('X');
+    expect(screen.getByTestId('mobile-strike-alert')).toBeInTheDocument();
   });
 });

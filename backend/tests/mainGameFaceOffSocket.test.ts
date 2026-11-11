@@ -111,17 +111,27 @@ describe('US-12: Main Game Face-Off Buzzer Duel WebSocket Integration', () => {
     clearAllFaceOffSessions();
 
     await new Promise<void>((resolve) => {
-      testIo.close(() => {
-        testServer.close(() => resolve());
-      });
+      if (testIo) {
+        testIo.close(() => {
+          if (testServer) testServer.close(() => resolve());
+          else resolve();
+        });
+      } else {
+        if (testServer) testServer.close(() => resolve());
+        else resolve();
+      }
     });
 
     // Clean up test data
-    await prisma.room.deleteMany({
-      where: {
-        roomCode: { in: ['FEUD-FO01', 'FEUD-FO02', 'FEUD-FO03', 'FEUD-FO04'] },
-      },
-    });
+    try {
+      await prisma.room.deleteMany({
+        where: {
+          roomCode: { in: ['FEUD-FO01', 'FEUD-FO02', 'FEUD-FO03', 'FEUD-FO04'] },
+        },
+      });
+    } catch {
+      // ignore if DB is offline
+    }
   });
 
   beforeEach(() => {
@@ -338,7 +348,7 @@ describe('US-12: Main Game Face-Off Buzzer Duel WebSocket Integration', () => {
     session.stopTimer();
   });
 
-  it('satisfies Scenario 4: Cascades to next teammate on dual contender timeout in 4-player match', async () => {
+  it('satisfies Scenario 4: Cascades to next teammate on dual contender timeout (US-28)', async () => {
     const hostSocket = await connectClient(port);
     clientSockets.push(hostSocket);
 
@@ -371,33 +381,25 @@ describe('US-12: Main Game Face-Off Buzzer Duel WebSocket Integration', () => {
     session.markContenderReady('p2');
     session.pressBuzzer('p1');
 
-    // First timeout: p1 -> p2
+    // First timeout: p1 -> p2 (HAND_OFF)
     const timeout1Promise = waitForEvent<any>(hostSocket, 'face_off_timeout', 3000);
     const t1 = await timeout1Promise;
     expect(t1.type).toBe('HAND_OFF');
     expect(t1.timedOutPlayerId).toBe('p1');
     expect(t1.nextPlayerId).toBe('p2');
 
-    // Second timeout: p2 -> p3 (Team 1 next teammate)
+    // Second timeout: p2 times out -> cascades to next teammate p3 on team 1 (HAND_OFF)
     const timeout2Promise = waitForEvent<any>(hostSocket, 'face_off_timeout', 3000);
     const t2 = await timeout2Promise;
     expect(t2.type).toBe('HAND_OFF');
     expect(t2.timedOutPlayerId).toBe('p2');
     expect(t2.nextPlayerId).toBe('p3');
-    expect(t2.nextPlayerTeam).toBe('TEAM_1');
-
-    // Third timeout: p3 -> p4 (Team 2 next teammate)
-    const timeout3Promise = waitForEvent<any>(hostSocket, 'face_off_timeout', 3000);
-    const t3 = await timeout3Promise;
-    expect(t3.type).toBe('HAND_OFF');
-    expect(t3.timedOutPlayerId).toBe('p3');
-    expect(t3.nextPlayerId).toBe('p4');
-    expect(t3.nextPlayerTeam).toBe('TEAM_2');
+    expect(session.phase).toBe('ANSWERING');
 
     session.stopTimer();
   });
 
-  it('satisfies Scenario 5: Deadlock resolution on 2-player match resets with fresh survey question', async () => {
+  it('satisfies Scenario 5: Cycles back to starting player on 2-player match when both time out', async () => {
     const hostSocket = await connectClient(port);
     const p1Socket = await connectClient(port);
     const p2Socket = await connectClient(port);
@@ -417,7 +419,7 @@ describe('US-12: Main Game Face-Off Buzzer Duel WebSocket Integration', () => {
     // Start game so Game and Question exist in DB
     const gameStartedPromise = waitForEvent<GameStartedPayload>(hostSocket, 'game_started');
     hostSocket.emit('start_game', { roomCode: 'FEUD-FO04' });
-    const gameStarted = await gameStartedPromise;
+    await gameStartedPromise;
 
     const session = getFaceOffSession('FEUD-FO04');
     expect(session).toBeDefined();
@@ -437,23 +439,12 @@ describe('US-12: Main Game Face-Off Buzzer Duel WebSocket Integration', () => {
     const t1 = await timeout1Promise;
     expect(t1.type).toBe('HAND_OFF');
 
-    // Second timeout: opponent times out -> DEADLOCK_RESET!
-    const deadlockPromise = waitForEvent<any>(hostSocket, 'face_off_timeout', 3000);
-    const resetPromise = waitForEvent<any>(hostSocket, 'face_off_reset', 4000);
-
-    const deadlockData = await deadlockPromise;
-    expect(deadlockData.type).toBe('DEADLOCK_RESET');
-    expect(deadlockData.message).toContain('All contenders timed out');
-
-    const resetData = await resetPromise;
-    expect(resetData.roomCode).toBe('FEUD-FO04');
-    expect(resetData.newQuestion).toBeDefined();
-    expect(resetData.newQuestion.questionText).toBeTruthy();
-
-    // Session has been reset with new question and zero points awarded
-    expect(session!.phase).toBe('BUZZER_ACTIVE');
-    expect(session!.attemptedPlayerIds).toHaveLength(0);
-    expect(session!.buzzerLocked).toBe(false);
+    // Second timeout: opponent times out -> cycles back to PlayerA (HAND_OFF)
+    const timeout2Promise = waitForEvent<any>(hostSocket, 'face_off_timeout', 3000);
+    const t2 = await timeout2Promise;
+    expect(t2.type).toBe('HAND_OFF');
+    expect(t2.nextPlayerId).toBe(session!.team1Contender.id);
+    expect(session!.phase).toBe('ANSWERING');
 
     session!.stopTimer();
   });

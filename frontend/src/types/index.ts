@@ -349,6 +349,8 @@ export interface FaceOffSessionState {
   winnerTeam?: 'TEAM_1' | 'TEAM_2' | null;
   controllingTeam?: 'TEAM_1' | 'TEAM_2' | null;
   passOrPlayDecision?: 'play' | 'pass' | null;
+  lastAnsweredPlayerTeam1?: FaceOffPlayer | null;
+  lastAnsweredPlayerTeam2?: FaceOffPlayer | null;
 }
 
 export interface BuzzerLockedPayload {
@@ -368,7 +370,7 @@ export interface BuzzerRejectedPayload {
 
 export interface FaceOffTimeoutPayload {
   roomCode: string;
-  type: 'HAND_OFF' | 'DEADLOCK_RESET';
+  type: 'HAND_OFF' | 'DEADLOCK_RESET' | 'TIMEOUT_WINNER';
   timedOutPlayerId: string;
   timedOutPlayerNickname: string;
   timedOutPlayerTeam: 'TEAM_1' | 'TEAM_2';
@@ -378,6 +380,11 @@ export interface FaceOffTimeoutPayload {
   endsAt?: number;
   duration?: number;
   message?: string;
+  winnerPlayerId?: string;
+  winnerNickname?: string;
+  winnerTeam?: 'TEAM_1' | 'TEAM_2';
+  phase?: FaceOffPhase;
+  isStrike?: boolean;
 }
 
 export interface FaceOffResetPayload {
@@ -407,8 +414,20 @@ export interface BuzzerActivePayload {
 export interface FaceOffAnswerSubmittedPayload {
   roomCode: string;
   playerId: string;
-  questionId: string;
+  playerNickname?: string;
+  questionId?: string;
   rawAnswer: string;
+}
+
+export interface TeamGuessSubmittedPayload {
+  roomCode: string;
+  playerId: string;
+  playerNickname?: string;
+  rawAnswer: string;
+}
+
+export interface AnswerRevealCompletedPayload {
+  roomCode: string;
 }
 
 
@@ -454,6 +473,7 @@ export interface FaceOffBoardRevealPayload {
   playerNickname: string;
   playerTeam: 'TEAM_1' | 'TEAM_2';
   isNumberOneAnswer: boolean;
+  rawAnswer?: string;
 }
 
 // US-14: Team Guessing Turn, Board Flips & 3-Strike System Payloads
@@ -520,14 +540,19 @@ export interface StrikeIssuedPayload {
   team: 'TEAM_1' | 'TEAM_2';
   strikeCount: number;
   maxStrikes: number;
+  isStrike?: boolean;
   player?: {
     id: string;
     nickname: string;
   };
+  playerId?: string;
+  playerNickname?: string;
+  playerTeam?: 'TEAM_1' | 'TEAM_2';
   rawAnswer?: string;
   isDuplicate?: boolean;
   isTimeout?: boolean;
   isPass?: boolean;
+  reason?: string;
 }
 
 export interface RoundClearedPayload {
@@ -587,6 +612,7 @@ export interface MainGameBoardRevealPayload {
   isAllRevealed?: boolean;
   isStealMatch?: boolean;
   isRemainingReveal?: boolean;
+  rawAnswer?: string;
 }
 
 // US-15: 3-Strike Steal Phase & Round Resolution Payloads

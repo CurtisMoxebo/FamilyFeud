@@ -107,6 +107,13 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
+        {
+          roomCode: 'FEUD-LB06',
+          roomName: 'TEST-Host-Leave',
+          language: 'EN',
+          gameMode: 'MAIN_GAME',
+          status: 'LOBBY',
+        },
       ],
       skipDuplicates: true,
     });
@@ -568,6 +575,32 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
       expect(q.answers.length).toBeLessThanOrEqual(8);
       const sum = q.answers.reduce((acc, a) => acc + a.points, 0);
       expect(sum).toBe(100);
+    });
+
+    it('disconnects all connected players when host leaves the lobby', async () => {
+      const hostSocket = await connectClient(port);
+      clientSockets.push(hostSocket);
+
+      hostSocket.emit('join_room', { roomCode: 'FEUD-LB06', isHost: true });
+      await waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+
+      const p1 = await connectClient(port);
+      clientSockets.push(p1);
+
+      p1.emit('join_room', { roomCode: 'FEUD-LB06', nickname: 'TestPlayer' });
+      await waitForEvent<RoomStateUpdate>(hostSocket, 'room_state_update');
+
+      const playerKickedPromise = waitForEvent<{ roomCode: string; reason: string }>(p1, 'player_kicked');
+      const playerDisconnectPromise = waitForEvent(p1, 'disconnect');
+
+      hostSocket.emit('leave_room', { roomCode: 'FEUD-LB06', isHost: true });
+
+      const kickedPayload = await playerKickedPromise;
+      expect(kickedPayload.roomCode).toBe('FEUD-LB06');
+      expect(kickedPayload.reason).toContain('host has left the lobby');
+
+      await playerDisconnectPromise;
+      expect(p1.connected).toBe(false);
     });
   });
 });
