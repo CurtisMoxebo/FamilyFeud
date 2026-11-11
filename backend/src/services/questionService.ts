@@ -58,6 +58,8 @@ export async function saveQuestionsForGame(
     // In Main Game, each question represents a round (Round 1, Round 2, etc.) with orderIndex = 1.
     const roundNumber = gameMode === 'FAST_MONEY' ? startingRoundNumber : startingRoundNumber + i;
     const orderIndex = gameMode === 'FAST_MONEY' ? startingOrderIndex + i : startingOrderIndex;
+    const answersList =
+      gameMode === 'MAIN_GAME' && q.answers.length > 8 ? q.answers.slice(0, 8) : q.answers;
 
     return prismaClient.question.create({
       data: {
@@ -67,7 +69,7 @@ export async function saveQuestionsForGame(
         language,
         questionText: q.questionText,
         answers: {
-          create: q.answers.map((ans, ansIdx) => ({
+          create: answersList.map((ans, ansIdx) => ({
             rankOrder: ansIdx + 1,
             answerText: ans.text,
             points: ans.points,
