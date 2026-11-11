@@ -15,7 +15,7 @@ An interactive, real-time multiplayer web application bringing the classic telev
   - Intelligent two-tier answer validation: instant local exact match first, followed by Gemini semantic evaluation (tolerant of typos, synonyms, colloquialisms, and regional phrasing).
 - **Two Complete Game Show Modes**:
   - **Fast Money**: 2 players, 5 questions, 60s & 75s countdowns, pass & return mechanic, duplicate answer detection ("Try again"), sequential reveal, and a 200-point combined victory target.
-  - **Main Game**: 2 to 10 players (even count), auto-balanced into two teams, 1-on-1 buzzer face-offs, pass or play decisions, sequential team guessing, 3-strike counter, dramatic steal attempts, persistent real-time grand total scoreboards, sudden death tie-breaking, and seamless match replay.
+  - **Main Game**: 2 to 10 players (even count), auto-balanced into two teams with a pre-round team showcase stage, 1-on-1 buzzer face-offs with 5s countdown sync and authoritative 15s timers, cascading multi-turn teammate hand-offs upon misses/timeouts, synchronized 2s giant strike ($X$) overlays, dynamic host podium tracking (answering player vs. previous respondent), personalized mobile miss alerts ("You missed!"), pass or play decisions strictly reserved for designated contenders, sequential team guessing, 3-strike counter, dramatic steal attempts with spokesperson consultation, bottom-to-top unrevealed answer voice-and-flip reveals, persistent real-time grand total scoreboards, sudden death tie-breaking, and seamless match replay.
 - **Zero-Friction Joining**: Scan a high-contrast QR code or share a direct URL. No app store downloads or user account registration required.
 - **Code-First Database**: Full persistence via **Prisma ORM** with modular schemas and version-controlled migrations on MySQL.
 - **Resilient Networking**: Automatic host and player reconnection within a 30-second grace window to protect ongoing games against screen locks or Wi-Fi drops.
@@ -203,7 +203,7 @@ The project includes automated Continuous Deployment ([US-24](docs/user%20storie
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 959 regression tests** (557 backend, 402 frontend) pass cleanly with **>90% code coverage** across 76 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 999 regression tests** (564 backend, 435 frontend) pass cleanly with **>90% code coverage** across 76 suites:
 
 ```bash
 # Run all regression tests across the whole project
