@@ -358,6 +358,23 @@ export function speakStealFailed(
   speakQuestion(fn(teamName, points), language, onComplete);
 }
 
+export const ROUND_WINNER_PHRASES: Record<string, (team: string, points: number) => string> = {
+  EN: (team: string, points: number) => `${team} wins the round with ${points} points!`,
+  FR: (team: string, points: number) => `L'${team} remporte la manche avec ${points} points !`,
+  ES: (team: string, points: number) => `¡El ${team} gana la ronda con ${points} puntos!`,
+};
+
+export function speakRoundWinner(
+  teamName: string,
+  points: number,
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
+  const norm = language.toUpperCase();
+  const fn = ROUND_WINNER_PHRASES[norm] || ROUND_WINNER_PHRASES.EN;
+  speakQuestion(fn(teamName, points), language, onComplete);
+}
+
 export const YOU_SAID_PHRASES: Record<string, string> = {
   EN: 'You said',
   FR: 'Vous avez dit',

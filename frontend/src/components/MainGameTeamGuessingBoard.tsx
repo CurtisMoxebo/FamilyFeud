@@ -1,6 +1,6 @@
 import { MainGameScoreboardHeader } from './MainGameScoreboardHeader';
 import { MainGameVictoryModal } from './MainGameVictoryModal';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   ScoreboardUpdatePayload,
   MatchOverPayload,
@@ -31,6 +31,7 @@ import {
   speakStealPhase,
   speakStealSuccess,
   speakStealFailed,
+  speakRoundWinner,
   speakPlayerAnswerSurveySaid,
   cancelSpeech,
   isTtsMuted,
@@ -462,18 +463,6 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     roomCode,
   ]);
 
-  // Scenario 3: Board Cleared celebration & victory fanfare
-  useEffect(() => {
-    if (
-      (roundCleared || snapshot.phase === 'ROUND_CLEARED') &&
-      !hasCelebratedClear.current
-    ) {
-      hasCelebratedClear.current = true;
-      playVictoryFanfare();
-      if (audioEnabled) { cancelSpeech(); speakBoardCleared(controllingTeamName, language); }
-    }
-  }, [roundCleared, snapshot.phase, controllingTeamName, language]);
-
   // Scenario 4: Steal Phase trigger announcement
   useEffect(() => {
     if (
@@ -493,30 +482,242 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     audioEnabled,
   ]);
 
-  // US-15 Scenarios 1 & 2: Steal Phase Resolution Celebrations & Audio/TTS Announcements
-  useEffect(() => {
-    if (stealResolved) {
-      if (stealResolved.success && !hasCelebratedStealSuccess.current) {
-        hasCelebratedStealSuccess.current = true;
-        playVictoryFanfare();
-        if (audioEnabled) { cancelSpeech(); } speakStealSuccess(
-          opposingTeamName,
-          stealResolved.pointsAwarded || snapshot.roundBank,
-          language
-        );
-      } else if (!stealResolved.success && !hasAnnouncedStealFailed.current) {
-        hasAnnouncedStealFailed.current = true;
-        playStrikeBuzzer(1);
-        if (audioEnabled) { cancelSpeech(); } speakStealFailed(
-          controllingTeamName,
-          stealResolved.pointsAwarded || snapshot.roundBank,
-          language
-        );
-      }
-    }
-  }, [stealResolved, opposingTeamName, controllingTeamName, snapshot.roundBank, language]);
+  const isStealSuccess = Boolean(
+    stealResolved?.success ||
+      (snapshot.phase === 'RESOLVED' && snapshot.winningTeam === snapshot.opposingTeam)
+  );
 
-  // Combine revealed answers from snapshot, boardReveal, and steal resolution (Scenario 3)
+  const isBoardCleared = Boolean(
+    roundCleared || snapshot.phase === 'ROUND_CLEARED'
+  );
+
+  const isRoundOver = Boolean(
+    stealResolved ||
+      roundWinner ||
+      isBoardCleared ||
+      (snapshot.phase === 'RESOLVED' && Boolean(snapshot.winningTeam))
+  );
+
+  const resolvedPoints =
+    stealResolved?.pointsAwarded ??
+    roundWinner?.pointsAwarded ??
+    snapshot.roundBank;
+
+  const winnerTeamId =
+    stealResolved?.winningTeam ??
+    roundWinner?.winningTeam ??
+    snapshot.winningTeam ??
+    (isStealSuccess ? snapshot.opposingTeam : snapshot.controllingTeam);
+
+  const winningTeamName =
+    winnerTeamId === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
+
+  type RoundOverStage = 'IDLE' | 'ANNOUNCING' | 'REVEALING' | 'COUNTDOWN' | 'COMPLETED';
+  const [roundOverStage, setRoundOverStage] = useState<RoundOverStage>('IDLE');
+  const [revealedRemainingRanks, setRevealedRemainingRanks] = useState<Set<number>>(new Set());
+  const [nextRoundCountdown, setNextRoundCountdown] = useState<number>(5);
+
+  const onNextRoundRef = useRef(onNextRound);
+  useEffect(() => {
+    onNextRoundRef.current = onNextRound;
+  }, [onNextRound]);
+
+  const announcementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasStartedRevealsRef = useRef<boolean>(false);
+
+  // Helper to collect unread answers sorted from smallest to largest by points
+  const getUnreadAnswers = useCallback(() => {
+    const alreadyRevealedRanks = new Set<number>();
+    snapshot.revealedAnswers.forEach((a) => alreadyRevealedRanks.add(a.rankOrder));
+    if (stealResolved?.matchedAnswer) {
+      alreadyRevealedRanks.add(stealResolved.matchedAnswer.rankOrder);
+    }
+
+    const candidateList: Array<{ id?: string; rankOrder: number; answerText: string; points: number }> = [];
+
+    if (stealResolved?.remainingAnswers && stealResolved.remainingAnswers.length > 0) {
+      stealResolved.remainingAnswers.forEach((a) => {
+        if (!alreadyRevealedRanks.has(a.rankOrder)) {
+          candidateList.push(a);
+        }
+      });
+    } else if (snapshot.question.answers && snapshot.question.answers.length > 0) {
+      snapshot.question.answers.forEach((a) => {
+        if (!alreadyRevealedRanks.has(a.rankOrder)) {
+          candidateList.push(a);
+        }
+      });
+    }
+
+    const uniqueMap = new Map<number, { id?: string; rankOrder: number; answerText: string; points: number }>();
+    candidateList.forEach((a) => {
+      if (!uniqueMap.has(a.rankOrder)) {
+        uniqueMap.set(a.rankOrder, a);
+      }
+    });
+
+    // Smallest to largest by points (secondary sort by rankOrder descending)
+    return Array.from(uniqueMap.values()).sort((a, b) => {
+      if (a.points !== b.points) {
+        return a.points - b.points;
+      }
+      return b.rankOrder - a.rankOrder;
+    });
+  }, [snapshot.revealedAnswers, snapshot.question.answers, stealResolved]);
+
+  const isRoundOverHandledRef = useRef<boolean>(false);
+
+  // Reset round over sequencer when round changes
+  const currentRoundKey = `${snapshot.gameId || 'game'}-${snapshot.roundNumber}-${snapshot.question.id}`;
+  const prevRoundKeyRef = useRef<string>(currentRoundKey);
+
+  useEffect(() => {
+    if (prevRoundKeyRef.current !== currentRoundKey) {
+      prevRoundKeyRef.current = currentRoundKey;
+      isRoundOverHandledRef.current = false;
+      hasCelebratedClear.current = false;
+      hasCelebratedStealSuccess.current = false;
+      hasAnnouncedStealFailed.current = false;
+      hasStartedRevealsRef.current = false;
+      if (announcementTimerRef.current) clearTimeout(announcementTimerRef.current);
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      setRoundOverStage('IDLE');
+      setRevealedRemainingRanks(new Set());
+      setNextRoundCountdown(5);
+    }
+  }, [currentRoundKey]);
+
+  // Start 5-second countdown to next round
+  const startNextRoundCountdown = useCallback(() => {
+    setRoundOverStage('COUNTDOWN');
+    setNextRoundCountdown(5);
+
+    let remaining = 5;
+    countdownIntervalRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+        setNextRoundCountdown(0);
+        setRoundOverStage('COMPLETED');
+        if (!matchOver && !suddenDeathInitiated && onNextRoundRef.current) {
+          onNextRoundRef.current();
+        }
+      } else {
+        setNextRoundCountdown(remaining);
+      }
+    }, 1000);
+  }, [matchOver, suddenDeathInitiated]);
+
+  // Start sequential reveal of unread answers from smallest to largest
+  const startUnreadReveals = useCallback(() => {
+    if (hasStartedRevealsRef.current) return;
+    hasStartedRevealsRef.current = true;
+    setRoundOverStage('REVEALING');
+
+    const unread = getUnreadAnswers();
+
+    if (unread.length === 0) {
+      startNextRoundCountdown();
+      return;
+    }
+
+    let idx = 0;
+    const revealStep = () => {
+      if (idx < unread.length) {
+        const nextAns = unread[idx];
+        setRevealedRemainingRanks((prev) => new Set([...prev, nextAns.rankOrder]));
+        playPointsChime();
+        idx += 1;
+        if (idx < unread.length) {
+          revealTimerRef.current = setTimeout(revealStep, 1000);
+        } else {
+          revealTimerRef.current = setTimeout(() => {
+            startNextRoundCountdown();
+          }, 800);
+        }
+      }
+    };
+
+    revealStep();
+  }, [getUnreadAnswers, startNextRoundCountdown]);
+
+  // Round over orchestration: Announce result -> Reveal unread answers -> 5s Countdown -> Next Round
+  useEffect(() => {
+    if (!isRoundOver || isRoundOverHandledRef.current) return;
+    isRoundOverHandledRef.current = true;
+
+    setRoundOverStage('ANNOUNCING');
+
+    if (stealResolved) {
+      if (stealResolved.success) {
+        if (!hasCelebratedStealSuccess.current) {
+          hasCelebratedStealSuccess.current = true;
+          playVictoryFanfare();
+          if (audioEnabled) { cancelSpeech(); }
+          speakStealSuccess(
+            opposingTeamName,
+            stealResolved.pointsAwarded || snapshot.roundBank,
+            language
+          );
+        }
+      } else {
+        if (!hasAnnouncedStealFailed.current) {
+          hasAnnouncedStealFailed.current = true;
+          playStrikeBuzzer(1);
+          if (audioEnabled) { cancelSpeech(); }
+          speakStealFailed(
+            controllingTeamName,
+            stealResolved.pointsAwarded || snapshot.roundBank,
+            language
+          );
+        }
+      }
+    } else if (isBoardCleared) {
+      if (!hasCelebratedClear.current) {
+        hasCelebratedClear.current = true;
+        playVictoryFanfare();
+        if (audioEnabled) { cancelSpeech(); }
+        speakBoardCleared(controllingTeamName, language);
+      }
+    } else if (roundWinner) {
+      playVictoryFanfare();
+      if (audioEnabled) { cancelSpeech(); }
+      speakRoundWinner(winningTeamName, resolvedPoints, language);
+    }
+
+    // Safety timeout to allow result announcement to play before starting unread reveals
+    announcementTimerRef.current = setTimeout(() => {
+      startUnreadReveals();
+    }, audioEnabled ? 2200 : 1000);
+  }, [
+    isRoundOver,
+    stealResolved,
+    isBoardCleared,
+    roundWinner,
+    opposingTeamName,
+    controllingTeamName,
+    winningTeamName,
+    resolvedPoints,
+    snapshot.roundBank,
+    language,
+    audioEnabled,
+    startUnreadReveals,
+  ]);
+
+  const handleManualNextRound = useCallback(() => {
+    if (announcementTimerRef.current) clearTimeout(announcementTimerRef.current);
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    setRoundOverStage('COMPLETED');
+    if (onNextRound) {
+      onNextRound();
+    }
+  }, [onNextRound]);
+
+  // Combine revealed answers from snapshot, boardReveal, and steal resolution
   const revealedMap = new Map<number, TeamRevealedAnswer>();
   snapshot.revealedAnswers.forEach((a) => {
     if (surveySaidAnnouncement?.rankOrder === a.rankOrder) return;
@@ -525,17 +726,19 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
 
   if (boardReveal && boardReveal.rankOrder) {
     if (surveySaidAnnouncement?.rankOrder !== boardReveal.rankOrder && !revealedMap.has(boardReveal.rankOrder)) {
-      revealedMap.set(boardReveal.rankOrder, {
-        id: `reveal-${boardReveal.rankOrder}`,
-        answerText: boardReveal.answerText,
-        points: boardReveal.points,
-        rankOrder: boardReveal.rankOrder,
-        revealedByPlayerId: boardReveal.playerId,
-        revealedByNickname: boardReveal.playerNickname,
-        revealedByTeam: boardReveal.playerTeam,
-        isStealMatch: boardReveal.isStealMatch,
-        isRemainingReveal: boardReveal.isRemainingReveal,
-      });
+      if (!boardReveal.isRemainingReveal || revealedRemainingRanks.has(boardReveal.rankOrder)) {
+        revealedMap.set(boardReveal.rankOrder, {
+          id: `reveal-${boardReveal.rankOrder}`,
+          answerText: boardReveal.answerText,
+          points: boardReveal.points,
+          rankOrder: boardReveal.rankOrder,
+          revealedByPlayerId: boardReveal.playerId,
+          revealedByNickname: boardReveal.playerNickname,
+          revealedByTeam: boardReveal.playerTeam,
+          isStealMatch: boardReveal.isStealMatch,
+          isRemainingReveal: boardReveal.isRemainingReveal,
+        });
+      }
     }
   }
 
@@ -548,7 +751,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     }
     if (stealResolved.remainingAnswers) {
       stealResolved.remainingAnswers.forEach((rem) => {
-        if (!revealedMap.has(rem.rankOrder)) {
+        if (revealedRemainingRanks.has(rem.rankOrder) && !revealedMap.has(rem.rankOrder)) {
           revealedMap.set(rem.rankOrder, {
             ...rem,
             isRemainingReveal: true,
@@ -556,6 +759,20 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         }
       });
     }
+  }
+
+  if (snapshot.question.answers) {
+    snapshot.question.answers.forEach((ans) => {
+      if (revealedRemainingRanks.has(ans.rankOrder) && !revealedMap.has(ans.rankOrder)) {
+        revealedMap.set(ans.rankOrder, {
+          id: ans.id,
+          rankOrder: ans.rankOrder,
+          answerText: ans.answerText,
+          points: ans.points,
+          isRemainingReveal: true,
+        });
+      }
+    });
   }
 
   // Map of host-only unrevealed/revealed survey slot options for Judge Manual Override (US-21 Scenario 2)
@@ -592,24 +809,6 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     overrideOptionMap.size
   );
 
-  const isStealSuccess = Boolean(
-    stealResolved?.success ||
-      (snapshot.phase === 'RESOLVED' && snapshot.winningTeam === snapshot.opposingTeam)
-  );
-
-  const resolvedPoints =
-    stealResolved?.pointsAwarded ??
-    roundWinner?.pointsAwarded ??
-    snapshot.roundBank;
-
-  const winnerTeamId =
-    stealResolved?.winningTeam ??
-    roundWinner?.winningTeam ??
-    snapshot.winningTeam ??
-    (isStealSuccess ? snapshot.opposingTeam : snapshot.controllingTeam);
-
-  const winningTeamName =
-    winnerTeamId === 'TEAM_1' ? t.mainGame.team1 : t.mainGame.team2;
 
   const isTeam1Controlling = snapshot.controllingTeam === 'TEAM_1';
   const isTeam1Stealing = isStealPhase && snapshot.opposingTeam === 'TEAM_1';
@@ -1203,11 +1402,20 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
               <div className="px-6 py-2.5 rounded-full bg-yellow-400 text-slate-950 font-black text-xl shadow-lg">
                 +{snapshot.roundBank} POINTS
               </div>
+              {roundOverStage === 'COUNTDOWN' && !matchOver && (
+                <div
+                  data-testid="next-round-countdown"
+                  className="mt-3 px-4 py-1.5 rounded-full bg-indigo-900/90 border border-indigo-400 text-indigo-100 font-black text-xs sm:text-sm flex items-center gap-1.5 animate-pulse"
+                >
+                  <Clock className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>Next round in {nextRoundCountdown}s...</span>
+                </div>
+              )}
               {onNextRound && !matchOver && !suddenDeathInitiated && (
                 <button
                   type="button"
                   data-testid="next-round-btn"
-                  onClick={onNextRound}
+                  onClick={handleManualNextRound}
                   className="mt-6 inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black text-lg shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
                 >
                   <Play className="w-5 h-5 fill-current" />
@@ -1242,71 +1450,99 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         </div>
       )}
 
-      {/* Scenarios 1 & 2: Steal Resolution Banner (Celebratory Victory or Point Retention) */}
-      {(stealResolved || (snapshot.phase === 'RESOLVED' && snapshot.winningTeam)) && (
+      {/* Round Resolution Banner */}
+      {(stealResolved || (snapshot.phase === 'RESOLVED' && Boolean(snapshot.winningTeam))) && (
         <div
           data-testid="steal-resolved-banner"
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in"
+          className="fixed inset-x-0 top-3 sm:top-5 z-40 flex justify-center px-4 animate-fade-in pointer-events-none"
         >
           <div
-            className={`max-w-2xl w-full p-1 rounded-3xl shadow-2xl ${
-              isStealSuccess
-                ? 'bg-gradient-to-b from-emerald-400 via-teal-500 to-emerald-600 shadow-[0_0_60px_rgba(16,185,129,0.5)]'
-                : 'bg-gradient-to-b from-amber-500 via-yellow-600 to-amber-700 shadow-[0_0_60px_rgba(245,158,11,0.5)]'
+            className={`max-w-2xl w-full p-1 rounded-2xl sm:rounded-3xl shadow-2xl pointer-events-auto ${
+              isStealSuccess || isBoardCleared
+                ? 'bg-gradient-to-b from-emerald-400 via-teal-500 to-emerald-600 shadow-[0_0_50px_rgba(16,185,129,0.5)]'
+                : 'bg-gradient-to-b from-amber-500 via-yellow-600 to-amber-700 shadow-[0_0_50px_rgba(245,158,11,0.5)]'
             }`}
           >
-            <div className="bg-slate-950 rounded-[22px] p-8 text-center flex flex-col items-center">
-              <div
-                className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 border-2 animate-bounce ${
-                  isStealSuccess
-                    ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400'
-                    : 'bg-amber-500/20 border-amber-400 text-amber-400'
-                }`}
-              >
-                {isStealSuccess ? (
-                  <Trophy className="w-12 h-12" />
-                ) : (
-                  <ShieldCheck className="w-12 h-12" />
-                )}
+            <div className="bg-slate-950/95 backdrop-blur-md rounded-[20px] p-4 sm:p-5 text-center flex flex-col items-center">
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <div
+                  className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center border-2 animate-bounce ${
+                    isStealSuccess || isBoardCleared
+                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400'
+                      : 'bg-amber-500/20 border-amber-400 text-amber-400'
+                  }`}
+                >
+                  {isStealSuccess || isBoardCleared ? (
+                    <Trophy className="w-5 h-5" />
+                  ) : (
+                    <ShieldCheck className="w-5 h-5" />
+                  )}
+                </div>
+                <h2
+                  className={`text-xl sm:text-2xl font-black uppercase tracking-tight ${
+                    isStealSuccess || isBoardCleared ? 'text-emerald-300' : 'text-yellow-300'
+                  }`}
+                >
+                  {isStealSuccess
+                    ? t.mainGame.stealPhaseTitle
+                    : isBoardCleared
+                    ? t.mainGame.roundWinnerBanner.replace('{team}', winningTeamName)
+                    : t.mainGame.strikeTitle}
+                </h2>
               </div>
-              <h2
-                className={`text-3xl md:text-5xl font-black uppercase tracking-tight mb-2 ${
-                  isStealSuccess ? 'text-emerald-300' : 'text-yellow-300'
-                }`}
-              >
-                {isStealSuccess
-                  ? t.mainGame.stealPhaseTitle
-                  : t.mainGame.strikeTitle}
-              </h2>
-              <p className="text-xl md:text-2xl text-white font-extrabold mb-2" data-testid="steal-announcement-text">
-                {isStealSuccess
-                  ? t.mainGame.stealSuccessAnnouncement
-                      .replace('{team}', opposingTeamName)
-                      .replace('{points}', String(resolvedPoints))
-                  : t.mainGame.stealFailedAnnouncement
-                      .replace('{team}', controllingTeamName)
-                      .replace('{points}', String(resolvedPoints))}
+              <p className="text-base sm:text-lg text-white font-extrabold mb-1" data-testid="steal-announcement-text">
+                {stealResolved
+                  ? isStealSuccess
+                    ? t.mainGame.stealSuccessAnnouncement
+                        .replace('{team}', opposingTeamName)
+                        .replace('{points}', String(resolvedPoints))
+                    : t.mainGame.stealFailedAnnouncement
+                        .replace('{team}', controllingTeamName)
+                        .replace('{points}', String(resolvedPoints))
+                  : isBoardCleared
+                  ? `${controllingTeamName} cleared the board! +${resolvedPoints} PTS`
+                  : `${winningTeamName} wins the round! +${resolvedPoints} PTS`}
               </p>
-              <p className="text-base text-slate-300 font-semibold mb-6">
+              <p className="text-xs sm:text-sm text-slate-300 font-semibold mb-2">
                 {t.mainGame.roundWinnerBanner.replace('{team}', winningTeamName)}
               </p>
-              <div
-                className={`px-8 py-3 rounded-full font-black text-2xl shadow-xl ${
-                  isStealSuccess
-                    ? 'bg-emerald-400 text-slate-950'
-                    : 'bg-yellow-400 text-slate-950'
-                }`}
-              >
-                +{resolvedPoints} POINTS
+              <div className="flex flex-wrap items-center justify-center gap-2.5">
+                <div
+                  className={`px-5 py-1 rounded-full font-black text-base sm:text-lg shadow-lg ${
+                    isStealSuccess || isBoardCleared
+                      ? 'bg-emerald-400 text-slate-950'
+                      : 'bg-yellow-400 text-slate-950'
+                  }`}
+                >
+                  +{resolvedPoints} POINTS
+                </div>
+                {roundOverStage === 'REVEALING' && (
+                  <div
+                    data-testid="revealing-unread-indicator"
+                    className="px-4 py-1 rounded-full bg-blue-900/90 border border-blue-400 text-blue-200 font-bold text-xs sm:text-sm animate-pulse flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                    <span>Revealing unread answers...</span>
+                  </div>
+                )}
+                {roundOverStage === 'COUNTDOWN' && !matchOver && (
+                  <div
+                    data-testid="next-round-countdown"
+                    className="px-4 py-1 rounded-full bg-indigo-900/90 border border-indigo-400 text-indigo-100 font-black text-xs sm:text-sm flex items-center gap-1.5 animate-pulse"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-yellow-300" />
+                    <span>Next round in {nextRoundCountdown}s...</span>
+                  </div>
+                )}
               </div>
               {onNextRound && !matchOver && !suddenDeathInitiated && (
                 <button
                   type="button"
                   data-testid="next-round-btn"
-                  onClick={onNextRound}
-                  className="mt-6 inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black text-lg shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  onClick={handleManualNextRound}
+                  className="mt-3 inline-flex items-center gap-2 px-6 py-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black text-sm shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
                 >
-                  <Play className="w-5 h-5 fill-current" />
+                  <Play className="w-4 h-4 fill-current" />
                   <span>{t.mainGame.nextRoundBtn}</span>
                 </button>
               )}

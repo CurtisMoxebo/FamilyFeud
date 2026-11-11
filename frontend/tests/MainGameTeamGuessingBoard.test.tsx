@@ -385,6 +385,10 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       },
     });
 
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+
     // All slots 1, 2, 3, 4 should now be revealed with text and points
     expect(screen.getByTestId('team-board-card-1')).toHaveTextContent('KEYS');
     expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('GLASSES');
@@ -880,5 +884,114 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       'team-board-card-4',
       'team-board-empty-slot-8',
     ]);
+  });
+
+  it('satisfies round over sequence: announces result, reveals unread answers sequentially from smallest to largest points, waits 5 seconds, and advances to next round', () => {
+    const onNextRound = vi.fn();
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 55,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      onNextRound,
+      stealResolved: {
+        roomCode: 'FEUD-9999',
+        success: false,
+        outcome: 'STEAL_FAILED',
+        winningTeam: 'TEAM_1',
+        pointsAwarded: 55,
+        roundBank: 55,
+        stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        remainingAnswers: [
+          { id: 'a2', answerText: 'GLASSES', points: 25, rankOrder: 2 },
+          { id: 'a3', answerText: 'PHONE', points: 20, rankOrder: 3 },
+          { id: 'a4', answerText: 'REMOTE', points: 15, rankOrder: 4 },
+        ],
+        message: 'Steal failed!',
+      },
+    });
+
+    // 1. Result announced via TTS and buzzer
+    expect(tts.speakStealFailed).toHaveBeenCalledWith('Team 1', 55, 'EN');
+    expect(soundEffects.playStrikeBuzzer).toHaveBeenCalledWith(1);
+
+    // Initial state: slot 1 is revealed from baseSnapshot, but unread slots 2, 3, 4 are not yet revealed
+    expect(screen.getByTestId('team-board-card-1')).toHaveTextContent('KEYS');
+    expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('GLASSES');
+    expect(screen.getByTestId('team-board-card-3')).not.toHaveTextContent('PHONE');
+    expect(screen.getByTestId('team-board-card-4')).not.toHaveTextContent('REMOTE');
+
+    // 2. Advance past announcement delay (2200ms) to trigger first unread reveal (SMALLEST points: REMOTE, 15 pts)
+    act(() => {
+      vi.advanceTimersByTime(2200);
+    });
+    expect(screen.getByTestId('team-board-card-4')).toHaveTextContent('REMOTE');
+    expect(screen.getByTestId('team-board-card-4')).toHaveTextContent('15');
+    expect(screen.getByTestId('team-board-card-3')).not.toHaveTextContent('PHONE');
+    expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('GLASSES');
+
+    // 3. Advance 1000ms for second reveal (PHONE, 20 pts)
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByTestId('team-board-card-3')).toHaveTextContent('PHONE');
+    expect(screen.getByTestId('team-board-card-3')).toHaveTextContent('20');
+    expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('GLASSES');
+
+    // 4. Advance 1000ms for third reveal (LARGEST points: GLASSES, 25 pts)
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('GLASSES');
+    expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('25');
+
+    // 5. Advance 800ms to enter 5-second countdown
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(screen.getByTestId('next-round-countdown')).toBeInTheDocument();
+    expect(onNextRound).not.toHaveBeenCalled();
+
+    // 6. Advance 5000ms for countdown to expire -> onNextRound called automatically!
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(onNextRound).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows host to click next-round-btn manually to advance immediately without waiting for countdown', () => {
+    const onNextRound = vi.fn();
+    const stealSnapshot: TeamGuessingSessionState = {
+      ...baseSnapshot,
+      phase: 'STEAL_PHASE',
+      strikes: 3,
+      roundBank: 55,
+    };
+
+    renderComponent({
+      snapshot: stealSnapshot,
+      onNextRound,
+      stealResolved: {
+        roomCode: 'FEUD-9999',
+        success: true,
+        outcome: 'STEAL_SUCCESS',
+        winningTeam: 'TEAM_2',
+        pointsAwarded: 55,
+        roundBank: 55,
+        stealingPlayer: { id: 'p3', nickname: 'Charlie', team: 'TEAM_2', battingOrder: 1 },
+        matchedAnswer: { id: 'a2', answerText: 'GLASSES', points: 25, rankOrder: 2 },
+        remainingAnswers: [],
+        message: 'Steal successful!',
+      },
+    });
+
+    const nextRoundBtn = screen.getByTestId('next-round-btn');
+    expect(nextRoundBtn).toBeInTheDocument();
+    fireEvent.click(nextRoundBtn);
+    expect(onNextRound).toHaveBeenCalledTimes(1);
   });
 });
