@@ -99,27 +99,50 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
     }
   }, [teamGuessSubmitted]);
 
-  // Safety timer for announcement suspense (~2800ms)
+  // Safety timer for announcement suspense (~5000ms)
   useEffect(() => {
     if (!activeAnnouncement) return;
     const timer = setTimeout(() => {
       setActiveAnnouncement(null);
-    }, 2800);
+      if (pendingStrikeAlertRef.current) {
+        const pending = pendingStrikeAlertRef.current;
+        pendingStrikeAlertRef.current = null;
+        setDisplayedStrikes(pending.count);
+        triggerHaptic('strike');
+        setLocalStrikeAlert(pending);
+        const alertTimer = setTimeout(() => {
+          setLocalStrikeAlert(null);
+        }, 2500);
+        return () => clearTimeout(alertTimer);
+      }
+    }, 5000);
     return () => clearTimeout(timer);
   }, [activeAnnouncement]);
 
-  // Dismiss suspense immediately when host finishes reading and sends answerRevealCompleted
+  // Dismiss suspense immediately and reveal strike when host finishes reading and sends answerRevealCompleted
   useEffect(() => {
-    if (answerRevealCompleted && activeAnnouncement) {
+    if (answerRevealCompleted) {
       setActiveAnnouncement(null);
+      if (pendingStrikeAlertRef.current) {
+        const pending = pendingStrikeAlertRef.current;
+        pendingStrikeAlertRef.current = null;
+        setDisplayedStrikes(pending.count);
+        triggerHaptic('strike');
+        setLocalStrikeAlert(pending);
+        const alertTimer = setTimeout(() => {
+          setLocalStrikeAlert(null);
+        }, 2500);
+        return () => clearTimeout(alertTimer);
+      }
     }
-  }, [answerRevealCompleted, activeAnnouncement]);
+  }, [answerRevealCompleted]);
 
   // Flush pending strike alert when announcement suspense ends
   useEffect(() => {
     if (!activeAnnouncement && pendingStrikeAlertRef.current) {
       const pending = pendingStrikeAlertRef.current;
       pendingStrikeAlertRef.current = null;
+      setDisplayedStrikes(pending.count);
       triggerHaptic('strike');
       setLocalStrikeAlert(pending);
       const alertTimer = setTimeout(() => {
@@ -132,18 +155,41 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const formAnchorRef = useRef<HTMLFormElement>(null);
   const lastStrikeTimestamp = useRef<number>(0);
+  const [displayedStrikes, setDisplayedStrikes] = useState<number>(snapshot.strikes);
   const prevStrikesRef = useRef<number>(snapshot.strikes);
   const prevRevealedCountRef = useRef<number>(snapshot.revealedAnswers.length);
   const handledResolutionRef = useRef<string | null>(null);
   const { isKeyboardOpen, keepElementVisible } = useVirtualKeyboard();
 
-  // Dismiss mobile strike alert immediately if strike is retracted by Host Override (US-21 Scenario 2)
+  // Dismiss mobile strike alert & sync displayed strikes if strike is retracted by Host Override (US-21 Scenario 2)
   useEffect(() => {
     if (snapshot.strikes < prevStrikesRef.current) {
       setLocalStrikeAlert(null);
+      setDisplayedStrikes(snapshot.strikes);
+      prevStrikesRef.current = snapshot.strikes;
+      return;
+    }
+    // If a wrong answer strike is being announced, hold off displayed strikes until announcement completes
+    const isAnnouncingStrike = Boolean(
+      (activeAnnouncement || teamGuessSubmitted?.rawAnswer) &&
+      strikeIssued &&
+      !strikeIssued.isTimeout &&
+      !strikeIssued.isPass &&
+      displayedStrikes < strikeIssued.strikeCount
+    );
+    if (isAnnouncingStrike) {
+      prevStrikesRef.current = snapshot.strikes;
+      return;
+    }
+    if (
+      !pendingStrikeAlertRef.current &&
+      !activeAnnouncement &&
+      snapshot.strikes !== displayedStrikes
+    ) {
+      setDisplayedStrikes(snapshot.strikes);
     }
     prevStrikesRef.current = snapshot.strikes;
-  }, [snapshot.strikes]);
+  }, [snapshot.strikes, strikeIssued, displayedStrikes, activeAnnouncement, teamGuessSubmitted?.rawAnswer]);
 
   // Authoritative remaining seconds
   const currentSeconds =
@@ -221,9 +267,20 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
             : t.mainGame.notOnBoard,
         };
 
-        if (activeAnnouncement) {
+        const isWrongAnswerSubmitted = Boolean(
+          strikeIssued.rawAnswer && !strikeIssued.isTimeout && !strikeIssued.isPass
+        );
+
+        if (isWrongAnswerSubmitted && (activeAnnouncement || teamGuessSubmitted?.rawAnswer)) {
           pendingStrikeAlertRef.current = alertData;
+          if (!activeAnnouncement && strikeIssued.rawAnswer) {
+            setActiveAnnouncement({
+              player: strikeIssued.player?.nickname || teamGuessSubmitted?.playerNickname || 'Teammate',
+              answer: strikeIssued.rawAnswer,
+            });
+          }
         } else {
+          setDisplayedStrikes(strikeIssued.strikeCount);
           triggerHaptic('strike');
           setLocalStrikeAlert(alertData);
           const alertTimer = setTimeout(() => {
@@ -233,7 +290,14 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
         }
       }
     }
-  }, [strikeIssued, activeAnnouncement, t.mainGame.duplicateAnswerWarning, t.mainGame.notOnBoard]);
+  }, [
+    strikeIssued,
+    activeAnnouncement,
+    teamGuessSubmitted?.rawAnswer,
+    teamGuessSubmitted?.playerNickname,
+    t.mainGame.duplicateAnswerWarning,
+    t.mainGame.notOnBoard,
+  ]);
 
   // US-22: Celebratory haptic feedback on answer reveal, board clear, or steal resolution
   useEffect(() => {
@@ -445,7 +509,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
           </span>
           <div className="flex items-center gap-1.5">
             {[1, 2, 3].map((strikeNum) => {
-              const hasStrike = snapshot.strikes >= strikeNum;
+              const hasStrike = displayedStrikes >= strikeNum;
               return (
                 <div
                   key={strikeNum}
@@ -860,7 +924,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
       )}
 
       {/* Steal Phase Transition Banner (Non-spokespersons when bottom form is absent) */}
-      {!isSpokesperson && isStealPhase && (
+      {!isSpokesperson && isStealPhase && !activeAnnouncement && !pendingStrikeAlertRef.current && (
         <div
           data-testid="mobile-steal-phase-banner"
           className="mt-auto p-4 rounded-2xl bg-gradient-to-r from-red-950/90 via-purple-950/90 to-red-950/90 border-2 border-red-500 shadow-xl flex items-center justify-between animate-pulse"
