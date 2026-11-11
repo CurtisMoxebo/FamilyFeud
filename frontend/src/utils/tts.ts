@@ -434,3 +434,34 @@ export function speakPlayerAnswerSurveySaid(
   const phrase = getPlayerSaidSurveySaidPhrase(player, answer, language);
   speakQuestion(phrase, language, onComplete);
 }
+
+export const REVEAL_ANSWER_PHRASES: Record<string, (rankOrder: number, answerText: string) => string> = {
+  EN: (rankOrder: number, answerText: string) => `Number ${rankOrder}, ${answerText}`,
+  FR: (rankOrder: number, answerText: string) => `Numéro ${rankOrder}, ${answerText}`,
+  ES: (rankOrder: number, answerText: string) => `Número ${rankOrder}, ${answerText}`,
+};
+
+export function getRevealAnswerPhrase(
+  rankOrder: number,
+  answerText: string,
+  language: string = 'EN'
+): string {
+  const norm = language.toUpperCase();
+  const fn = REVEAL_ANSWER_PHRASES[norm] || REVEAL_ANSWER_PHRASES.EN;
+  return fn(rankOrder, answerText);
+}
+
+/**
+ * Host Speech Synthesis for End-of-Round Unrevealed Answer Reveal
+ * Vocalizes: "Number {rankOrder}, {answerText}" (e.g. "Number 5, REMOTE")
+ * and notifies caller on completion.
+ */
+export function speakRevealAnswer(
+  rankOrder: number,
+  answerText: string,
+  language: string = 'EN',
+  onComplete?: () => void
+): void {
+  const phrase = getRevealAnswerPhrase(rankOrder, answerText, language);
+  speakQuestion(phrase, language, onComplete);
+}

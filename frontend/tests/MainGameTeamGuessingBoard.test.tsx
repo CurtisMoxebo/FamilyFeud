@@ -26,7 +26,11 @@ vi.mock('../src/utils/tts', () => ({
   speakStealPhase: vi.fn(),
   speakStealSuccess: vi.fn(),
   speakStealFailed: vi.fn(),
+  speakRoundWinner: vi.fn(),
   speakPlayerAnswerSurveySaid: vi.fn((_player, _answer, _lang, onComplete) => {
+    onComplete?.();
+  }),
+  speakRevealAnswer: vi.fn((_rank, _text, _lang, onComplete) => {
     onComplete?.();
   }),
   cancelSpeech: vi.fn(),
@@ -975,6 +979,7 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
     expect(screen.getByTestId('team-board-card-4')).toHaveTextContent('15');
     expect(screen.getByTestId('team-board-card-3')).not.toHaveTextContent('PHONE');
     expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('GLASSES');
+    expect(tts.speakRevealAnswer).toHaveBeenNthCalledWith(1, 4, 'REMOTE', 'EN', expect.any(Function));
 
     // 3. Advance 1000ms for second reveal (PHONE, 20 pts)
     act(() => {
@@ -983,6 +988,7 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
     expect(screen.getByTestId('team-board-card-3')).toHaveTextContent('PHONE');
     expect(screen.getByTestId('team-board-card-3')).toHaveTextContent('20');
     expect(screen.getByTestId('team-board-card-2')).not.toHaveTextContent('GLASSES');
+    expect(tts.speakRevealAnswer).toHaveBeenNthCalledWith(2, 3, 'PHONE', 'EN', expect.any(Function));
 
     // 4. Advance 1000ms for third reveal (LARGEST points: GLASSES, 25 pts)
     act(() => {
@@ -990,6 +996,7 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
     });
     expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('GLASSES');
     expect(screen.getByTestId('team-board-card-2')).toHaveTextContent('25');
+    expect(tts.speakRevealAnswer).toHaveBeenNthCalledWith(3, 2, 'GLASSES', 'EN', expect.any(Function));
 
     // 5. Advance 800ms to enter 5-second countdown
     act(() => {

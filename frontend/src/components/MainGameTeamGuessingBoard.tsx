@@ -33,6 +33,7 @@ import {
   speakStealFailed,
   speakRoundWinner,
   speakPlayerAnswerSurveySaid,
+  speakRevealAnswer,
   cancelSpeech,
   isTtsMuted,
   setTtsMuted,
@@ -547,7 +548,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
           candidateList.push(a);
         }
       });
-    } else if (snapshot.question.answers && snapshot.question.answers.length > 0) {
+    }
+    if (snapshot.question.answers && snapshot.question.answers.length > 0) {
       snapshot.question.answers.forEach((a) => {
         if (!alreadyRevealedRanks.has(a.rankOrder)) {
           candidateList.push(a);
@@ -594,6 +596,14 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     }
   }, [currentRoundKey]);
 
+  useEffect(() => {
+    return () => {
+      if (announcementTimerRef.current) clearTimeout(announcementTimerRef.current);
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, []);
+
   // Start 5-second countdown to next round
   const startNextRoundCountdown = useCallback(() => {
     setRoundOverStage('COUNTDOWN');
@@ -635,18 +645,36 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         setRevealedRemainingRanks((prev) => new Set([...prev, nextAns.rankOrder]));
         playPointsChime();
         idx += 1;
-        if (idx < unread.length) {
-          revealTimerRef.current = setTimeout(revealStep, 1000);
+
+        let hasMovedNext = false;
+        const onDone = () => {
+          if (hasMovedNext) return;
+          hasMovedNext = true;
+          if (revealTimerRef.current) {
+            clearTimeout(revealTimerRef.current);
+            revealTimerRef.current = null;
+          }
+          if (idx < unread.length) {
+            revealTimerRef.current = setTimeout(revealStep, 1000);
+          } else {
+            revealTimerRef.current = setTimeout(() => {
+              startNextRoundCountdown();
+            }, 800);
+          }
+        };
+
+        if (audioEnabled) {
+          speakRevealAnswer(nextAns.rankOrder, nextAns.answerText, language, onDone);
+          // Safety timeout in case TTS speech is delayed or doesn't fire onend
+          revealTimerRef.current = setTimeout(onDone, 3500);
         } else {
-          revealTimerRef.current = setTimeout(() => {
-            startNextRoundCountdown();
-          }, 800);
+          revealTimerRef.current = setTimeout(onDone, 1000);
         }
       }
     };
 
     revealStep();
-  }, [getUnreadAnswers, startNextRoundCountdown]);
+  }, [getUnreadAnswers, startNextRoundCountdown, audioEnabled, language]);
 
   // Round over orchestration: Announce result -> Reveal unread answers -> 5s Countdown -> Next Round
   useEffect(() => {
@@ -686,7 +714,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
         if (audioEnabled) { cancelSpeech(); }
         speakBoardCleared(controllingTeamName, language);
       }
-    } else if (roundWinner) {
+    } else if (roundWinner || (snapshot.phase === 'RESOLVED' && snapshot.winningTeam)) {
       playVictoryFanfare();
       if (audioEnabled) { cancelSpeech(); }
       speakRoundWinner(winningTeamName, resolvedPoints, language);
@@ -706,6 +734,8 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     winningTeamName,
     resolvedPoints,
     snapshot.roundBank,
+    snapshot.phase,
+    snapshot.winningTeam,
     language,
     audioEnabled,
     startUnreadReveals,
@@ -715,6 +745,7 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
     if (announcementTimerRef.current) clearTimeout(announcementTimerRef.current);
     if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    cancelSpeech();
     setRoundOverStage('COMPLETED');
     if (onNextRound) {
       onNextRound();
