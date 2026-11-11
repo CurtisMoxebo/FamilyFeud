@@ -198,6 +198,7 @@ export const es: TranslationDictionary = {
     passBtn: 'PASAR',
     canYouBeat: '¿Puedes superar a {answer} ({points} pts)?',
     opponentChance: '¡El adversario falló! ¡Cualquier respuesta válida en el tablero gana el Cara a Cara!',
+    youMissedChance: '¡Fallaste! ¡Cualquier respuesta válida en el tablero gana el Cara a Cara!',
     numberOneAnswerFound: '¡RESPUESTA N.° 1!',
     teamChosePlay: '¡El equipo {team} ha elegido JUGAR!',
     controlPassesTo: '¡El control pasa al equipo {team}!',

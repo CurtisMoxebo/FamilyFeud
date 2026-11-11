@@ -23,10 +23,12 @@ vi.mock('../src/utils/soundEffects', () => ({
   playCorrectDing: vi.fn(),
   playDing: vi.fn(),
   playPointsChime: vi.fn(),
+  playStrikeBuzzer: vi.fn(),
   sfx: {
     playBuzzerHit: vi.fn(),
-  playFaceOffBuzzer: vi.fn(),
-  playCorrectDing: vi.fn(),
+    playFaceOffBuzzer: vi.fn(),
+    playCorrectDing: vi.fn(),
+    playStrikeBuzzer: vi.fn(),
   },
 }));
 
@@ -221,7 +223,7 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     expect(secondsEl.className).toContain('text-red-400');
   });
 
-  it('satisfies Scenario 3: displays hand-off notice when timeout occurs', () => {
+  it('satisfies timeout: displays giant strike X overlay and does not display removed hand-off banner', () => {
     renderBoard({
       timeoutResult: {
         roomCode: 'FEUD-TEST',
@@ -235,9 +237,38 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
       },
     });
 
-    const banner = screen.getByTestId('face-off-timeout-banner');
-    expect(banner).toBeInTheDocument();
-    expect(banner).toHaveTextContent("Time's up! Turn passed to Bob");
+    // Removed "Time's up! Turn passed to Bob" banner is not present
+    expect(screen.queryByTestId('face-off-timeout-banner')).not.toBeInTheDocument();
+
+    // Giant strike X overlay is displayed on timeout
+    const overlay = screen.getByTestId('giant-strike-overlay');
+    expect(overlay).toBeInTheDocument();
+    expect(overlay).toHaveTextContent('X');
+    expect(overlay).toHaveTextContent("TIME'S UP!");
+  });
+
+  it('guarantees board giant strike X overlay auto-dismisses after 2000ms', () => {
+    vi.useFakeTimers();
+
+    renderBoard({
+      timeoutResult: {
+        roomCode: 'FEUD-TEST',
+        type: 'HAND_OFF',
+        timedOutPlayerId: 'p1',
+        timedOutPlayerNickname: 'Alice',
+        timedOutPlayerTeam: 'TEAM_1',
+      },
+    });
+
+    expect(screen.getByTestId('giant-strike-overlay')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2100);
+    });
+
+    expect(screen.queryByTestId('giant-strike-overlay')).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 
   it('satisfies Scenario 5: displays deadlock reset alert and flips all survey answers open on the board', () => {
@@ -786,5 +817,126 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
     const p2Podium = screen.getByTestId('face-off-podium-team2');
     expect(p1Podium.className).not.toContain('border-red-500');
     expect(p2Podium.className).not.toContain('border-red-500');
+  });
+
+  it('hides "{player name} buzzed first!" section completely once initial buzzer winner answers, regardless of outcome', () => {
+    // 1. Initial answering phase - before answer: badge IS shown
+    const { unmount } = renderBoard({
+      snapshot: {
+        ...baseSnapshot,
+        phase: 'ANSWERING',
+        buzzerLocked: true,
+        buzzedPlayerId: 'p1',
+        activeRespondentId: 'p1',
+      },
+    });
+    expect(screen.getByTestId('c1-winner-badge')).toHaveTextContent('Alice buzzed first!');
+    unmount();
+
+    // 2. After answering with non-#1 answer / opponent turn: badge MUST NEVER appear
+    const opponentGuessSnapshot: FaceOffSessionState = {
+      ...baseSnapshot,
+      phase: 'OPPONENT_GUESS',
+      buzzerLocked: true,
+      buzzedPlayerId: 'p1',
+      activeRespondentId: 'p2',
+      firstGuessResult: {
+        playerId: 'p1',
+        playerNickname: 'Alice',
+        playerTeam: 'TEAM_1',
+        rawAnswer: 'KEYS',
+        isMatched: true,
+        points: 25,
+        rankOrder: 2,
+        isNumberOneAnswer: false,
+      },
+    };
+    renderBoard({ snapshot: opponentGuessSnapshot });
+    expect(screen.queryByTestId('c1-winner-badge')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('c2-winner-badge')).not.toBeInTheDocument();
+  });
+
+  it('shows the answering player on the answering team, and either the non-buzzer contender or previously answered player on the other team', () => {
+    const multiPlayerBase: FaceOffSessionState = {
+      ...baseSnapshot,
+      team1Players: [
+        { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+        { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2 },
+      ],
+      team2Players: [
+        { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 },
+        { id: 'p4', nickname: 'David', team: 'TEAM_2', battingOrder: 2 },
+      ],
+    };
+
+    // Stage 1: Alice buzzes first and is answering (Team 1 answering, Team 2 hasn't answered yet)
+    const { unmount: u1 } = renderBoard({
+      snapshot: {
+        ...multiPlayerBase,
+        phase: 'ANSWERING',
+        buzzerLocked: true,
+        buzzedPlayerId: 'p1',
+        activeRespondentId: 'p1',
+      },
+    });
+    expect(screen.getByTestId('c1-nickname')).toHaveTextContent('Alice');
+    expect(screen.getByTestId('c2-nickname')).toHaveTextContent('Bob'); // Didn't buzz first
+    u1();
+
+    // Stage 2: Floor passes to Bob (Team 2 answering, Team 1 previously answered Alice)
+    const { unmount: u2 } = renderBoard({
+      snapshot: {
+        ...multiPlayerBase,
+        phase: 'OPPONENT_GUESS',
+        buzzerLocked: true,
+        buzzedPlayerId: 'p1',
+        activeRespondentId: 'p2',
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: '',
+          isMatched: false,
+          points: 0,
+          isNumberOneAnswer: false,
+        },
+        lastAnsweredPlayerTeam1: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+      },
+    });
+    expect(screen.getByTestId('c2-nickname')).toHaveTextContent('Bob'); // Answering
+    expect(screen.getByTestId('c1-nickname')).toHaveTextContent('Alice'); // Previously answered
+    u2();
+
+    // Stage 3: Multi-turn rotation - Charlie (Team 1, batting order 2) is answering, Bob previously answered for Team 2
+    const { unmount: u3 } = renderBoard({
+      snapshot: {
+        ...multiPlayerBase,
+        phase: 'ANSWERING',
+        buzzerLocked: true,
+        buzzedPlayerId: null,
+        activeRespondentId: 'p3',
+        attemptedPlayerIds: ['p1', 'p2', 'p3'],
+        lastAnsweredPlayerTeam1: { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1 },
+        lastAnsweredPlayerTeam2: { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 },
+      },
+    });
+    expect(screen.getByTestId('c1-nickname')).toHaveTextContent('Charlie'); // Answering for Team 1
+    expect(screen.getByTestId('c2-nickname')).toHaveTextContent('Bob'); // Previously answered from Team 2
+    u3();
+
+    // Stage 4: Floor passes to David (Team 2, batting order 2), Charlie previously answered for Team 1
+    renderBoard({
+      snapshot: {
+        ...multiPlayerBase,
+        phase: 'OPPONENT_GUESS',
+        buzzerLocked: true,
+        activeRespondentId: 'p4',
+        attemptedPlayerIds: ['p1', 'p2', 'p3', 'p4'],
+        lastAnsweredPlayerTeam1: { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2 },
+        lastAnsweredPlayerTeam2: { id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1 },
+      },
+    });
+    expect(screen.getByTestId('c2-nickname')).toHaveTextContent('David'); // Answering for Team 2
+    expect(screen.getByTestId('c1-nickname')).toHaveTextContent('Charlie'); // Previously answered from Team 1
   });
 });

@@ -559,6 +559,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             buzzerLocked={buzzerLocked}
             buzzerRejected={buzzerRejected}
             timeoutResult={faceOffTimeout}
+            strikeIssued={strikeIssued}
             promptPassPlay={promptPassPlay}
             roundControlAssigned={roundControlAssigned}
             opponentTurnPrompt={opponentTurnPrompt}

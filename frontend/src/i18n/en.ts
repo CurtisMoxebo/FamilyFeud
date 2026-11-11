@@ -198,6 +198,7 @@ export const en: TranslationDictionary = {
     passBtn: 'PASS',
     canYouBeat: 'Can you beat {answer} ({points} pts)?',
     opponentChance: '{contender} missed! Any valid answer on the board wins the Face-Off!',
+    youMissedChance: 'You missed! Any valid answer on the board wins the Face-Off!',
     numberOneAnswerFound: '#1 ANSWER!',
     teamChosePlay: 'Team {team} has chosen to PLAY!',
     controlPassesTo: 'Control passes to Team {team}!',

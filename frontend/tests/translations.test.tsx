@@ -344,6 +344,16 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       expect(translations.ES.mainGame.timeUpHandOff.replace('{next}', 'David')).toBe(
         '¡Tiempo agotado! Turno para David'
       );
+
+      expect(translations.EN.mainGame.youMissedChance).toBe(
+        'You missed! Any valid answer on the board wins the Face-Off!'
+      );
+      expect(translations.FR.mainGame.youMissedChance).toBe(
+        'Vous avez manqué ! Toute réponse valide sur le tableau remporte le Face-à-face !'
+      );
+      expect(translations.ES.mainGame.youMissedChance).toBe(
+        '¡Fallaste! ¡Cualquier respuesta válida en el tablero gana el Cara a Cara!'
+      );
     });
 
     it('defines US-14 Team Guessing Turn, Board Flips & 3-Strike System dictionary keys and templates for all supported languages', () => {

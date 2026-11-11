@@ -4,12 +4,15 @@ import {
   ScoreboardUpdatePayload,
   FaceOffSessionState,
   FaceOffPhase,
+  FaceOffPlayer,
+  FaceOffContender,
   TimerTickPayload,
   BuzzerLockedPayload,
   FaceOffTimeoutPayload,
   PromptPassPlayPayload,
   RoundControlAssignedPayload,
   OpponentTurnPromptPayload,
+  StrikeIssuedPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useFullscreen } from '../hooks/useFullscreen';
@@ -25,6 +28,7 @@ import {
   playBuzzerHit,
   playCorrectDing,
   playPointsChime,
+  playStrikeBuzzer,
 } from '../utils/soundEffects';
 import {
   Tv,
@@ -52,6 +56,7 @@ export interface MainGameFaceOffBoardProps {
   pausedRemainingSeconds?: number;
   buzzerLocked?: BuzzerLockedPayload | null;
   timeoutResult?: FaceOffTimeoutPayload | null;
+  strikeIssued?: StrikeIssuedPayload | null;
   promptPassPlay?: PromptPassPlayPayload | null;
   roundControlAssigned?: RoundControlAssignedPayload | null;
   opponentTurnPrompt?: OpponentTurnPromptPayload | null;
@@ -78,6 +83,7 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   pausedRemainingSeconds,
   buzzerLocked,
   timeoutResult,
+  strikeIssued,
   promptPassPlay,
   roundControlAssigned,
   opponentTurnPrompt: _opponentTurnPrompt,
@@ -201,32 +207,36 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
 
   const isCurrentContenderBuzzer = Boolean(
     buzzerLocked &&
-      (buzzerLocked.winnerPlayerId === snapshot.team1Contender?.id ||
-        buzzerLocked.winnerPlayerId === snapshot.team2Contender?.id)
+    (buzzerLocked.winnerPlayerId === snapshot.team1Contender?.id ||
+      buzzerLocked.winnerPlayerId === snapshot.team2Contender?.id)
   );
 
   const isBuzzerLocked =
     snapshot.phase !== 'AWAITING_READY' &&
     snapshot.phase !== 'BUZZER_ACTIVE' &&
-    (snapshot.buzzerLocked || isCurrentContenderBuzzer);
+    snapshot.phase !== 'PASS_OR_PLAY' &&
+    snapshot.phase !== 'ROUND_CONTROL_ASSIGNED' &&
+    snapshot.phase !== 'DEADLOCK_RESET' &&
+    snapshot.phase !== 'RESOLVED' &&
+    (snapshot.buzzerLocked || isCurrentContenderBuzzer || snapshot.phase === 'ANSWERING' || snapshot.phase === 'OPPONENT_GUESS');
 
   const activeWinnerId =
     snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE'
       ? null
       : snapshot.winnerPlayerId ||
-        promptPassPlay?.winnerPlayerId ||
-        (isCurrentContenderBuzzer ? buzzerLocked?.winnerPlayerId : null) ||
-        snapshot.buzzedPlayerId ||
-        snapshot.activeRespondentId;
+      promptPassPlay?.winnerPlayerId ||
+      (isCurrentContenderBuzzer ? buzzerLocked?.winnerPlayerId : null) ||
+      snapshot.buzzedPlayerId ||
+      snapshot.activeRespondentId;
 
   const activeWinnerName =
     snapshot.phase === 'AWAITING_READY' || snapshot.phase === 'BUZZER_ACTIVE'
       ? t.mainGame.contender
       : snapshot.winnerNickname ||
-        promptPassPlay?.winnerNickname ||
-        (isCurrentContenderBuzzer ? buzzerLocked?.winnerNickname : null) ||
-        snapshot.buzzedPlayerNickname ||
-        t.mainGame.contender;
+      promptPassPlay?.winnerNickname ||
+      (isCurrentContenderBuzzer ? buzzerLocked?.winnerNickname : null) ||
+      snapshot.buzzedPlayerNickname ||
+      t.mainGame.contender;
 
   const controllingTeam =
     roundControlAssigned?.controllingTeam || snapshot.controllingTeam;
@@ -315,6 +325,66 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   ]);
 
 
+  const [activeStrikeOverlay, setActiveStrikeOverlay] = useState<{
+    count: number;
+    message?: string;
+  } | null>(null);
+
+  const lastBoardStrikeKeyRef = useRef<string>('');
+
+  // Robust auto-dismissal for board strike overlay: guarantees it disappears after 2000ms
+  useEffect(() => {
+    if (!activeStrikeOverlay) return;
+    const timer = setTimeout(() => {
+      setActiveStrikeOverlay(null);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [activeStrikeOverlay]);
+
+  useEffect(() => {
+    if (strikeIssued) {
+      const key = `strike-${strikeIssued.roomCode}-${strikeIssued.team}-${strikeIssued.strikeCount}-${strikeIssued.isTimeout ? 'to' : 'wr'}`;
+      if (lastBoardStrikeKeyRef.current !== key) {
+        lastBoardStrikeKeyRef.current = key;
+        setActiveStrikeOverlay({
+          count: strikeIssued.strikeCount || 1,
+          message: strikeIssued.isTimeout ? "TIME'S UP!" : t.mainGame.notOnBoard,
+        });
+        playStrikeBuzzer(1);
+      }
+    }
+  }, [strikeIssued, t.mainGame.notOnBoard]);
+
+  useEffect(() => {
+    if (timeoutResult) {
+      cancelSpeech();
+      const key = `timeout-${timeoutResult.roomCode}-${timeoutResult.timedOutPlayerId}-${timeoutResult.type}`;
+      if (lastBoardStrikeKeyRef.current !== key) {
+        lastBoardStrikeKeyRef.current = key;
+        setActiveStrikeOverlay({
+          count: 1,
+          message: "TIME'S UP!",
+        });
+        playStrikeBuzzer(1);
+      }
+    }
+  }, [timeoutResult]);
+
+  const prevStrikePhaseRef = useRef<FaceOffPhase>(snapshot.phase);
+  const prevStrikeRoundRef = useRef<number>(snapshot.roundNumber);
+
+  useEffect(() => {
+    if (
+      prevStrikeRoundRef.current !== snapshot.roundNumber ||
+      (prevStrikePhaseRef.current !== 'AWAITING_READY' && snapshot.phase === 'AWAITING_READY')
+    ) {
+      setActiveStrikeOverlay(null);
+      lastBoardStrikeKeyRef.current = '';
+    }
+    prevStrikePhaseRef.current = snapshot.phase;
+    prevStrikeRoundRef.current = snapshot.roundNumber;
+  }, [snapshot.phase, snapshot.roundNumber]);
+
   const contender1 = snapshot.team1Contender;
   const contender2 = snapshot.team2Contender;
 
@@ -357,6 +427,8 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
       defaultContender?: typeof contender1
     ) => {
       if (!guess) return;
+      // Do not announce or speak if player timed out or provided no answer
+      if (!guess.rawAnswer || !guess.rawAnswer.trim()) return;
       const key = `${guess.playerId}-${guess.rawAnswer}`;
       if (announcedGuessesRef.current.has(key)) return;
       announcedGuessesRef.current.add(key);
@@ -407,11 +479,151 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
     roomCode,
   ]);
 
-  const isC1Winner = activeWinnerId === contender1?.id;
-  const isC2Winner = activeWinnerId === contender2?.id;
+  // Track previous answerers for each team during multi-turn rotations
+  const [lastAnsweredT1, setLastAnsweredT1] = useState<FaceOffPlayer | null>(null);
+  const [lastAnsweredT2, setLastAnsweredT2] = useState<FaceOffPlayer | null>(null);
 
-  const isC1LockedOut = isBuzzerLocked && !isC1Winner;
-  const isC2LockedOut = isBuzzerLocked && !isC2Winner;
+  useEffect(() => {
+    if (snapshot.phase === 'AWAITING_READY') {
+      setLastAnsweredT1(null);
+      setLastAnsweredT2(null);
+      return;
+    }
+    if (snapshot.lastAnsweredPlayerTeam1) {
+      setLastAnsweredT1(snapshot.lastAnsweredPlayerTeam1);
+    }
+    if (snapshot.lastAnsweredPlayerTeam2) {
+      setLastAnsweredT2(snapshot.lastAnsweredPlayerTeam2);
+    }
+  }, [
+    snapshot.phase,
+    snapshot.roundNumber,
+    snapshot.lastAnsweredPlayerTeam1,
+    snapshot.lastAnsweredPlayerTeam2,
+  ]);
+
+  useEffect(() => {
+    if (timeoutResult) {
+      if (timeoutResult.timedOutPlayerTeam === 'TEAM_1') {
+        const p = snapshot.team1Players?.find((x) => x.id === timeoutResult.timedOutPlayerId) || {
+          id: timeoutResult.timedOutPlayerId,
+          nickname: timeoutResult.timedOutPlayerNickname,
+          team: 'TEAM_1' as const,
+          battingOrder: 1,
+        };
+        setLastAnsweredT1(p);
+      } else if (timeoutResult.timedOutPlayerTeam === 'TEAM_2') {
+        const p = snapshot.team2Players?.find((x) => x.id === timeoutResult.timedOutPlayerId) || {
+          id: timeoutResult.timedOutPlayerId,
+          nickname: timeoutResult.timedOutPlayerNickname,
+          team: 'TEAM_2' as const,
+          battingOrder: 1,
+        };
+        setLastAnsweredT2(p);
+      }
+    }
+  }, [timeoutResult, snapshot.team1Players, snapshot.team2Players]);
+
+  useEffect(() => {
+    if (snapshot.firstGuessResult) {
+      const p = (snapshot.firstGuessResult.playerTeam === 'TEAM_1' ? snapshot.team1Players : snapshot.team2Players)
+        ?.find((x) => x.id === snapshot.firstGuessResult?.playerId);
+      if (snapshot.firstGuessResult.playerTeam === 'TEAM_1') {
+        setLastAnsweredT1(p || {
+          id: snapshot.firstGuessResult.playerId,
+          nickname: snapshot.firstGuessResult.playerNickname,
+          team: 'TEAM_1',
+          battingOrder: 1,
+        });
+      } else if (snapshot.firstGuessResult.playerTeam === 'TEAM_2') {
+        setLastAnsweredT2(p || {
+          id: snapshot.firstGuessResult.playerId,
+          nickname: snapshot.firstGuessResult.playerNickname,
+          team: 'TEAM_2',
+          battingOrder: 1,
+        });
+      }
+    }
+    if (snapshot.secondGuessResult) {
+      const p = (snapshot.secondGuessResult.playerTeam === 'TEAM_1' ? snapshot.team1Players : snapshot.team2Players)
+        ?.find((x) => x.id === snapshot.secondGuessResult?.playerId);
+      if (snapshot.secondGuessResult.playerTeam === 'TEAM_1') {
+        setLastAnsweredT1(p || {
+          id: snapshot.secondGuessResult.playerId,
+          nickname: snapshot.secondGuessResult.playerNickname,
+          team: 'TEAM_1',
+          battingOrder: 1,
+        });
+      } else if (snapshot.secondGuessResult.playerTeam === 'TEAM_2') {
+        setLastAnsweredT2(p || {
+          id: snapshot.secondGuessResult.playerId,
+          nickname: snapshot.secondGuessResult.playerNickname,
+          team: 'TEAM_2',
+          battingOrder: 1,
+        });
+      }
+    }
+  }, [snapshot.firstGuessResult, snapshot.secondGuessResult, snapshot.team1Players, snapshot.team2Players]);
+
+  const activeRespondentPlayer =
+    snapshot.team1Players?.find((p) => p.id === snapshot.activeRespondentId) ||
+    snapshot.team2Players?.find((p) => p.id === snapshot.activeRespondentId) ||
+    (snapshot.activeRespondentId === contender1?.id ? contender1 : null) ||
+    (snapshot.activeRespondentId === contender2?.id ? contender2 : null);
+
+  const activeTeam =
+    activeRespondentPlayer?.team ||
+    (snapshot.activeRespondentId === contender1?.id
+      ? 'TEAM_1'
+      : snapshot.activeRespondentId === contender2?.id
+        ? 'TEAM_2'
+        : (snapshot.buzzedPlayerTeam || (activeWinnerId === contender1?.id ? 'TEAM_1' : activeWinnerId === contender2?.id ? 'TEAM_2' : null)));
+
+  const isT1Active = isBuzzerLocked && (activeTeam === 'TEAM_1' || activeWinnerId === contender1?.id);
+  const isT2Active = isBuzzerLocked && (activeTeam === 'TEAM_2' || activeWinnerId === contender2?.id);
+
+  // Requirement: Once the player who buzzed first answers, {{player name} buzzed first!} must never appear again
+  const hasInitialBuzzerAnswered = Boolean(
+    snapshot.firstGuessResult ||
+    snapshot.secondGuessResult ||
+    snapshot.phase === 'OPPONENT_GUESS' ||
+    snapshot.phase === 'PASS_OR_PLAY' ||
+    snapshot.phase === 'ROUND_CONTROL_ASSIGNED' ||
+    snapshot.phase === 'DEADLOCK_RESET' ||
+    snapshot.phase === 'RESOLVED' ||
+    (snapshot.phase === 'ANSWERING' && snapshot.attemptedPlayerIds && snapshot.attemptedPlayerIds.length > 1) ||
+    surveySaidAnnouncement ||
+    (snapshot.revealedAnswers && snapshot.revealedAnswers.length > 0)
+  );
+
+  const isC1Winner = isT1Active;
+  const isC2Winner = isT2Active;
+
+  const isC1LockedOut = isBuzzerLocked && !isT1Active && !hasInitialBuzzerAnswered;
+  const isC2LockedOut = isBuzzerLocked && !isT2Active && !hasInitialBuzzerAnswered;
+
+  // Requirement: Host screen should always show the name of the person who is answering for the answering team,
+  // and either the name of the person who didn't buzz first or who previously answered from the other team.
+  const isFaceOffAnswering =
+    snapshot.phase === 'ANSWERING' ||
+    snapshot.phase === 'OPPONENT_GUESS' ||
+    isBuzzerLocked;
+
+  let displayedPlayer1: FaceOffPlayer | FaceOffContender | null = contender1;
+  let displayedPlayer2: FaceOffPlayer | FaceOffContender | null = contender2;
+
+  if (isFaceOffAnswering) {
+    if (activeTeam === 'TEAM_1') {
+      displayedPlayer1 = activeRespondentPlayer || contender1;
+      displayedPlayer2 = snapshot.lastAnsweredPlayerTeam2 || lastAnsweredT2 || contender2;
+    } else if (activeTeam === 'TEAM_2') {
+      displayedPlayer2 = activeRespondentPlayer || contender2;
+      displayedPlayer1 = snapshot.lastAnsweredPlayerTeam1 || lastAnsweredT1 || contender1;
+    }
+  } else if (snapshot.phase === 'PASS_OR_PLAY' || snapshot.phase === 'ROUND_CONTROL_ASSIGNED') {
+    displayedPlayer1 = snapshot.lastAnsweredPlayerTeam1 || lastAnsweredT1 || contender1;
+    displayedPlayer2 = snapshot.lastAnsweredPlayerTeam2 || lastAnsweredT2 || contender2;
+  }
 
   const showDeadlockBoard =
     snapshot.phase === 'DEADLOCK_RESET' || timeoutResult?.type === 'DEADLOCK_RESET';
@@ -448,19 +660,19 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             : 'bg-slate-900/80 border-blue-500/40'
           }`}
       >
-        {/* Winner Banner */}
-        {isC1Winner && (
+        {/* Winner Banner: ONLY shown before the initial buzzer winner answers! */}
+        {isC1Winner && !hasInitialBuzzerAnswered && (
           <div
             data-testid="c1-winner-badge"
             className="absolute -top-3 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse"
           >
             <Award className="w-3.5 h-3.5" />
-            <span>{t.mainGame.buzzerWinner.replace('{name}', contender1?.nickname || '')}</span>
+            <span>{t.mainGame.buzzerWinner.replace('{name}', displayedPlayer1?.nickname || contender1?.nickname || '')}</span>
           </div>
         )}
 
         {/* Locked Out Overlay */}
-        {isC1LockedOut && (
+        {isC1LockedOut && !hasInitialBuzzerAnswered && (
           <div
             data-testid="c1-lockout-badge"
             className="absolute -top-3 px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1"
@@ -471,14 +683,14 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         )}
 
         <span className="text-[10px] font-extrabold uppercase text-blue-400 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 mb-2">
-          {t.mainGame.team1} &bull; {t.mainGame.battingOrder.replace('{order}', String(contender1?.battingOrder || 1))}
+          {t.mainGame.team1} &bull; {t.mainGame.battingOrder.replace('{order}', String(displayedPlayer1?.battingOrder || 1))}
         </span>
 
         <h3
           data-testid="c1-nickname"
           className="text-lg sm:text-2xl font-black text-white tracking-wide"
         >
-          {contender1?.nickname}
+          {displayedPlayer1?.nickname}
         </h3>
 
         {/* Readiness State */}
@@ -577,19 +789,19 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             : 'bg-slate-900/80 border-purple-500/40'
           }`}
       >
-        {/* Winner Banner */}
-        {isC2Winner && (
+        {/* Winner Banner: ONLY shown before the initial buzzer winner answers! */}
+        {isC2Winner && !hasInitialBuzzerAnswered && (
           <div
             data-testid="c2-winner-badge"
             className="absolute -top-3 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-feud-gold text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse"
           >
             <Award className="w-3.5 h-3.5" />
-            <span>{t.mainGame.buzzerWinner.replace('{name}', contender2?.nickname || '')}</span>
+            <span>{t.mainGame.buzzerWinner.replace('{name}', displayedPlayer2?.nickname || contender2?.nickname || '')}</span>
           </div>
         )}
 
         {/* Locked Out Overlay */}
-        {isC2LockedOut && (
+        {isC2LockedOut && !hasInitialBuzzerAnswered && (
           <div
             data-testid="c2-lockout-badge"
             className="absolute -top-3 px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1"
@@ -600,14 +812,14 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         )}
 
         <span className="text-[10px] font-extrabold uppercase text-purple-400 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/30 mb-2">
-          {t.mainGame.team2} &bull; {t.mainGame.battingOrder.replace('{order}', String(contender2?.battingOrder || 1))}
+          {t.mainGame.team2} &bull; {t.mainGame.battingOrder.replace('{order}', String(displayedPlayer2?.battingOrder || 1))}
         </span>
 
         <h3
           data-testid="c2-nickname"
           className="text-lg sm:text-2xl font-black text-white tracking-wide"
         >
-          {contender2?.nickname}
+          {displayedPlayer2?.nickname}
         </h3>
 
         {/* Readiness State */}
@@ -751,31 +963,16 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
         />
       </div>
 
-      {/* Timeout / Hand-off / Deadlock Alerts */}
-      {timeoutResult && (
+      {/* Deadlock Reset Alert */}
+      {timeoutResult && timeoutResult.type === 'DEADLOCK_RESET' && (
         <div
           data-testid="face-off-timeout-banner"
-          className={`w-full p-4 rounded-2xl text-center font-bold text-sm sm:text-base border transition-all animate-bounce ${timeoutResult.type === 'DEADLOCK_RESET'
-            ? 'bg-red-950/80 border-red-500/80 text-red-200'
-            : 'bg-amber-950/80 border-amber-500/80 text-amber-200'
-            }`}
+          className="w-full p-4 rounded-2xl text-center font-bold text-sm sm:text-base border transition-all animate-bounce bg-red-950/80 border-red-500/80 text-red-200"
         >
-          {timeoutResult.type === 'DEADLOCK_RESET' ? (
-            <div className="flex items-center justify-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
-              <span>{t.mainGame.deadlockReset}</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2">
-              <Clock className="w-5 h-5 text-amber-400" />
-              <span>
-                {t.mainGame.timeUpHandOff.replace(
-                  '{next}',
-                  timeoutResult.nextPlayerNickname || 'Opponent'
-                )}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-400" />
+            <span>{t.mainGame.deadlockReset}</span>
+          </div>
         </div>
       )}
 
@@ -1080,6 +1277,30 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {/* Full-Screen Giant Strike Overlay Animation on Timeout / Wrong Answer */}
+      {activeStrikeOverlay && (
+        <div
+          data-testid="giant-strike-overlay"
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-scale-up select-none pointer-events-none"
+        >
+          <div className="flex items-center justify-center gap-4 md:gap-8 mb-4">
+            {Array.from({ length: activeStrikeOverlay.count }).map((_, i) => (
+              <span
+                key={i}
+                className="text-8xl md:text-[14rem] font-black text-red-500 leading-none drop-shadow-[0_0_50px_rgba(239,68,68,0.9)] animate-pulse"
+              >
+                X
+              </span>
+            ))}
+          </div>
+          {activeStrikeOverlay.message && (
+            <div className="px-6 py-2 rounded-full bg-red-600/40 border border-red-500 text-white font-extrabold text-xl md:text-2xl uppercase tracking-wider shadow-lg">
+              {activeStrikeOverlay.message}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

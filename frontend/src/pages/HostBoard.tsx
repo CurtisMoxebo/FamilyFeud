@@ -695,6 +695,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           pausedRemainingSeconds={pausedRemainingSeconds}
           buzzerLocked={buzzerLocked}
           timeoutResult={faceOffTimeout}
+          strikeIssued={strikeIssued}
           scoreboardState={scoreboardState}
           language={room.language}
           roomName={room.roomName}

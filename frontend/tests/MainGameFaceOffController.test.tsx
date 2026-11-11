@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { MainGameFaceOffController } from '../src/components/MainGameFaceOffController';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
@@ -167,6 +167,8 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
 
     expect(handleSubmitAnswer).toHaveBeenCalledWith('Traffic jam');
     expect(screen.getByTestId('controller-submitted-card')).toHaveTextContent('Traffic jam');
+    // Once player answers, {player name} buzzed first! is never shown again
+    expect(screen.queryByTestId('controller-winner-banner')).not.toBeInTheDocument();
   });
 
   it('satisfies Scenario 2: opponent displays locked out card with red lockout badge', () => {
@@ -199,41 +201,105 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
     expect(screen.queryByTestId('face-off-answer-input')).not.toBeInTheDocument();
   });
 
-  it('satisfies Scenario 3: hand-off notice displayed and floor cascades to opponent on timeout', () => {
+  it('satisfies Scenario 3: hand-off occurs without removed banner, Bob gets to type, and Alice receives mobile strike X overlay', () => {
     const handoffSnapshot: FaceOffSessionState = {
       ...baseSnapshot,
-      phase: 'ANSWERING',
+      phase: 'OPPONENT_GUESS',
       buzzerLocked: true,
       buzzedPlayerId: 'p1',
       activeRespondentId: 'p2', // Cascaded to Bob
       remainingSeconds: 15,
+      firstGuessResult: {
+        playerId: 'p1',
+        playerNickname: 'Alice',
+        playerTeam: 'TEAM_1',
+        rawAnswer: '',
+        isMatched: false,
+        points: 0,
+        rankOrder: undefined,
+        isNumberOneAnswer: false,
+      },
     };
 
-    // Render as Bob (cascaded respondent)
-    renderController({
+    const timeoutPayload = {
+      roomCode: 'FEUD-CTRL',
+      type: 'HAND_OFF' as const,
+      timedOutPlayerId: 'p1',
+      timedOutPlayerNickname: 'Alice',
+      timedOutPlayerTeam: 'TEAM_1' as const,
+      nextPlayerId: 'p2',
+      nextPlayerNickname: 'Bob',
+      nextPlayerTeam: 'TEAM_2' as const,
+    };
+
+    // 1. Render as Bob (opponent who failed to buzz first, but now turn arrives)
+    const { rerender } = renderController({
       snapshot: handoffSnapshot,
       currentNickname: 'Bob',
       currentPlayerId: 'p2',
+      timeoutResult: timeoutPayload,
+    });
+
+    // Removed "Time's up! Turn passed to Bob" banner is NOT present
+    expect(screen.queryByTestId('controller-timeout-alert')).not.toBeInTheDocument();
+
+    // Bob does NOT see LOCKED OUT anymore, and gets to type!
+    expect(screen.queryByTestId('face-off-lockout-card')).not.toBeInTheDocument();
+    expect(screen.getByTestId('face-off-answer-input')).toBeInTheDocument();
+    expect(screen.getByTestId('face-off-submit-btn')).toBeInTheDocument();
+
+    // 2. Render as Alice (the player who buzzed first and failed to answer in time)
+    rerender(
+      <LanguageProvider initialLanguage="EN">
+        <MainGameFaceOffController
+          snapshot={handoffSnapshot}
+          currentNickname="Alice"
+          currentPlayerId="p1"
+          roomCode="FEUD-CTRL"
+          roomName="Family Feud Duel"
+          timeoutResult={timeoutPayload}
+        />
+      </LanguageProvider>
+    );
+
+    // Alice receives giant strike X overlay on mobile
+    const overlay = screen.getByTestId('mobile-strike-overlay');
+    expect(overlay).toBeInTheDocument();
+    expect(overlay).toHaveTextContent('X');
+    expect(overlay).toHaveTextContent("TIME'S UP!");
+
+    // Alice does NOT see LOCKED OUT (she buzzed first, only player who failed to buzz first sees locked out)
+    expect(screen.queryByTestId('face-off-lockout-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('face-off-answer-input')).not.toBeInTheDocument();
+  });
+
+  it('guarantees strike X overlay auto-dismisses after 2000ms', () => {
+    vi.useFakeTimers();
+
+    renderController({
+      currentNickname: 'Alice',
+      currentPlayerId: 'p1',
       timeoutResult: {
         roomCode: 'FEUD-CTRL',
         type: 'HAND_OFF',
         timedOutPlayerId: 'p1',
         timedOutPlayerNickname: 'Alice',
         timedOutPlayerTeam: 'TEAM_1',
-        nextPlayerId: 'p2',
-        nextPlayerNickname: 'Bob',
-        nextPlayerTeam: 'TEAM_2',
       },
     });
 
-    // Timeout alert
-    expect(screen.getByTestId('controller-timeout-alert')).toHaveTextContent(
-      "Time's up! Turn passed to Bob"
-    );
+    // Overlay is active initially
+    expect(screen.getByTestId('mobile-strike-overlay')).toBeInTheDocument();
 
-    // Bob now has the active answer form
-    expect(screen.getByTestId('face-off-answer-input')).toBeInTheDocument();
-    expect(screen.getByTestId('face-off-submit-btn')).toBeInTheDocument();
+    // Advance timer past 2000ms
+    act(() => {
+      vi.advanceTimersByTime(2100);
+    });
+
+    // Overlay has disappeared cleanly
+    expect(screen.queryByTestId('mobile-strike-overlay')).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 
   it('satisfies Scenario 5: displays deadlock reset alert when both time out without answer', () => {
@@ -427,6 +493,35 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       );
     });
 
+    it('displays "You missed! Any valid answer on the board wins the Face-Off!" on the screen of the player who missed', () => {
+      const oppMissSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'OPPONENT_GUESS',
+        activeRespondentId: 'p2',
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: 'coffee spill',
+          isMatched: false,
+          points: 0,
+          isNumberOneAnswer: false,
+        },
+      };
+
+      // Render as Alice (the player who missed)
+      renderController({
+        snapshot: oppMissSnapshot,
+        currentNickname: 'Alice',
+        currentPlayerId: 'p1',
+      });
+
+      const challengeBanner = screen.getByTestId('controller-opponent-challenge-banner');
+      expect(challengeBanner).toHaveTextContent(
+        'You missed! Any valid answer on the board wins the Face-Off!'
+      );
+    });
+
     it('satisfies Scenario 2: non-active contender displays waiting card while opponent is answering', () => {
       const oppGuessSnapshot: FaceOffSessionState = {
         ...baseSnapshot,
@@ -443,7 +538,7 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
 
       const waitingCard = screen.getByTestId('opponent-turn-waiting-card');
       expect(waitingCard).toBeInTheDocument();
-      expect(waitingCard).toHaveTextContent('Opponent is answering to steal control');
+      expect(waitingCard).toHaveTextContent('Bob (Team 2) is answering to steal control');
       expect(screen.queryByTestId('face-off-answer-input')).not.toBeInTheDocument();
     });
 
@@ -714,6 +809,131 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
       expect(screen.queryByTestId('controller-winner-banner')).not.toBeInTheDocument();
       expect(screen.queryByTestId('controller-timer-ring')).not.toBeInTheDocument();
       expect(screen.queryByTestId('controller-round-control-banner')).not.toBeInTheDocument();
+    });
+
+    it('ensures timed-out contender cannot see or type into answer input and sees waiting/lockout status', () => {
+      // Alice timed out (phase transitioned to OPPONENT_GUESS with Bob as respondent)
+      const timedOutSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'OPPONENT_GUESS',
+        buzzedPlayerId: 'p1',
+        activeRespondentId: 'p2',
+        buzzerLocked: true,
+        remainingSeconds: 12,
+        firstGuessResult: {
+          playerId: 'p1',
+          playerNickname: 'Alice',
+          playerTeam: 'TEAM_1',
+          rawAnswer: '',
+          isMatched: false,
+          points: 0,
+          rankOrder: undefined,
+          isNumberOneAnswer: false,
+        },
+      };
+
+      const { rerender } = renderController({
+        snapshot: timedOutSnapshot,
+        currentNickname: 'Alice',
+        currentPlayerId: 'p1',
+      });
+
+      // Alice CANNOT see or write in answer input
+      expect(screen.queryByTestId('face-off-answer-input')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-answer-form')).not.toBeInTheDocument();
+
+      // Alice sees opponent turn waiting card
+      expect(screen.getByTestId('opponent-turn-waiting-card')).toBeInTheDocument();
+
+      // In ANSWERING phase, opponent (Bob) sees lockout card and cannot see input
+      const answeringSnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'ANSWERING',
+        buzzedPlayerId: 'p1',
+        activeRespondentId: 'p1',
+        buzzerLocked: true,
+        remainingSeconds: 15,
+      };
+
+      rerender(
+        <LanguageProvider initialLanguage="EN">
+          <MainGameFaceOffController
+            snapshot={answeringSnapshot}
+            currentNickname="Bob"
+            currentPlayerId="p2"
+            roomCode="FEUD-CTRL"
+            roomName="Family Feud Duel"
+          />
+        </LanguageProvider>
+      );
+
+      expect(screen.queryByTestId('face-off-answer-input')).not.toBeInTheDocument();
+      expect(screen.getByTestId('face-off-lockout-card')).toBeInTheDocument();
+    });
+
+    it('ensures only designated original contender gets Pass or Play buttons even if teammate gave winning answer', () => {
+      // In cascading face-off, Team 1 wins, winningTeamContender is Alice (p1).
+      // Charlie (p3) was the teammate who answered, but is NOT the designated round contender.
+      const passPlaySnapshot: FaceOffSessionState = {
+        ...baseSnapshot,
+        phase: 'PASS_OR_PLAY',
+        winnerPlayerId: 'p1', // strictly Alice
+        winnerTeam: 'TEAM_1',
+      };
+
+      // 1. Designated Contender Alice (p1) views screen -> Sees Play and Pass buttons
+      const { rerender } = renderController({
+        snapshot: passPlaySnapshot,
+        currentNickname: 'Alice',
+        currentPlayerId: 'p1',
+      });
+
+      expect(screen.getByTestId('face-off-play-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('face-off-pass-btn')).toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-pass-play-spectator')).not.toBeInTheDocument();
+
+      // 2. Teammate Charlie (p3) views screen -> Only sees spectator waiting card
+      rerender(
+        <LanguageProvider initialLanguage="EN">
+          <MainGameFaceOffController
+            snapshot={passPlaySnapshot}
+            currentNickname="Charlie"
+            currentPlayerId="p3"
+            roomCode="FEUD-CTRL"
+            roomName="Family Feud Duel"
+          />
+        </LanguageProvider>
+      );
+
+      expect(screen.queryByTestId('face-off-play-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('face-off-pass-btn')).not.toBeInTheDocument();
+      expect(screen.getByTestId('face-off-pass-play-spectator')).toBeInTheDocument();
+    });
+
+    it('guarantees {{player name} buzzed first!} / {You buzzed first!} section is never shown again after initial buzzer winner answers', () => {
+      // Phase is OPPONENT_GUESS, first answer already submitted
+      renderController({
+        snapshot: {
+          ...baseSnapshot,
+          phase: 'OPPONENT_GUESS',
+          buzzedPlayerId: 'p1',
+          buzzerLocked: true,
+          activeRespondentId: 'p2',
+          firstGuessResult: {
+            playerId: 'p1',
+            playerNickname: 'Alice',
+            playerTeam: 'TEAM_1',
+            rawAnswer: 'Late bus',
+            points: 15,
+            isMatched: true,
+            isNumberOneAnswer: false,
+          },
+        },
+        currentNickname: 'Alice',
+        currentPlayerId: 'p1',
+      });
+
+      expect(screen.queryByTestId('controller-winner-banner')).not.toBeInTheDocument();
     });
   });
 });

@@ -486,6 +486,24 @@ export async function handleFaceOffTimeoutBroadcast(
     ...timeoutResult,
   });
 
+  // Emit strike_issued for timed out contender
+  io.to(`room:${normalizedCode}`).emit('strike_issued', {
+    roomCode: normalizedCode,
+    team: timeoutResult.timedOutPlayerTeam,
+    strikeCount: 1,
+    maxStrikes: 3,
+    isStrike: true,
+    isTimeout: true,
+    player: {
+      id: timeoutResult.timedOutPlayerId,
+      nickname: timeoutResult.timedOutPlayerNickname,
+    },
+    playerId: timeoutResult.timedOutPlayerId,
+    playerNickname: timeoutResult.timedOutPlayerNickname,
+    playerTeam: timeoutResult.timedOutPlayerTeam,
+    reason: 'TIMEOUT',
+  });
+
   if (timeoutResult.type === 'HAND_OFF') {
     // Scenario: Contender 1 timed out -> Floor passed to opponent contender
     io.to(`room:${normalizedCode}`).emit('opponent_turn_prompt', {
@@ -786,6 +804,19 @@ export function registerMainGameHandlers(
         revealedAnswer: evalResult.revealedAnswer,
         message: evalResult.message,
       });
+
+      if (!evalResult.guessResult.isMatched || evalResult.guessResult.points === 0) {
+        io.to(`room:${normalizedCode}`).emit('strike_issued', {
+          roomCode: normalizedCode,
+          strikeCount: 1,
+          isStrike: true,
+          playerId: evalResult.guessResult.playerId,
+          playerNickname: evalResult.guessResult.playerNickname,
+          playerTeam: evalResult.guessResult.playerTeam,
+          rawAnswer: evalResult.guessResult.rawAnswer,
+          reason: 'WRONG_ANSWER',
+        });
+      }
 
       // State-specific broadcasts
       if (

@@ -195,6 +195,7 @@ export interface TranslationDictionary {
     passBtn: string;
     canYouBeat: string;
     opponentChance: string;
+    youMissedChance: string;
     numberOneAnswerFound: string;
     teamChosePlay: string;
     controlPassesTo: string;
