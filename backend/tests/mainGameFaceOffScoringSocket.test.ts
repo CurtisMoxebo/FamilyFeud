@@ -82,35 +82,30 @@ describe('US-13: Face-Off Scoring & Pass or Play WebSocket Integration', () => {
       data: [
         {
           roomCode: 'FEUD-S13A',
-          roomName: 'Face-Off US-13 Room A',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-S13B',
-          roomName: 'Face-Off US-13 Room B',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-S13C',
-          roomName: 'Face-Off US-13 Room C',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-S13D',
-          roomName: 'Face-Off US-13 Room D',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-S13E',
-          roomName: 'Face-Off US-13 Room E',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',

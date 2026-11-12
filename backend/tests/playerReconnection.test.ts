@@ -87,7 +87,6 @@ describe('US-20 Step 3: Player Automatic Reconnection & Turn Resumption Suite', 
     const room1 = await prisma.room.create({
       data: {
         roomCode: 'FEUD-PR01',
-        roomName: 'Player Fast Money Reconnect Room',
         language: 'EN',
         gameMode: 'FAST_MONEY',
         status: 'ACTIVE',
@@ -115,7 +114,6 @@ describe('US-20 Step 3: Player Automatic Reconnection & Turn Resumption Suite', 
     const room2 = await prisma.room.create({
       data: {
         roomCode: 'FEUD-PR02',
-        roomName: 'Player Main Game Reconnect Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',

@@ -125,7 +125,6 @@ describe('US-27: AI Question Deduplication & Negative Exclusion History', () => 
       const testRoom = await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Deduplication Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
         },
@@ -165,7 +164,6 @@ describe('US-27: AI Question Deduplication & Negative Exclusion History', () => 
       const otherRoom = await prisma.room.create({
         data: {
           roomCode: `DED2-${Math.floor(1000 + Math.random() * 9000)}`,
-          roomName: 'Other Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
         },
@@ -194,7 +192,6 @@ describe('US-27: AI Question Deduplication & Negative Exclusion History', () => 
       const frenchRoom = await prisma.room.create({
         data: {
           roomCode: `DED3-${Math.floor(1000 + Math.random() * 9000)}`,
-          roomName: 'French Room',
           language: 'FR',
           gameMode: 'MAIN_GAME',
         },
@@ -277,7 +274,6 @@ describe('US-27: AI Question Deduplication & Negative Exclusion History', () => 
       const testRoom = await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Orchestrator Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
         },
@@ -528,7 +524,6 @@ describe('US-27: AI Question Deduplication & Negative Exclusion History', () => 
       const testRoom = await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Rematch Integration Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
         },

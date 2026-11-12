@@ -91,7 +91,6 @@ describe('US-20 Step 4: 30-Second Grace Period & Auto-Forfeit Arbiter Suite', ()
     await prisma.room.create({
       data: {
         roomCode: 'FEUD-GP01',
-        roomName: 'Grace Period Test Room',
         language: 'EN',
         gameMode: 'FAST_MONEY',
         status: 'ACTIVE',
@@ -321,7 +320,6 @@ describe('US-20 Step 4: 30-Second Grace Period & Auto-Forfeit Arbiter Suite', ()
     await prisma.room.create({
       data: {
         roomCode,
-        roomName: 'Main Game Guessing Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',
@@ -381,7 +379,6 @@ describe('US-20 Step 4: 30-Second Grace Period & Auto-Forfeit Arbiter Suite', ()
     await prisma.room.create({
       data: {
         roomCode,
-        roomName: 'Main Game Face-Off Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',

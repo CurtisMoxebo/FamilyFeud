@@ -125,7 +125,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Security Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -207,7 +206,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       const room = await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Kick Test Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'LOBBY',
@@ -280,7 +278,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Kick Non-Existent Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'LOBBY',
@@ -308,7 +305,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Pause Team Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -390,7 +386,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Fast Money Pause Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'LOBBY',
@@ -492,7 +487,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Steal Pause Lockout Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -590,7 +584,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Reconnect Paused Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -663,7 +656,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Override Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -752,7 +744,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Override Invalid Slot Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -801,7 +792,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Custom Override Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -850,7 +840,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Override Options Security Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -929,7 +918,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Third Strike Retract Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1016,7 +1004,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Board Clear Override Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1148,7 +1135,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Not Paused Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1174,7 +1160,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'FaceOff Pause Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1232,7 +1217,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Admin Deep Coverage Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1354,7 +1338,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Admin Error Catch Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1433,14 +1416,12 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         data: [
           {
             roomCode: fmCode,
-            roomName: 'FM Expiry Room',
             language: 'EN',
             gameMode: 'FAST_MONEY',
             status: 'LOBBY',
           },
           {
             roomCode: mgCode,
-            roomName: 'MG Completion Room',
             language: 'EN',
             gameMode: 'MAIN_GAME',
             status: 'LOBBY',
@@ -1588,7 +1569,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Pause Lockout & Guards Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1749,7 +1729,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Hardening Guards Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',

@@ -74,42 +74,36 @@ describe('Backend Regression Suite: Lobby WebSocket & Capacity Locks (US-04)', (
       data: [
         {
           roomCode: 'FEUD-LB01',
-          roomName: 'TEST-Lobby-FastMoney',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-LB02',
-          roomName: 'TEST-Lobby-MainGame',
           language: 'FR',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-LB03',
-          roomName: 'TEST-Active-Room',
           language: 'ES',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
         },
         {
           roomCode: 'FEUD-LB04',
-          roomName: 'TEST-Start-FastMoney',
           language: 'FR',
           gameMode: 'FAST_MONEY',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-LB05',
-          roomName: 'TEST-Start-MainGame',
           language: 'ES',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-LB06',
-          roomName: 'TEST-Host-Leave',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',

@@ -40,7 +40,6 @@ describe('Backend Integration Suite: Question Persistence Service (US-05 Step 3 
     const fmRoom = await prisma.room.create({
       data: {
         roomCode: 'FEUD-QS01',
-        roomName: 'TEST-QS-Save-FM',
         language: 'FR',
         gameMode: 'FAST_MONEY',
         status: 'LOBBY',
@@ -60,7 +59,6 @@ describe('Backend Integration Suite: Question Persistence Service (US-05 Step 3 
     const mgRoom = await prisma.room.create({
       data: {
         roomCode: 'FEUD-QS02',
-        roomName: 'TEST-QS-Save-MG',
         language: 'ES',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',
@@ -80,7 +78,6 @@ describe('Backend Integration Suite: Question Persistence Service (US-05 Step 3 
     const s1Room = await prisma.room.create({
       data: {
         roomCode: 'FEUD-QS03',
-        roomName: 'TEST-QS-Scenario1',
         language: 'FR',
         gameMode: 'FAST_MONEY',
         status: 'LOBBY',
@@ -100,7 +97,6 @@ describe('Backend Integration Suite: Question Persistence Service (US-05 Step 3 
     const s2Room = await prisma.room.create({
       data: {
         roomCode: 'FEUD-QS04',
-        roomName: 'TEST-QS-Scenario2',
         language: 'ES',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',
@@ -120,7 +116,6 @@ describe('Backend Integration Suite: Question Persistence Service (US-05 Step 3 
     const s3Room = await prisma.room.create({
       data: {
         roomCode: 'FEUD-QS05',
-        roomName: 'TEST-QS-Normalization',
         language: 'ES',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',
@@ -140,7 +135,6 @@ describe('Backend Integration Suite: Question Persistence Service (US-05 Step 3 
     const s4Room = await prisma.room.create({
       data: {
         roomCode: 'FEUD-QS06',
-        roomName: 'TEST-QS-Fallback',
         language: 'EN',
         gameMode: 'FAST_MONEY',
         status: 'LOBBY',
@@ -160,7 +154,6 @@ describe('Backend Integration Suite: Question Persistence Service (US-05 Step 3 
     const qhRoom = await prisma.room.create({
       data: {
         roomCode: 'FEUD-QS07',
-        roomName: 'TEST-QS-Queries',
         language: 'EN',
         gameMode: 'FAST_MONEY',
         status: 'LOBBY',

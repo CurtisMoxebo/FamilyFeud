@@ -39,7 +39,6 @@ describe('US-19: Foreign Key Relational Integrity & Cascade Deletion Suite', () 
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}01`,
-          roomName: 'Cascade Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -124,7 +123,6 @@ describe('US-19: Foreign Key Relational Integrity & Cascade Deletion Suite', () 
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}02`,
-          roomName: 'Multi-Entity Cascade Room',
           language: 'FR',
           gameMode: 'FAST_MONEY',
           status: 'ACTIVE',
@@ -213,7 +211,6 @@ describe('US-19: Foreign Key Relational Integrity & Cascade Deletion Suite', () 
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}03`,
-          roomName: 'Game Cascade Test',
           language: 'EN',
           gameMode: 'MAIN_GAME',
         },
@@ -259,7 +256,6 @@ describe('US-19: Foreign Key Relational Integrity & Cascade Deletion Suite', () 
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}04`,
-          roomName: 'Player Cascade Test',
           language: 'ES',
           gameMode: 'FAST_MONEY',
         },
@@ -306,7 +302,6 @@ describe('US-19: Foreign Key Relational Integrity & Cascade Deletion Suite', () 
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}05`,
-          roomName: 'SetNull Test Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
         },

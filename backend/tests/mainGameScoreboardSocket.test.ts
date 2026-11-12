@@ -126,7 +126,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
         room: {
           create: {
             roomCode,
-            roomName: 'Scoreboard Query Test',
             language: 'EN',
             gameMode: 'MAIN_GAME',
             status: 'LOBBY',
@@ -174,7 +173,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
         room: {
           create: {
             roomCode,
-            roomName: 'Score Accumulation Test',
             language: 'EN',
             gameMode: 'MAIN_GAME',
             status: 'LOBBY',
@@ -233,7 +231,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
     const room = await prisma.room.create({
       data: {
         roomCode,
-        roomName: 'Contender Rotation Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',
@@ -321,7 +318,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
         room: {
           create: {
             roomCode,
-            roomName: 'Final Winner Room',
             language: 'EN',
             gameMode: 'MAIN_GAME',
             status: 'LOBBY',
@@ -384,7 +380,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
     const room = await prisma.room.create({
       data: {
         roomCode,
-        roomName: 'Sudden Death Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',
@@ -478,7 +473,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
     const room = await prisma.room.create({
       data: {
         roomCode,
-        roomName: 'Replay Preserved Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',

@@ -36,7 +36,6 @@ describe('Backend Integration Suite: Answer Validation & DB Persistence (US-06 S
     const room = await prisma.room.create({
       data: {
         roomCode: 'FEUD-AV01',
-        roomName: 'TEST-AV-Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',

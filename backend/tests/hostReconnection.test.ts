@@ -91,21 +91,18 @@ describe('US-20 Step 2: Host Display Fast Reconnection & State Recovery Suite', 
       data: [
         {
           roomCode: 'FEUD-REC1',
-          roomName: 'Host Recovery Team Guessing Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
         },
         {
           roomCode: 'FEUD-REC2',
-          roomName: 'Host Recovery Face Off Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
         },
         {
           roomCode: 'FEUD-REC3',
-          roomName: 'Host Recovery Fast Money Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'ACTIVE',

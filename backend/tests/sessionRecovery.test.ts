@@ -190,7 +190,6 @@ describe('US-20: Session Recovery Service & Token Architecture Suite (Step 1)', 
       const res = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'Host Secret Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
         });

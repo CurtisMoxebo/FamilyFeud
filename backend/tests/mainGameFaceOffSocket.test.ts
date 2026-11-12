@@ -58,28 +58,24 @@ describe('US-12: Main Game Face-Off Buzzer Duel WebSocket Integration', () => {
       data: [
         {
           roomCode: 'FEUD-FO01',
-          roomName: 'Face-Off 4P Main Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-FO02',
-          roomName: 'Face-Off Cascade Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-FO03',
-          roomName: 'Face-Off Teammate Cascade Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-FO04',
-          roomName: 'Face-Off 2P Deadlock Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',

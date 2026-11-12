@@ -97,7 +97,6 @@ describe('US-15: Main Game 3-Strike Steal Phase & Round Resolution WebSocket Int
     await prisma.room.createMany({
       data: testRooms.map((code) => ({
         roomCode: code,
-        roomName: `Steal Test Room ${code}`,
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',
