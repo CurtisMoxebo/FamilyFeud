@@ -5,14 +5,6 @@ import { ROOM_CODE_REGEX } from '../utils/roomCode';
  * Zod validation schema for POST /api/rooms request body.
  */
 export const createRoomSchema = z.object({
-  roomName: z
-    .string({
-      required_error: 'Please enter a room name (3-50 characters)',
-      invalid_type_error: 'Please enter a room name (3-50 characters)',
-    })
-    .trim()
-    .min(3, { message: 'Please enter a room name (3-50 characters)' })
-    .max(50, { message: 'Please enter a room name (3-50 characters)' }),
   language: z.enum(['EN', 'FR', 'ES'], {
     errorMap: () => ({ message: 'Language must be one of: EN, FR, ES' }),
   }),

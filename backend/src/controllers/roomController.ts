@@ -14,14 +14,13 @@ export async function createRoom(
   res: Response
 ): Promise<void> {
   try {
-    const { roomName, language, gameMode } = req.body;
+    const { language, gameMode } = req.body;
 
     const roomCode = await generateUniqueRoomCode(prisma);
 
     const room = await prisma.room.create({
       data: {
         roomCode,
-        roomName,
         language,
         gameMode,
         status: 'LOBBY',
@@ -29,7 +28,6 @@ export async function createRoom(
       select: {
         id: true,
         roomCode: true,
-        roomName: true,
         language: true,
         gameMode: true,
         status: true,
@@ -38,7 +36,7 @@ export async function createRoom(
     });
 
     logger.info(
-      `[ROOM:CREATE] Created room ${room.roomCode} ("${room.roomName}", lang: ${room.language}, mode: ${room.gameMode})`
+      `[ROOM:CREATE] Created room ${room.roomCode} (lang: ${room.language}, mode: ${room.gameMode})`
     );
 
     const hostSecret = sessionRecoveryService.createHostSecret(room.roomCode);
@@ -76,7 +74,6 @@ export async function getRoomByCode(
       select: {
         id: true,
         roomCode: true,
-        roomName: true,
         language: true,
         gameMode: true,
         status: true,
