@@ -24,7 +24,6 @@ export interface PlayerRosterItem {
 
 export interface RoomStateUpdate {
   roomCode: string;
-  roomName: string;
   language: Language;
   gameMode: GameMode;
   status: RoomStatus;
@@ -58,7 +57,6 @@ export interface GameStartedPayload {
 export interface Room {
   id: string;
   roomCode: string;
-  roomName: string;
   gameMode: GameMode;
   status: RoomStatus;
   language: Language;
@@ -735,7 +733,6 @@ export interface ReconnectSessionPayload {
 
 export interface FullGameState {
   roomCode: string;
-  roomName: string;
   language: Language;
   gameMode: GameMode;
   status: RoomStatus;

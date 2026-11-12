@@ -12,12 +12,8 @@ export const fr: TranslationDictionary = {
     step1Desc: 'Les questions et les voix seront générées dans cette langue',
     step2Title: 'Choisir le mode de jeu',
     step2Desc: 'Choisissez entre le Face-à-Face Rapide ou le Jeu Principal classique',
-    step3Title: 'Nommer votre salon',
-    step3Desc: 'Donnez un nom convivial à votre partie',
-    roomNamePlaceholder: 'ex. Soirée Famille',
     submitButton: 'Créer le salon',
     submitting: 'Création en cours...',
-    validationErrorEmpty: 'Please enter a room name (3-50 characters)',
   },
   gameModes: {
     fastMoneyTitle: 'Face-à-Face Rapide',

@@ -12,12 +12,8 @@ export const en: TranslationDictionary = {
     step1Desc: 'Questions and host commentary will be delivered in this language',
     step2Title: 'Choose Game Mode',
     step2Desc: 'Pick between Fast Money duel or the classic Main Game tournament',
-    step3Title: 'Name Your Room',
-    step3Desc: 'Give your game room an exciting, memorable name',
-    roomNamePlaceholder: 'e.g. Family Game Night',
     submitButton: 'Create Room',
     submitting: 'Creating Room...',
-    validationErrorEmpty: 'Please enter a room name (3-50 characters)',
   },
   gameModes: {
     fastMoneyTitle: 'Fast Money',

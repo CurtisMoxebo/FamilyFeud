@@ -10,12 +10,8 @@ export interface TranslationDictionary {
     step1Desc: string;
     step2Title: string;
     step2Desc: string;
-    step3Title: string;
-    step3Desc: string;
-    roomNamePlaceholder: string;
     submitButton: string;
     submitting: string;
-    validationErrorEmpty: string;
   };
   gameModes: {
     fastMoneyTitle: string;

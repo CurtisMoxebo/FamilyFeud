@@ -12,12 +12,8 @@ export const es: TranslationDictionary = {
     step1Desc: 'Las questions y la voz del anfitrión se generarán en este idioma',
     step2Title: 'Elige el modo de juego',
     step2Desc: 'Elige entre Dinero Rápido o el clásico Juego Principal',
-    step3Title: 'Nombre de la sala',
-    step3Desc: 'Ponle un nombre memorable y divertido a tu partida',
-    roomNamePlaceholder: 'ej. Noche Familiar',
     submitButton: 'Crear sala',
     submitting: 'Creando sala...',
-    validationErrorEmpty: 'Please enter a room name (3-50 characters)',
   },
   gameModes: {
     fastMoneyTitle: 'Dinero Rápido',
