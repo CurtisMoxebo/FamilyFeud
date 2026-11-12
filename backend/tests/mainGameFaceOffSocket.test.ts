@@ -8,7 +8,6 @@ import {
   setupSocketServer,
   TeamsAssignedPayload,
   GameStartedPayload,
-  RoomStateUpdate,
 } from '../src/sockets/lobbyHandler';
 import {
   initFaceOffSession,

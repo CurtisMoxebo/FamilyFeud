@@ -9,9 +9,7 @@ import { clearAllFaceOffSessions, initFaceOffSession } from '../src/services/fac
 import { clearAllTeamGuessingSessions } from '../src/services/teamGuessingService';
 import {
   initMatchScoreboard,
-  getMatchScoreboard,
   clearAllMatchScoreboards,
-  ScoreboardState,
 } from '../src/services/mainGameScoreboardService';
 import {
   handleStealResolvedBroadcast,

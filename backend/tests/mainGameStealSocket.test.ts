@@ -10,14 +10,12 @@ import {
 } from '../src/services/faceOffService';
 import {
   initTeamGuessingSession,
-  getTeamGuessingSession,
   clearAllTeamGuessingSessions,
   TeamGuessingQuestion,
   TeamGuessingPlayer,
 } from '../src/services/teamGuessingService';
 import {
   handleStealResolvedBroadcast,
-  SubmitStealGuessPayload,
   StealResolvedPayload,
   RoundWinnerPayload,
   ScoreboardUpdatePayload,

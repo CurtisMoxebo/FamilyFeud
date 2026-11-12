@@ -12,8 +12,6 @@ import {
 import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import {
   initFastMoneySession,
-  broadcastFastMoneyState,
-  getFastMoneySession,
 } from '../src/sockets/fastMoneyHandler';
 import {
   initTeamGuessingSession,

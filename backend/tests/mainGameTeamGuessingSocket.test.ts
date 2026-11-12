@@ -8,8 +8,6 @@ import { setupSocketServer } from '../src/sockets/lobbyHandler';
 import {
   initFaceOffSession,
   clearAllFaceOffSessions,
-  FaceOffQuestion,
-  FaceOffPlayer,
 } from '../src/services/faceOffService';
 import {
   initTeamGuessingSession,
@@ -20,9 +18,6 @@ import {
 } from '../src/services/teamGuessingService';
 import {
   handleTeamGuessingTimeoutBroadcast,
-  broadcastTeamGuessingState,
-  SubmitTeamGuessPayload,
-  PassTeamTurnPayload,
   StrikeIssuedPayload,
   RoundClearedPayload,
   TransitionStealPhasePayload,

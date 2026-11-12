@@ -5,7 +5,6 @@ import {
   getAuditResponsesForQuestion,
   getAuditResponsesForPlayer,
 } from '../src/services/answerValidationService';
-import { geminiClientFactory } from '../src/services/geminiService';
 import { config } from '../src/config/env';
 
 describe('Backend Integration Suite: Answer Validation & DB Persistence (US-06 Step 5)', () => {

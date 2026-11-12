@@ -13,7 +13,6 @@ import {
 import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import {
   initFastMoneySession,
-  getFastMoneySession,
   TurnEndedPayload,
 } from '../src/sockets/fastMoneyHandler';
 import {

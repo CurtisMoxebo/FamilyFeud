@@ -5,7 +5,6 @@ import {
   clearFastMoneyTimer,
   fastMoneySessions,
   fastMoneyTimers,
-  BoardRevealPayload,
 } from '../src/sockets/fastMoneyHandler';
 import { FastMoneyQuestionItem } from '../src/services/fastMoneySession';
 
