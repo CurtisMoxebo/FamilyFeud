@@ -4,13 +4,19 @@ import { AddressInfo } from 'net';
 import { io as Client, Socket as ClientSocket } from 'socket.io-client';
 import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from '../src/services/db';
-import { setupSocketServer, RoomStateUpdate } from '../src/sockets/lobbyHandler';
+import { setupSocketServer, RoomStateUpdate, handleAutoForfeitIfActiveTimer } from '../src/sockets/lobbyHandler';
 import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import { hostAdminService, ManualOverrideResult } from '../src/services/hostAdminService';
 import { initTeamGuessingSession, removeTeamGuessingSession } from '../src/services/teamGuessingService';
 import { initFaceOffSession, removeFaceOffSession } from '../src/services/faceOffService';
 import { initMatchScoreboard, deleteMatchScoreboard } from '../src/services/mainGameScoreboardService';
-import { initFastMoneySession, clearFastMoneyTimer } from '../src/sockets/fastMoneyHandler';
+import {
+  initFastMoneySession,
+  clearFastMoneyTimer,
+  startAuthoritativeTimer,
+  fastMoneyPausedTimers,
+  resumeFastMoneyTimer,
+} from '../src/sockets/fastMoneyHandler';
 import { AdminErrorPayload } from '../src/sockets/adminHandler';
 
 describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
@@ -415,7 +421,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
 
       fmSession.startPlayer1Turn('fm-p1');
       // Start timer
-      const { startAuthoritativeTimer } = await import('../src/sockets/fastMoneyHandler');
       startAuthoritativeTimer(testIo, fmSession, 1);
 
       // Host pauses Fast Money
@@ -1173,7 +1178,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
       });
 
-      const { initFaceOffSession } = await import('../src/services/faceOffService');
       const foSession = initFaceOffSession(roomCode, {
         gameId: 'game-fo-pause',
         roundNumber: 1,
@@ -1268,7 +1272,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       expect(missingRoomKick.success).toBe(false);
 
       // 4. Face-Off GENERIC pause (before buzzer is pressed) + idempotent second pause + resume
-      const { initFaceOffSession } = await import('../src/services/faceOffService');
       const foSession = initFaceOffSession(roomCode, {
         gameId: 'game-fo-generic',
         roundNumber: 1,
@@ -1442,9 +1445,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       });
 
       // 1. Fast Money paused-timer resume natural expiration (P1 & P2) + inactive phase submit rejection
-      const { fastMoneyPausedTimers, resumeFastMoneyTimer } = await import(
-        '../src/sockets/fastMoneyHandler'
-      );
       const fmSession = initFastMoneySession(fmCode, {
         gameId: 'game-fm-exp',
         player1Id: 'fm-p1',
@@ -1764,7 +1764,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       expect(hostAdminService.isRoomPaused(roomCode)).toBe(true);
 
       // 1. Disconnect auto-forfeit must NOT penalize/forfeit active player while room is paused
-      const { handleAutoForfeitIfActiveTimer } = await import('../src/sockets/lobbyHandler');
       const forfeited = await handleAutoForfeitIfActiveTimer(testIo, roomCode, 'p1', prisma);
       expect(forfeited).toBe(false);
       expect(tg.strikes).toBe(0);

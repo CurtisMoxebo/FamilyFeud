@@ -10,7 +10,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs=require('fs');if(fs.existsSync('dist/src')){fs.cpSync('dist/src','dist',{recursive:true});fs.rmSync('dist/src',{recursive:true,force:true});fs.rmSync('dist/tests',{recursive:true,force:true});}\"",
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
