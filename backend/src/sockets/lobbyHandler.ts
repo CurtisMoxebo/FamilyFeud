@@ -405,10 +405,6 @@ export function setGracePeriodDuration(ms: number): void {
   gracePeriodDurationMs = ms;
 }
 
-export function getGracePeriodDuration(): number {
-  return gracePeriodDurationMs;
-}
-
 /**
  * Registers WebSocket handlers for lobby roster, joining, and disconnection.
  */

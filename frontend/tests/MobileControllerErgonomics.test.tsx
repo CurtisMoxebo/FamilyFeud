@@ -207,7 +207,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-MOBI"
-        onLeave={vi.fn()}
       />
     );
     expect(screen.getByTestId('face-off-ready-btn').className).toContain('min-h-touch');
@@ -263,7 +262,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-MOBI"
-        onLeave={vi.fn()}
       />
     );
     expect(screen.getByTestId('player-guess-input').className).toContain('min-h-touch');

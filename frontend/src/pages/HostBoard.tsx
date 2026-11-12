@@ -455,7 +455,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
 
   const hasSubBoardHeader = isFastMoney || Boolean(faceOffState) || Boolean(teamGuessingState);
 
-  const renderFullscreenToggleButton = (_variant: 'header' | 'toolbar' = 'toolbar') => (
+  const renderFullscreenToggleButton = () => (
     <button
       type="button"
       onClick={() => {
@@ -499,7 +499,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           </span>
         </button>
       )}
-      {!hasSubBoardHeader && renderFullscreenToggleButton('toolbar')}
+      {!hasSubBoardHeader && renderFullscreenToggleButton()}
     </div>
   );
 
@@ -757,7 +757,7 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-            {renderFullscreenToggleButton('header')}
+            {renderFullscreenToggleButton()}
 
             <button
               type="button"

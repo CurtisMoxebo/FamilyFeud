@@ -11,7 +11,6 @@ import {
   FaceOffTimeoutPayload,
   PromptPassPlayPayload,
   RoundControlAssignedPayload,
-  OpponentTurnPromptPayload,
   StrikeIssuedPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
@@ -59,7 +58,6 @@ export interface MainGameFaceOffBoardProps {
   strikeIssued?: StrikeIssuedPayload | null;
   promptPassPlay?: PromptPassPlayPayload | null;
   roundControlAssigned?: RoundControlAssignedPayload | null;
-  opponentTurnPrompt?: OpponentTurnPromptPayload | null;
   scoreboardState?: ScoreboardUpdatePayload | null;
   language?: string;
   roomCode: string;
@@ -85,7 +83,6 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   strikeIssued,
   promptPassPlay,
   roundControlAssigned,
-  opponentTurnPrompt: _opponentTurnPrompt,
   scoreboardState,
   language = 'EN',
   roomCode,

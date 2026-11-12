@@ -10,7 +10,6 @@ import {
   FaceOffTimeoutPayload,
   PromptPassPlayPayload,
   RoundControlAssignedPayload,
-  OpponentTurnPromptPayload,
   FaceOffAnswerSubmittedPayload,
   AnswerRevealCompletedPayload,
   StrikeIssuedPayload,
@@ -45,7 +44,6 @@ export interface MainGameFaceOffControllerProps {
   strikeIssued?: StrikeIssuedPayload | null;
   promptPassPlay?: PromptPassPlayPayload | null;
   roundControlAssigned?: RoundControlAssignedPayload | null;
-  opponentTurnPrompt?: OpponentTurnPromptPayload | null;
   currentNickname: string;
   currentPlayerId?: string;
   roomCode: string;
@@ -56,7 +54,6 @@ export interface MainGameFaceOffControllerProps {
   scoreboardState?: ScoreboardUpdatePayload | null;
   faceOffAnswerSubmitted?: FaceOffAnswerSubmittedPayload | null;
   answerRevealCompleted?: AnswerRevealCompletedPayload | null;
-  onLeave?: () => void;
 }
 
 export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps> = ({
@@ -71,7 +68,6 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   strikeIssued,
   promptPassPlay,
   roundControlAssigned,
-  opponentTurnPrompt: _opponentTurnPrompt,
   faceOffAnswerSubmitted,
   answerRevealCompleted,
   currentNickname,
@@ -82,7 +78,6 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   onSubmitAnswer,
   onChoosePlayPass,
   scoreboardState,
-  onLeave: _onLeave,
 }) => {
   const { t } = useTranslation();
   const [answerInput, setAnswerInput] = useState<string>('');

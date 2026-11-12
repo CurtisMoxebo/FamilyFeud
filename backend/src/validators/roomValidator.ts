@@ -30,5 +30,4 @@ export const roomCodeParamSchema = z.object({
 });
 
 export type CreateRoomInput = z.infer<typeof createRoomSchema>;
-export type RoomCodeParamInput = z.infer<typeof roomCodeParamSchema>;
 

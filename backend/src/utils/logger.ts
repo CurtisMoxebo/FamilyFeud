@@ -1,8 +1,6 @@
 import { Request } from 'express';
 import { Socket } from 'socket.io';
 
-export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'HTTP' | 'SOCKET' | 'DEBUG';
-
 // ANSI escape codes for terminal colorizing
 const colors = {
   reset: '\x1b[0m',

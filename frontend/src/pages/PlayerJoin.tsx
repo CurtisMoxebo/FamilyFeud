@@ -98,7 +98,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     faceOffTimeout,
     promptPassPlay,
     roundControlAssigned,
-    opponentTurnPrompt,
     sendFaceOffReady,
     pressBuzzer,
     submitFaceOffAnswer,
@@ -421,7 +420,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             onRepeatQuestion={(qId) =>
               repeatFastMoneyQuestion && repeatFastMoneyQuestion(roomCode, activePlayerId, qId)
             }
-            onLeave={() => navigate('/')}
           />
         </div>
       );
@@ -465,7 +463,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             onRepeatQuestion={(qId) =>
               repeatFastMoneyQuestion && repeatFastMoneyQuestion(roomCode, activePlayerId, qId)
             }
-            onLeave={() => navigate('/')}
           />
         </div>
       );
@@ -486,7 +483,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             player1Name={p1Nickname}
             player2Name={p2Nickname}
             onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
-            onLeave={() => navigate('/')}
           />
         </div>
       );
@@ -560,7 +556,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             strikeIssued={strikeIssued}
             promptPassPlay={promptPassPlay}
             roundControlAssigned={roundControlAssigned}
-            opponentTurnPrompt={opponentTurnPrompt}
             faceOffAnswerSubmitted={faceOffAnswer}
             answerRevealCompleted={answerRevealCompleted}
             currentNickname={nickname.trim()}
@@ -588,7 +583,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
               choosePlayPass &&
               choosePlayPass(roomCode, currentPlayer?.id || 'winner', decision)
             }
-            onLeave={() => navigate('/')}
           />
         </div>
       );
