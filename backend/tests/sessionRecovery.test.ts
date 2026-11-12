@@ -116,7 +116,7 @@ describe('US-20: Session Recovery Service & Token Architecture Suite (Step 1)', 
 
     it('resets existing grace timer when startGraceTimer is called repeatedly', () => {
       sessionRecoveryService.createPlayerSession('REC-01', 'p-grace-repeat', 'Eve');
-      const timer1 = sessionRecoveryService.startGraceTimer('p-grace-repeat', 10000, () => {});
+      sessionRecoveryService.startGraceTimer('p-grace-repeat', 10000, () => {});
       expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-repeat')).toBe(true);
 
       const timer2 = sessionRecoveryService.startGraceTimer('p-grace-repeat', 10000, () => {});

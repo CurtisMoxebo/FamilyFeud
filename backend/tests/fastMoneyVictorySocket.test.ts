@@ -182,7 +182,7 @@ describe('Fast Money Victory & Replay WebSocket Handlers (US-10 Step 2)', () => 
     p1Answers.forEach((ans, idx) => {
       const q = mockQuestions[idx];
       session.submitAnswer('p1-uuid', q.id, ans);
-      const matched = q.answers.find((a) => a.answerText.toLowerCase() === ans.toLowerCase());
+      const matched = q.answers!.find((a) => (a.answerText ?? '').toLowerCase() === ans.toLowerCase());
       session.recordEvaluation(q.id, matched ? matched.points : 0, !!matched, matched?.id, 1);
     });
 
@@ -198,7 +198,7 @@ describe('Fast Money Victory & Replay WebSocket Handlers (US-10 Step 2)', () => 
     p2Answers.forEach((ans, idx) => {
       const q = mockQuestions[idx];
       session.submitAnswer('p2-uuid', q.id, ans);
-      const matched = q.answers.find((a) => a.answerText.toLowerCase() === ans.toLowerCase());
+      const matched = q.answers!.find((a) => (a.answerText ?? '').toLowerCase() === ans.toLowerCase());
       session.recordEvaluation(q.id, matched ? matched.points : 0, !!matched, matched?.id, 2);
     });
 
@@ -350,7 +350,7 @@ describe('Fast Money Victory & Replay WebSocket Handlers (US-10 Step 2)', () => 
     });
 
     it('handles error when revealP2Answer throws', () => {
-      const session = setupCompletedP2TurnSession(
+      setupCompletedP2TurnSession(
         ['Eggs', 'Couch', 'Lion', 'Friday', 'Soda'],
         ['Pancakes', 'Television', 'Tiger', 'Saturday', 'Iced Tea']
       );
@@ -504,7 +504,7 @@ describe('Fast Money Victory & Replay WebSocket Handlers (US-10 Step 2)', () => 
     });
 
     it('handles unexpected session errors during reveal_p2_points', async () => {
-      const session = setupCompletedP2TurnSession(
+      setupCompletedP2TurnSession(
         ['Eggs', 'Couch', 'Lion', 'Friday', 'Soda'],
         ['Pancakes', 'Television', 'Tiger', 'Saturday', 'Iced Tea']
       );
@@ -614,7 +614,7 @@ describe('Fast Money Victory & Replay WebSocket Handlers (US-10 Step 2)', () => 
       // Verify session reset
       expect(session.getPhase()).toBe('P1_READY');
       expect(session.gameId).toBe('game-new-02');
-      expect(session.questions[0].id).toBe('q-new-1');
+      expect((session as any).questions[0].id).toBe('q-new-1');
 
       // Verify game_started and game_replayed emitted
       const gameStartedEvent = emittedEvents.find((e) => e.event === 'game_started');

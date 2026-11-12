@@ -27,6 +27,7 @@ export interface FaceOffQuestion {
   questionText: string;
   orderIndex?: number;
   roundNumber?: number;
+  answerCount?: number;
   answers: FaceOffQuestionAnswer[];
 }
 
@@ -35,6 +36,7 @@ export interface FaceOffPlayer {
   nickname: string;
   team: 'TEAM_1' | 'TEAM_2';
   battingOrder: number;
+  isConnected?: boolean;
 }
 
 export interface FaceOffContender extends FaceOffPlayer {

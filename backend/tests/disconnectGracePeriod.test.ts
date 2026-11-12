@@ -292,7 +292,7 @@ describe('US-20 Step 4: 30-Second Grace Period & Auto-Forfeit Arbiter Suite', ()
       ],
     });
 
-    session.phase = 'P2_READY';
+    (session as any).phase = 'P2_READY';
     session.startPlayer2Turn('gp-p2-id');
     expect(session.getPhase()).toBe('P2_PLAYING');
 

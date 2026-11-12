@@ -42,9 +42,9 @@ export interface PlayerRosterItem {
   battingOrder: number;
 }
 
-export interface ContenderRotationResult<T = PlayerRosterItem> {
-  team1Contender: T;
-  team2Contender: T;
+export interface ContenderRotationResult<T1 = PlayerRosterItem, T2 = T1> {
+  team1Contender: T1;
+  team2Contender: T2;
   t1Index: number;
   t2Index: number;
   roundNumber: number;
@@ -74,11 +74,14 @@ export const SUDDEN_DEATH_FALLBACK_QUESTIONS: Record<
 /**
  * Calculates rotating face-off contenders based on the round number and team batting orders (modulo team size).
  */
-export function getFaceOffContendersForRound<T extends PlayerRosterItem>(
+export function getFaceOffContendersForRound<
+  T1 extends PlayerRosterItem,
+  T2 extends PlayerRosterItem = T1,
+>(
   roundNumber: number,
-  team1Players: T[],
-  team2Players: T[]
-): ContenderRotationResult<T> {
+  team1Players: T1[],
+  team2Players: T2[]
+): ContenderRotationResult<T1, T2> {
   if (!team1Players || team1Players.length === 0) {
     throw new Error('Team 1 players roster cannot be empty');
   }

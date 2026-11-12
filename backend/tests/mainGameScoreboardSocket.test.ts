@@ -199,7 +199,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
 
     // Simulate Steal Phase success: Team 2 steals 65 pts in Round 1
     handleStealResolvedBroadcast(testIo, roomCode, {
-      roomCode,
       success: true,
       outcome: 'STEAL_SUCCESS',
       winningTeam: 'TEAM_2',
@@ -346,7 +345,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
 
     // Round 3 resolved: Team 1 wins 100 pts -> 145 + 100 = 245 vs 180
     handleStealResolvedBroadcast(testIo, roomCode, {
-      roomCode,
       success: true,
       outcome: 'STEAL_SUCCESS',
       winningTeam: 'TEAM_1',
@@ -434,7 +432,6 @@ describe('US-16: Main Game Scoreboard, Multi-Round Progression & Replay WebSocke
 
     // Team 2 wins 100 pts -> EXACT TIE: 150 - 150
     handleStealResolvedBroadcast(testIo, roomCode, {
-      roomCode,
       success: true,
       outcome: 'STEAL_SUCCESS',
       winningTeam: 'TEAM_2',

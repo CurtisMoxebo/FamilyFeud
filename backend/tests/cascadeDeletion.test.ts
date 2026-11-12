@@ -162,7 +162,7 @@ describe('US-19: Foreign Key Relational Integrity & Cascade Deletion Suite', () 
       const a1 = await prisma.answer.create({
         data: { questionId: question1.id, rankOrder: 1, answerText: 'Croissant', points: 40 },
       });
-      const a2 = await prisma.answer.create({
+      await prisma.answer.create({
         data: { questionId: question2.id, rankOrder: 1, answerText: 'Café', points: 55 },
       });
 

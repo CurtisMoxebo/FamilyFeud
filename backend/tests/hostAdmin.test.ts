@@ -203,7 +203,7 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
   describe('Scenario 3: Kicking an Inactive Player from Lobby', () => {
     it('allows host to kick an unresponsive player, terminating socket and deleting database row', async () => {
       const roomCode = 'FEUD-ADM2';
-      const room = await prisma.room.create({
+      await prisma.room.create({
         data: {
           roomCode,
           language: 'EN',
@@ -337,8 +337,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       expect(teamSession.isTimerRunning).toBe(true);
@@ -407,6 +407,7 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           {
             id: 'q1',
             questionText: 'Name a pizza topping',
+            orderIndex: 1,
             answers: [{ id: 'a1', answerText: 'Pepperoni', points: 50, rankOrder: 1 }],
           },
         ],
@@ -518,8 +519,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Pause during TEAM_GUESSING and verify submit_team_guess + pass_team_turn are locked out
@@ -612,8 +613,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: joinRes.playerId, nickname: 'ReconnectBob', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Other', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: joinRes.playerId, nickname: 'ReconnectBob', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Other', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       await new Promise<any>((resolve) => {
@@ -688,8 +689,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Simulate a strike issued for an answer that Gemini flagged/rejected (e.g. "Puppy")
@@ -770,8 +771,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Try overriding an invalid rankOrder
@@ -817,8 +818,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const overrideRes: ManualOverrideResult = await new Promise((resolve) => {
@@ -871,8 +872,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // 1. Non-host player cannot fetch unrevealed override options
@@ -952,10 +953,10 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
         team1Players: [
-          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true },
-          { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', isConnected: true },
+          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true },
+          { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2, isConnected: true },
         ],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Accumulate 3 strikes -> STEAL_PHASE (active player starts at index 1 = Charlie -> Alice -> Charlie)
@@ -1035,8 +1036,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const roundClearedPromise = waitForEvent<any>(playerSocket, 'round_cleared');
@@ -1181,8 +1182,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           questionText: 'Name an animal',
           answers: [{ id: 'a1', rankOrder: 1, answerText: 'Lion', points: 50 }],
         },
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       foSession.markContenderReady('p1');
@@ -1276,8 +1277,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           questionText: 'Name a planet',
           answers: [{ id: 'a1', rankOrder: 1, answerText: 'Mars', points: 50 }],
         },
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const firstPause = await new Promise<any>((resolve) => {
@@ -1316,8 +1317,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const sdEventPromise = waitForEvent<any>(hostSocket, 'sudden_death_initiated');
@@ -1454,6 +1455,7 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           {
             id: 'q1',
             questionText: 'Name a fruit',
+            orderIndex: 1,
             answers: [{ id: 'a1', answerText: 'Apple', points: 50, rankOrder: 1 }],
           },
         ],
@@ -1516,8 +1518,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const matchOverPromise = waitForEvent<any>(playerMg, 'match_over');
@@ -1545,8 +1547,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
       stealSession.passTurn('p1');
       stealSession.passTurn('p1');
@@ -1685,8 +1687,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
       // Steal guess while in TEAM_GUESSING phase -> INVALID_PHASE
       expect(
@@ -1710,6 +1712,7 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           {
             id: 'q1',
             questionText: 'Name a color',
+            orderIndex: 1,
             answers: [{ id: 'a1', answerText: 'Blue', points: 50, rankOrder: 1 }],
           },
         ],
@@ -1752,8 +1755,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Pause room via hostAdminService

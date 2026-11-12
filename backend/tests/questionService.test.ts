@@ -280,7 +280,7 @@ describe('Backend Integration Suite: Question Persistence Service (US-05 Step 3 
       expect(saved).toHaveLength(1);
       expect(saved[0].roundNumber).toBe(2);
       expect(saved[0].language).toBe('ES');
-      expect(saved[0].answers[0].text ?? saved[0].answers[0].answerText).toBe('Perro');
+      expect(saved[0].answers[0].answerText).toBe('Perro');
     });
 
     it('throws error when gameId or questions array is empty', async () => {
