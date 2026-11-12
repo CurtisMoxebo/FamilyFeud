@@ -125,7 +125,6 @@ export interface FastMoneyHostBoardProps {
   isPaused?: boolean;
   pausedRemainingSeconds?: number;
   language?: string;
-  roomName?: string;
   roomCode?: string;
   player1Name?: string;
   player2Name?: string;
@@ -153,7 +152,6 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
   isPaused = false,
   pausedRemainingSeconds,
   language = 'EN',
-  roomName = 'Family Feud',
   roomCode = '',
   player1Name,
   player2Name,
@@ -1067,14 +1065,13 @@ export const FastMoneyHostBoard: React.FC<FastMoneyHostBoardProps> = ({
                   {phase}
                 </span>
               </div>
-              <h1 className="text-lg sm:text-xl 2xl:text-2xl font-black text-white mt-0.5 flex items-center gap-2">
-                <span>{roomName}</span>
-                {roomCode && (
+              {roomCode && (
+                <h1 className="text-lg sm:text-xl 2xl:text-2xl font-black text-white mt-0.5 flex items-center gap-2">
                   <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded-md bg-slate-800 text-feud-gold border border-slate-700">
                     {roomCode}
                   </span>
-                )}
-              </h1>
+                </h1>
+              )}
             </div>
           </div>
 

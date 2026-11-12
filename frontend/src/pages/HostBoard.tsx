@@ -339,7 +339,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
       setRoom({
         id: roomState.roomCode,
         roomCode: roomState.roomCode,
-        roomName: roomState.roomName,
         language: roomState.language,
         gameMode: roomState.gameMode,
         status: roomState.status,
@@ -572,7 +571,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           isPaused={isPaused}
           pausedRemainingSeconds={pausedRemainingSeconds}
           language={room.language}
-          roomName={room.roomName}
           roomCode={room.roomCode}
           player1Name={p1Nickname}
           player2Name={p2Nickname}
@@ -651,7 +649,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           onReplay={handleReplay}
           language={room.language}
           audioEnabled={audioEnabled}
-          roomName={room.roomName}
           roomCode={room.roomCode}
           onLeave={handleLeaveLobby}
           isFullscreen={isFullscreen}
@@ -671,7 +668,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
         {renderAdminControls()}
         <MainGameTeamsStage
           roomCode={room.roomCode}
-          roomName={room.roomName}
           team1={activeTeams.team1}
           team2={activeTeams.team2}
           onProceedToFaceOff={() => setTeamsShowcased(true)}
@@ -698,7 +694,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
           strikeIssued={strikeIssued}
           scoreboardState={scoreboardState}
           language={room.language}
-          roomName={room.roomName}
           roomCode={room.roomCode}
           onLeave={handleLeaveLobby}
           isFullscreen={isFullscreen}
@@ -758,9 +753,6 @@ export const HostBoard: React.FC<HostBoardProps> = ({
                   {roomState?.status ?? room.status}
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5">
-                {room.roomName}
-              </h1>
             </div>
           </div>
 

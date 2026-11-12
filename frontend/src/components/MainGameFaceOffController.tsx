@@ -49,7 +49,6 @@ export interface MainGameFaceOffControllerProps {
   currentNickname: string;
   currentPlayerId?: string;
   roomCode: string;
-  roomName: string;
   onReady?: () => void;
   onBuzz?: () => void;
   onSubmitAnswer?: (rawAnswer: string) => void;
@@ -78,7 +77,6 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   currentNickname,
   currentPlayerId,
   roomCode,
-  roomName,
   onReady,
   onBuzz,
   onSubmitAnswer,
@@ -563,12 +561,6 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
             className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 py-0.5 rounded bg-slate-800"
           >
             {roomCode}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 truncate max-w-[140px]">
-            {roomName}
           </span>
         </div>
       </div>
