@@ -19,7 +19,8 @@ COPY index.html ./
 # Install all dependencies
 RUN npm ci
 
-# Copy source code and build production assets
+# Copy public static assets and source code, then build production bundle
+COPY public ./public
 COPY src ./src
 RUN npm run build
 

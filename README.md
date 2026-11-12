@@ -1,5 +1,7 @@
 # 📺 Family Feud Online
 
+🌐 **Live Production App**: [https://feud.moxebocurtis.com](https://feud.moxebocurtis.com)
+
 An interactive, real-time multiplayer web application bringing the classic television game show **Family Feud** to modern web browsers. Built with a dual-screen architecture (Host TV screen vs. Player mobile controllers), real-time WebSockets, AI-powered survey question generation via Google Gemini, and automated host Text-to-Speech (TTS).
 
 ---
@@ -191,7 +193,7 @@ The frontend application will be accessible at `http://localhost:5173`.
 
 ### Option C: Continuous Deployment to Windows Home Server
 
-The project includes automated Continuous Deployment ([US-24](docs/user%20stories/US-24-Continuous-Deployment-To-Windows-Home-Server.md) & [US-25](docs/user%20stories/US-25-Unified-CI-CD-Pipeline-Architecture.md)):
+The project includes automated Continuous Deployment ([US-24](docs/user%20stories/US-24-Continuous-Deployment-To-Windows-Home-Server.md) & [US-25](docs/user%20stories/US-25-Unified-CI-CD-Pipeline-Architecture.md)) to [https://feud.moxebocurtis.com](https://feud.moxebocurtis.com):
 - Every push to `main` triggers the unified pipeline in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 - When all CI build and regression tests pass, the pipeline flows directly into the deployment stage in the same visual window.
 - A GitHub Actions self-hosted runner on your Windows Home Server executes [`scripts/deploy.ps1`](scripts/deploy.ps1).
