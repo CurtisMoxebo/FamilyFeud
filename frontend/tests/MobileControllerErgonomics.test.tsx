@@ -140,7 +140,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
     const mockRoom: Room = {
       id: 'room-mobi',
       roomCode: 'FEUD-MOBI',
-      roomName: 'Thumb Ergonomics Room',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'LOBBY',
@@ -170,7 +169,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-MOBI"
-        roomName="Thumb Ergonomics Room"
       />
     );
     const foRoot = screen.getByTestId('main-game-face-off-controller');
@@ -209,7 +207,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-MOBI"
-        roomName="Thumb Ergonomics Room"
         onLeave={vi.fn()}
       />
     );
@@ -230,7 +227,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-MOBI"
-            roomName="Thumb Ergonomics Room"
           />
         </RouterProvider>
       </LanguageProvider>
@@ -252,7 +248,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-MOBI"
-            roomName="Thumb Ergonomics Room"
           />
         </RouterProvider>
       </LanguageProvider>
@@ -268,7 +263,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-MOBI"
-        roomName="Thumb Ergonomics Room"
         onLeave={vi.fn()}
       />
     );
@@ -285,7 +279,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
             currentNickname="Bob"
             currentPlayerId="p2"
             roomCode="FEUD-MOBI"
-            roomName="Thumb Ergonomics Room"
           />
         </RouterProvider>
       </LanguageProvider>
@@ -356,7 +349,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-MOBI"
-        roomName="Thumb Ergonomics Room"
         onBuzz={onBuzz}
       />
     );
@@ -385,7 +377,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-MOBI"
-            roomName="Thumb Ergonomics Room"
             onBuzz={onBuzz}
           />
         </RouterProvider>
@@ -408,7 +399,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-MOBI"
-            roomName="Thumb Ergonomics Room"
             onBuzz={onBuzz}
           />
         </RouterProvider>
@@ -428,7 +418,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-MOBI"
-        roomName="Thumb Ergonomics Room"
       />
     );
     expect(vibrateMock).toHaveBeenCalledWith([100, 50, 100]);
@@ -447,7 +436,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-MOBI"
-            roomName="Thumb Ergonomics Room"
           />
         </RouterProvider>
       </LanguageProvider>
@@ -471,7 +459,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-MOBI"
-        roomName="Thumb Ergonomics Room"
       />
     );
     expect(vibrateMock).toHaveBeenCalledWith([100, 50, 100]);
@@ -490,7 +477,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-MOBI"
-            roomName="Thumb Ergonomics Room"
           />
         </RouterProvider>
       </LanguageProvider>
@@ -519,7 +505,6 @@ describe('US-22 Step 3: Mobile Controller Ergonomics, >=48px Touch Targets & Hap
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-MOBI"
-            roomName="Thumb Ergonomics Room"
           />
         </RouterProvider>
       </LanguageProvider>

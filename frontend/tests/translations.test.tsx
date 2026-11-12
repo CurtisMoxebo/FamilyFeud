@@ -44,18 +44,6 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       expect(translations.ES.gameActions.duplicateAnswer).toBe('¡Respuesta repetida! Intenta de nuevo');
     });
 
-    it('contains matching US-02 Scenario 2 validation error message', () => {
-      expect(translations.EN.createRoom.validationErrorEmpty).toBe(
-        'Please enter a room name (3-50 characters)'
-      );
-      expect(translations.FR.createRoom.validationErrorEmpty).toBe(
-        'Please enter a room name (3-50 characters)'
-      );
-      expect(translations.ES.createRoom.validationErrorEmpty).toBe(
-        'Please enter a room name (3-50 characters)'
-      );
-    });
-
     it('defines distinct titles and descriptions for both Fast Money and Main Game modes', () => {
       for (const lang of supportedLanguages) {
         const mode = translations[lang].gameModes;

@@ -21,7 +21,6 @@ describe('US-21 Step 3: Authoritative Pause / Resume, Spacebar Shortcut & Input 
   const mockFastMoneyRoom: Room = {
     id: 'room-pause-fm',
     roomCode: 'FEUD-PAUS',
-    roomName: 'Pause Fast Money Show',
     language: 'EN',
     gameMode: 'FAST_MONEY',
     status: 'IN_PROGRESS',
@@ -31,7 +30,6 @@ describe('US-21 Step 3: Authoritative Pause / Resume, Spacebar Shortcut & Input 
   const mockMainGameRoom: Room = {
     id: 'room-pause-mg',
     roomCode: 'FEUD-PAUS',
-    roomName: 'Pause Main Game Show',
     language: 'EN',
     gameMode: 'MAIN_GAME',
     status: 'ACTIVE',
@@ -41,7 +39,6 @@ describe('US-21 Step 3: Authoritative Pause / Resume, Spacebar Shortcut & Input 
   const mockLobbyRoom: Room = {
     id: 'room-pause-lobby',
     roomCode: 'FEUD-PAUS',
-    roomName: 'Pause Lobby Show',
     language: 'EN',
     gameMode: 'MAIN_GAME',
     status: 'LOBBY',
@@ -400,7 +397,6 @@ describe('US-21 Step 3: Authoritative Pause / Resume, Spacebar Shortcut & Input 
 
     const mockRoomState: RoomStateUpdate = {
       roomCode: 'FEUD-PAUS',
-      roomName: 'Pause Fast Money Show',
       language: 'EN',
       gameMode: 'FAST_MONEY',
       status: 'IN_PROGRESS',
@@ -490,7 +486,6 @@ describe('US-21 Step 3: Authoritative Pause / Resume, Spacebar Shortcut & Input 
 
     const mockRoomState: RoomStateUpdate = {
       roomCode: 'FEUD-PAUS',
-      roomName: 'Pause Main Game Show',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'ACTIVE',
@@ -573,7 +568,6 @@ describe('US-21 Step 3: Authoritative Pause / Resume, Spacebar Shortcut & Input 
 
     const mockRoomState: RoomStateUpdate = {
       roomCode: 'FEUD-PAUS',
-      roomName: 'Pause Main Game Show',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'ACTIVE',

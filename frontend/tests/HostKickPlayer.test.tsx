@@ -13,7 +13,6 @@ describe('US-21 Step 2: Lobby Kick & Moderation Flow', () => {
   const mockRoom: Room = {
     id: 'room-kick-1',
     roomCode: 'FEUD-KICK',
-    roomName: 'Feud Admin Lobby',
     language: 'EN',
     gameMode: 'MAIN_GAME',
     status: 'LOBBY',
@@ -143,7 +142,6 @@ describe('US-21 Step 2: Lobby Kick & Moderation Flow', () => {
       playerCount: 2,
       maxPlayers: 10,
       canStart: true,
-      roomName: 'Feud Admin Lobby',
       language: 'EN',
     };
 
@@ -176,7 +174,6 @@ describe('US-21 Step 2: Lobby Kick & Moderation Flow', () => {
       playerCount: 2,
       maxPlayers: 10,
       canStart: true,
-      roomName: 'Feud Admin Lobby',
       language: 'EN',
     };
 
@@ -248,7 +245,6 @@ describe('US-21 Step 2: Lobby Kick & Moderation Flow', () => {
       playerCount: 2,
       maxPlayers: 10,
       canStart: true,
-      roomName: 'Feud Admin Lobby',
       language: 'EN',
     };
 

@@ -19,7 +19,6 @@ describe('US-20 Step 3: Player Automatic Reconnection & State Recovery Suite', (
   const mockFastMoneyRoom: Room = {
     id: 'room-fm-1',
     roomCode: 'FEUD-8291',
-    roomName: 'Fast Money Party',
     language: 'EN',
     gameMode: 'FAST_MONEY',
     status: 'ACTIVE',
@@ -29,7 +28,6 @@ describe('US-20 Step 3: Player Automatic Reconnection & State Recovery Suite', (
   const mockMainGameRoom: Room = {
     id: 'room-mg-1',
     roomCode: 'FEUD-9999',
-    roomName: 'Main Game Family',
     language: 'EN',
     gameMode: 'MAIN_GAME',
     status: 'ACTIVE',
@@ -46,7 +44,6 @@ describe('US-20 Step 3: Player Automatic Reconnection & State Recovery Suite', (
     socketId: 'player-socket-recon',
     roomState: {
       roomCode: 'FEUD-8291',
-      roomName: 'Fast Money Party',
       language: 'EN' as const,
       gameMode: 'FAST_MONEY' as const,
       status: 'ACTIVE' as const,

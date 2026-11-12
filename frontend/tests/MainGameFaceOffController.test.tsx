@@ -54,7 +54,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
           currentNickname="Alice"
           currentPlayerId="p1"
           roomCode="FEUD-CTRL"
-          roomName="Family Feud Duel"
           {...props}
         />
       </LanguageProvider>
@@ -256,7 +255,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
           currentNickname="Alice"
           currentPlayerId="p1"
           roomCode="FEUD-CTRL"
-          roomName="Family Feud Duel"
           timeoutResult={timeoutPayload}
         />
       </LanguageProvider>
@@ -574,7 +572,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-CTRL"
-            roomName="Family Feud Duel"
           />
         </LanguageProvider>
       );
@@ -685,7 +682,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-CTRL"
-            roomName="Family Feud Duel"
           />
         </LanguageProvider>
       );
@@ -703,7 +699,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-CTRL"
-            roomName="Family Feud Duel"
           />
         </LanguageProvider>
       );
@@ -767,7 +762,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
             currentNickname="Charlie"
             currentPlayerId="p3"
             roomCode="FEUD-CTRL"
-            roomName="Family Feud Duel"
             {...staleProps}
           />
         </LanguageProvider>
@@ -792,7 +786,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
             currentNickname="Alice"
             currentPlayerId="p1"
             roomCode="FEUD-CTRL"
-            roomName="Family Feud Duel"
             {...staleProps}
           />
         </LanguageProvider>
@@ -862,7 +855,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
             currentNickname="Bob"
             currentPlayerId="p2"
             roomCode="FEUD-CTRL"
-            roomName="Family Feud Duel"
           />
         </LanguageProvider>
       );
@@ -900,7 +892,6 @@ describe('US-12: Mobile Player Face-Off Controller & Buzzer (MainGameFaceOffCont
             currentNickname="Charlie"
             currentPlayerId="p3"
             roomCode="FEUD-CTRL"
-            roomName="Family Feud Duel"
           />
         </LanguageProvider>
       );

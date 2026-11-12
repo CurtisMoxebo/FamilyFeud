@@ -72,7 +72,6 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
       <LanguageProvider initialLanguage="EN">
         <MainGameFaceOffBoard
           snapshot={baseSnapshot}
-          roomName="Family Feud Championship"
           roomCode="FEUD-TEST"
           language="EN"
           {...props}
@@ -508,7 +507,6 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
       <MainGameFaceOffBoard
         snapshot={baseSnapshot}
         language="EN"
-        roomName="Test Room"
         roomCode="FEUD-01"
       />
     );
@@ -556,7 +554,6 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
             buzzedPlayerId: 'p1',
             activeRespondentId: 'p1',
           }}
-          roomName="Family Feud Duel"
           roomCode="FEUD-CTRL"
         />
       </LanguageProvider>
@@ -576,7 +573,6 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
             buzzerLocked: true,
             activeRespondentId: 'p2',
           }}
-          roomName="Family Feud Duel"
           roomCode="FEUD-CTRL"
         />
       </LanguageProvider>
@@ -671,7 +667,6 @@ describe('US-12: Main Game Face-Off Host TV Stage & TTS Cutoff (MainGameFaceOffB
             team1Contender: { ...baseSnapshot.team1Contender, isReady: true },
             team2Contender: { ...baseSnapshot.team2Contender, isReady: true },
           }}
-          roomName="Family Feud Championship"
           roomCode="FEUD-TEST"
           language="EN"
         />

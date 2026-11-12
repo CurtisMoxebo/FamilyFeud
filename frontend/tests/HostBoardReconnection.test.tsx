@@ -22,7 +22,6 @@ describe('US-20 Step 2: HostBoard Reconnection & State Recovery Suite', () => {
   const activeMainGameRoom: Room = {
     id: 'room-rec-1',
     roomCode: 'FEUD-REC1',
-    roomName: 'Main Game Reconnection Room',
     language: 'EN',
     gameMode: 'MAIN_GAME',
     status: 'ACTIVE',
@@ -294,7 +293,6 @@ describe('US-20 Step 2: HostBoard Reconnection & State Recovery Suite', () => {
 
     const mockRoomState: RoomStateUpdate = {
       roomCode: 'FEUD-REC1',
-      roomName: 'Fast Hydrated Room',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'ACTIVE',
@@ -311,12 +309,14 @@ describe('US-20 Step 2: HostBoard Reconnection & State Recovery Suite', () => {
       roomState: mockRoomState,
     });
 
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {}));
+
     // Render without initialRoom so fetch is triggered
     renderWithProviders(<HostBoard roomCode="FEUD-REC1" />);
 
     // Fast hydration should clear loader immediately using socket roomState
     await waitFor(() => {
-      expect(screen.getByText('Fast Hydrated Room')).toBeInTheDocument();
+      expect(screen.getByTestId('teams-stage-room-code')).toHaveTextContent('FEUD-REC1');
     });
   });
 });

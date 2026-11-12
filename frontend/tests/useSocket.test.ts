@@ -78,7 +78,6 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
 
     const mockState: RoomStateUpdate = {
       roomCode: 'FEUD-8291',
-      roomName: 'Family Game Night',
       language: 'EN',
       gameMode: 'FAST_MONEY',
       status: 'LOBBY',
@@ -726,13 +725,11 @@ describe('Frontend Regression Suite: useSocket Hook (US-04)', () => {
           player: { id: 'p-rec-1', nickname: 'Alice', team: 'TEAM_1' },
           gameState: {
             roomCode: 'FEUD-REC9',
-            roomName: 'Recovery Room',
             language: 'EN',
             gameMode: 'MAIN_GAME',
             status: 'ACTIVE',
             room: {
               roomCode: 'FEUD-REC9',
-              roomName: 'Recovery Room',
               language: 'EN',
               gameMode: 'MAIN_GAME',
               status: 'ACTIVE',

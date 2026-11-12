@@ -17,7 +17,6 @@ describe('US-21 Step 4: Judge Manual Answer Override & Strike Retraction (Scenar
   const mockMainGameRoom: Room = {
     id: 'room-ovr-1',
     roomCode: 'FEUD-OVR1',
-    roomName: 'Family Game Night',
     language: 'EN',
     gameMode: 'MAIN_GAME',
     status: 'ACTIVE',
@@ -406,7 +405,6 @@ describe('US-21 Step 4: Judge Manual Answer Override & Strike Retraction (Scenar
           currentNickname="Alice"
           currentPlayerId="p1"
           roomCode="FEUD-OVR1"
-          roomName="Family Game Night"
         />
       </LanguageProvider>
     );
@@ -439,7 +437,6 @@ describe('US-21 Step 4: Judge Manual Answer Override & Strike Retraction (Scenar
           currentNickname="Alice"
           currentPlayerId="p1"
           roomCode="FEUD-OVR1"
-          roomName="Family Game Night"
         />
       </LanguageProvider>
     );

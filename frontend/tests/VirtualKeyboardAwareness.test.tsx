@@ -312,7 +312,6 @@ describe('US-22 Step 4: Virtual Soft-Keyboard Awareness on Mobile Inputs (Scenar
     const mockFastMoneyRoom: Room = {
       id: 'room-fm-kb',
       roomCode: 'FEUD-KB01',
-      roomName: 'Keyboard Fast Money',
       language: 'EN',
       gameMode: 'FAST_MONEY',
       status: 'LOBBY',
@@ -399,7 +398,6 @@ describe('US-22 Step 4: Virtual Soft-Keyboard Awareness on Mobile Inputs (Scenar
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-KB01"
-        roomName="Keyboard Room"
       />
     );
 
@@ -461,7 +459,6 @@ describe('US-22 Step 4: Virtual Soft-Keyboard Awareness on Mobile Inputs (Scenar
         currentNickname="Alice"
         currentPlayerId="p1"
         roomCode="FEUD-KB01"
-        roomName="Keyboard Room"
       />
     );
 
@@ -488,7 +485,6 @@ describe('US-22 Step 4: Virtual Soft-Keyboard Awareness on Mobile Inputs (Scenar
             currentNickname="Bob"
             currentPlayerId="p2"
             roomCode="FEUD-KB01"
-            roomName="Keyboard Room"
           />
         </RouterProvider>
       </LanguageProvider>
@@ -513,7 +509,6 @@ describe('US-22 Step 4: Virtual Soft-Keyboard Awareness on Mobile Inputs (Scenar
         initialRoom={{
           id: 'room-kb',
           roomCode: 'FEUD-KB01',
-          roomName: 'Keyboard Join Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -525,7 +520,7 @@ describe('US-22 Step 4: Virtual Soft-Keyboard Awareness on Mobile Inputs (Scenar
       'data-keyboard-open',
       'true'
     );
-    expect(screen.getByTestId('player-room-name')).toBeVisible();
+    expect(screen.getByText('FEUD-KB01')).toBeVisible();
     expect(screen.getByTestId('player-nickname-input')).toBeVisible();
     expect(screen.getByTestId('player-join-submit-btn')).toBeVisible();
   });

@@ -12,7 +12,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
   const mockRoom: Room = {
     id: 'room-123',
     roomCode: 'FEUD-8291',
-    roomName: 'Soirée Famille',
     language: 'FR',
     gameMode: 'FAST_MONEY',
     status: 'LOBBY',
@@ -134,7 +133,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     renderWithProviders(<PlayerJoin roomCode="FEUD-8291" initialRoom={mockRoom} />);
 
     // Room info
-    expect(screen.getByTestId('player-room-name')).toHaveTextContent('Soirée Famille');
     expect(screen.getByText('FEUD-8291')).toBeInTheDocument();
     expect(screen.getByTestId('player-room-language')).toHaveTextContent('Français (FR)');
     expect(screen.getByTestId('player-room-mode')).toHaveTextContent(/Face-à-Face Rapide/i);
@@ -213,7 +211,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         success: true,
         room: {
           ...mockRoom,
-          roomName: 'Noche en Familia',
           language: 'ES',
         },
       }),
@@ -224,7 +221,7 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     expect(screen.getByText(/connecting to room/i)).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByTestId('player-room-name')).toHaveTextContent('Noche en Familia');
+      expect(screen.getByText('FEUD-8291')).toBeInTheDocument();
     });
 
     expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/rooms/FEUD-8291'));
@@ -264,7 +261,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
     const joinRoomMock = vi.fn();
     const mockState: RoomStateUpdate = {
       roomCode: 'FEUD-8291',
-      roomName: 'Soirée Famille',
       language: 'FR',
       gameMode: 'FAST_MONEY',
       status: 'LOBBY',
@@ -730,7 +726,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       const mainGameRoomEN: Room = {
         id: 'room-main-11',
         roomCode: 'FEUD-1111',
-        roomName: 'Family Feud Night',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',
@@ -754,7 +749,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         socketId: 'player-socket-alice',
         roomState: {
           roomCode: 'FEUD-1111',
-          roomName: 'Family Feud Night',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -810,7 +804,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       const mainGameRoomEN: Room = {
         id: 'room-main-11',
         roomCode: 'FEUD-1111',
-        roomName: 'Family Feud Night',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',
@@ -834,7 +827,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         socketId: 'player-socket-charlie',
         roomState: {
           roomCode: 'FEUD-1111',
-          roomName: 'Family Feud Night',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -887,7 +879,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       const mainGameRoomEN: Room = {
         id: 'room-main-fo',
         roomCode: 'FEUD-7777',
-        roomName: 'Face-Off Controller Duel',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',
@@ -928,7 +919,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         socketId: 'mock-socket-alice',
         roomState: {
           roomCode: 'FEUD-7777',
-          roomName: 'Face-Off Controller Duel',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -974,7 +964,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       const mainGameRoomEN: Room = {
         id: 'room-main-passplay',
         roomCode: 'FEUD-8888',
-        roomName: 'Pass or Play Choice Duel',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',
@@ -1018,7 +1007,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         socketId: 'mock-socket-alice',
         roomState: {
           roomCode: 'FEUD-8888',
-          roomName: 'Pass or Play Choice Duel',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -1061,7 +1049,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       const mainGameRoomEN: Room = {
         id: 'room-main-tg',
         roomCode: 'FEUD-9999',
-        roomName: 'Team Guessing Duel',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',
@@ -1118,7 +1105,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         ...defaultSocketMock,
         roomState: {
           roomCode: 'FEUD-9999',
-          roomName: 'Team Guessing Duel',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -1169,7 +1155,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         ...defaultSocketMock,
         roomState: {
           roomCode: 'FEUD-9999',
-          roomName: 'Match Over Test',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -1187,7 +1172,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       const testRoom: Room = {
         id: 'room-9999',
         roomCode: 'FEUD-9999',
-        roomName: 'Match Over Test',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',
@@ -1222,7 +1206,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
         ...defaultSocketMock,
         roomState: {
           roomCode: 'FEUD-9999',
-          roomName: 'Replay Flow Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -1270,7 +1253,6 @@ describe('Frontend Regression Suite: PlayerJoin Page (US-03 & US-04)', () => {
       const testRoom: Room = {
         id: 'room-9999',
         roomCode: 'FEUD-9999',
-        roomName: 'Match Over Test',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',

@@ -103,7 +103,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       <LanguageProvider>
         <MainGameTeamGuessingBoard
           snapshot={baseSnapshot}
-          roomName="Championship Feud"
           roomCode="FEUD-9999"
           {...props}
         />
@@ -159,7 +158,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       <LanguageProvider>
         <MainGameTeamGuessingBoard
           snapshot={updatedSnapshot}
-          roomName="Championship Feud"
           roomCode="FEUD-9999"
         />
       </LanguageProvider>
@@ -179,7 +177,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       <LanguageProvider>
         <MainGameTeamGuessingBoard
           snapshot={{ ...baseSnapshot, strikes: 2 }}
-          roomName="Championship Feud"
           roomCode="FEUD-9999"
           strikeIssued={{
             roomCode: 'FEUD-9999',
@@ -561,7 +558,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
           stealResolved={null}
           roundWinner={null}
           language="EN"
-          roomName="Test Room"
           roomCode="FEUD-9999"
         />
       </LanguageProvider>
@@ -599,7 +595,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
           stealResolved={null}
           roundWinner={null}
           language="EN"
-          roomName="Test Room"
           roomCode="FEUD-9999"
         />
       </LanguageProvider>
@@ -640,7 +635,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
           stealResolved={null}
           roundWinner={null}
           language="EN"
-          roomName="Test Room"
           roomCode="FEUD-9999"
         />
       </LanguageProvider>
@@ -671,7 +665,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
           stealResolved={null}
           roundWinner={null}
           language="EN"
-          roomName="Test Room"
           roomCode="FEUD-9999"
         />
       </LanguageProvider>
@@ -697,7 +690,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
           stealResolved={null}
           roundWinner={null}
           language="EN"
-          roomName="Test Room"
           roomCode="FEUD-9999"
         />
       </LanguageProvider>
@@ -725,7 +717,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       <LanguageProvider>
         <MainGameTeamGuessingBoard
           snapshot={baseSnapshot}
-          roomName="Championship Feud"
           roomCode="FEUD-9999"
           boardReveal={{
             roomCode: 'FEUD-9999',
@@ -788,7 +779,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       <LanguageProvider>
         <MainGameTeamGuessingBoard
           snapshot={baseSnapshot}
-          roomName="Championship Feud"
           roomCode="FEUD-9999"
           strikeIssued={{
             roomCode: 'FEUD-9999',
@@ -852,7 +842,6 @@ describe('US-14 & US-15 MainGameTeamGuessingBoard Component Tests', () => {
       <LanguageProvider>
         <MainGameTeamGuessingBoard
           snapshot={{ ...baseSnapshot, strikes: 2, phase: 'TEAM_GUESSING' }}
-          roomName="Championship Feud"
           roomCode="FEUD-9999"
           strikeIssued={{
             roomCode: 'FEUD-9999',
