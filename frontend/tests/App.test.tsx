@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, renderHook, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App, { AppContent } from '../src/App';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
-import { RouterProvider } from '../src/router/router';
+import { RouterProvider, matchRoute, useRouter } from '../src/router/router';
 
 describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-03)', () => {
   beforeEach(() => {
@@ -158,5 +158,30 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
     await waitFor(() => {
       expect(screen.getByText('FEUD-8293')).toBeInTheDocument();
     });
+  });
+
+  it('matches dynamic routes accurately and handles popstate & useRouter fallback outside provider', () => {
+    expect(matchRoute('/host/:roomCode', '/host/FEUD-2345')).toEqual({ roomCode: 'FEUD-2345' });
+    expect(matchRoute('/host/:roomCode', '/HOST/feud-2345')).toEqual({ roomCode: 'feud-2345' });
+    expect(matchRoute('/host/:roomCode', '/play/FEUD-2345')).toBeNull();
+    expect(matchRoute('/host/:roomCode', '/host/FEUD-2345/extra')).toBeNull();
+
+    // Test useRouter fallback when used outside RouterProvider
+    const { result: fallbackResult } = renderHook(() => useRouter());
+    expect(fallbackResult.current.path).toBe('/');
+    act(() => {
+      fallbackResult.current.navigate('/host/FEUD-8888');
+    });
+    expect(window.location.pathname).toBe('/host/FEUD-8888');
+
+    // Test popstate event listener inside RouterProvider
+    const { result: providerResult } = renderHook(() => useRouter(), {
+      wrapper: ({ children }) => <RouterProvider>{children}</RouterProvider>,
+    });
+    act(() => {
+      window.history.pushState({}, '', '/play/FEUD-4567');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(providerResult.current.path).toBe('/play/FEUD-4567');
   });
 });
