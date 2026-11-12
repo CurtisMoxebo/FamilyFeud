@@ -98,7 +98,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
     faceOffTimeout,
     promptPassPlay,
     roundControlAssigned,
-    opponentTurnPrompt,
     sendFaceOffReady,
     pressBuzzer,
     submitFaceOffAnswer,
@@ -180,7 +179,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
       setRoom({
         id: roomState.roomCode,
         roomCode: roomState.roomCode,
-        roomName: roomState.roomName,
         language: roomState.language,
         gameMode: roomState.gameMode,
         status: roomState.status,
@@ -422,7 +420,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             onRepeatQuestion={(qId) =>
               repeatFastMoneyQuestion && repeatFastMoneyQuestion(roomCode, activePlayerId, qId)
             }
-            onLeave={() => navigate('/')}
           />
         </div>
       );
@@ -466,7 +463,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             onRepeatQuestion={(qId) =>
               repeatFastMoneyQuestion && repeatFastMoneyQuestion(roomCode, activePlayerId, qId)
             }
-            onLeave={() => navigate('/')}
           />
         </div>
       );
@@ -487,7 +483,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             player1Name={p1Nickname}
             player2Name={p2Nickname}
             onReady={() => sendPlayerReady && sendPlayerReady(roomCode, currentPlayer?.id || 'player-2')}
-            onLeave={() => navigate('/')}
           />
         </div>
       );
@@ -526,7 +521,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             currentNickname={nickname.trim()}
             currentPlayerId={currentPlayer?.id}
             roomCode={room.roomCode}
-            roomName={room.roomName}
             onSubmitGuess={(rawAnswer) =>
               submitTeamGuess &&
               submitTeamGuess(roomCode, currentPlayer?.id || 'player', rawAnswer)
@@ -562,13 +556,11 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
             strikeIssued={strikeIssued}
             promptPassPlay={promptPassPlay}
             roundControlAssigned={roundControlAssigned}
-            opponentTurnPrompt={opponentTurnPrompt}
             faceOffAnswerSubmitted={faceOffAnswer}
             answerRevealCompleted={answerRevealCompleted}
             currentNickname={nickname.trim()}
             currentPlayerId={currentPlayer?.id}
             roomCode={room.roomCode}
-            roomName={room.roomName}
             onReady={() => sendFaceOffReady && sendFaceOffReady(roomCode, currentPlayer?.id || 'contender')}
             onBuzz={() => pressBuzzer && pressBuzzer(roomCode, currentPlayer?.id || 'contender')}
             onSubmitAnswer={(rawAnswer) =>
@@ -591,7 +583,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
               choosePlayPass &&
               choosePlayPass(roomCode, currentPlayer?.id || 'winner', decision)
             }
-            onLeave={() => navigate('/')}
           />
         </div>
       );
@@ -646,7 +637,6 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
         return (
           <MainGamePlayerView
             roomCode={room.roomCode}
-            roomName={room.roomName}
             playerNickname={nickname.trim()}
             assignedPlayer={myAssignedPlayer}
             myTeam={myTeam}
@@ -669,7 +659,7 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
           Welcome, {nickname.trim()}!
         </h2>
         <p className="text-slate-300 text-xs mb-2">
-          You are connected to <span className="font-bold text-feud-gold">{room.roomName}</span>.
+          You are connected to <span className="font-bold text-feud-gold">{room.roomCode}</span>.
         </p>
 
         {/* Live Status Pill */}
@@ -737,16 +727,10 @@ export const PlayerJoin: React.FC<PlayerJoinProps> = ({
         } shadow-2xl transition-all`}
       >
         <div className={`text-center ${isKeyboardOpen ? 'mb-3' : 'mb-6'}`}>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-feud-gold/20 border border-feud-gold/40 text-feud-gold text-xs font-bold tracking-widest uppercase mb-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-feud-gold/20 border border-feud-gold/40 text-feud-gold text-xs font-bold tracking-widest uppercase mb-1">
             <Sparkles className="w-3.5 h-3.5" />
             <span>{room.roomCode}</span>
           </div>
-          <h1
-            data-testid="player-room-name"
-            className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide"
-          >
-            {room.roomName}
-          </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">{t.joinRoom.subtitle}</p>
         </div>
 

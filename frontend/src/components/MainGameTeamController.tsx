@@ -40,7 +40,6 @@ export interface MainGameTeamControllerProps {
   currentNickname: string;
   currentPlayerId?: string;
   roomCode: string;
-  roomName: string;
   onSubmitGuess?: (rawAnswer: string) => void;
   onSubmitStealGuess?: (rawAnswer: string) => void;
   onPassTurn?: () => void;
@@ -64,7 +63,6 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
   currentNickname,
   currentPlayerId,
   roomCode,
-  roomName,
   onSubmitGuess,
   onSubmitStealGuess,
   onPassTurn,
@@ -435,8 +433,7 @@ export const MainGameTeamController: React.FC<MainGameTeamControllerProps> = ({
               </span>
             </div>
             <h1 className="text-base font-extrabold text-white truncate max-w-[200px]">
-              {roomName}
-              <span className="text-xs font-normal text-slate-400 ml-1.5">({roomCode})</span>
+              {roomCode}
             </h1>
           </div>
         </div>

@@ -11,7 +11,6 @@ import {
   FaceOffTimeoutPayload,
   PromptPassPlayPayload,
   RoundControlAssignedPayload,
-  OpponentTurnPromptPayload,
   StrikeIssuedPayload,
 } from '../types';
 import { useTranslation } from '../i18n/LanguageContext';
@@ -59,10 +58,8 @@ export interface MainGameFaceOffBoardProps {
   strikeIssued?: StrikeIssuedPayload | null;
   promptPassPlay?: PromptPassPlayPayload | null;
   roundControlAssigned?: RoundControlAssignedPayload | null;
-  opponentTurnPrompt?: OpponentTurnPromptPayload | null;
   scoreboardState?: ScoreboardUpdatePayload | null;
   language?: string;
-  roomName: string;
   roomCode: string;
   onLeave?: () => void;
   isFullscreen?: boolean;
@@ -86,10 +83,8 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
   strikeIssued,
   promptPassPlay,
   roundControlAssigned,
-  opponentTurnPrompt: _opponentTurnPrompt,
   scoreboardState,
   language = 'EN',
-  roomName,
   roomCode,
   onLeave,
   isFullscreen: propsIsFullscreen,
@@ -875,9 +870,6 @@ export const MainGameFaceOffBoard: React.FC<MainGameFaceOffBoardProps> = ({
                   {roomCode}
                 </span>
               </div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-white mt-0.5">
-                {roomName}
-              </h1>
             </div>
           </div>
 

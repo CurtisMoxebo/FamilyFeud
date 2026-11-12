@@ -116,7 +116,6 @@ describe('US-22 Step 2: Host TV 16:9 Widescreen Optimization & Fullscreen Toggle
   const mockMainGameRoom: Room = {
     id: 'room-tv-1',
     roomCode: 'FEUD-4KTV',
-    roomName: 'Living Room 4K Broadcast',
     language: 'EN',
     gameMode: 'MAIN_GAME',
     status: 'LOBBY',
@@ -359,9 +358,7 @@ describe('US-22 Step 2: Host TV 16:9 Widescreen Optimization & Fullscreen Toggle
     expect(playerShell.className).toContain('px-safe');
     expect(playerShell.className).toContain('max-w-[100vw]');
     await waitFor(() => {
-      expect(screen.getByTestId('player-room-name')).toHaveTextContent(
-        'Living Room 4K Broadcast'
-      );
+      expect(screen.getByText('FEUD-4KTV')).toBeInTheDocument();
     });
   });
 

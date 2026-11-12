@@ -5,7 +5,6 @@ import { Shield, Swords, Sparkles, ArrowLeft, User, Users } from 'lucide-react';
 
 export interface MainGamePlayerViewProps {
   roomCode: string;
-  roomName: string;
   playerNickname: string;
   assignedPlayer: AssignedTeamPlayer;
   myTeam: AssignedTeamPlayer[];
@@ -16,7 +15,6 @@ export interface MainGamePlayerViewProps {
 
 export const MainGamePlayerView: React.FC<MainGamePlayerViewProps> = ({
   roomCode,
-  roomName,
   playerNickname,
   assignedPlayer,
   myTeam,
@@ -76,9 +74,6 @@ export const MainGamePlayerView: React.FC<MainGamePlayerViewProps> = ({
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 shrink-0">
               {roomCode}
-            </span>
-            <span className="text-xs font-bold text-slate-300 truncate">
-              {roomName}
             </span>
           </div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-green-400 px-2.5 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 shrink-0">

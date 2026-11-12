@@ -21,7 +21,6 @@ describe('US-20 Step 4: Host Disconnect Alert Suite (Scenario 4)', () => {
   const baseRoom: Room = {
     id: 'room-alert-1',
     roomCode: 'FEUD-ALT1',
-    roomName: 'Alert Test Room',
     language: 'EN',
     gameMode: 'MAIN_GAME',
     status: 'ACTIVE',

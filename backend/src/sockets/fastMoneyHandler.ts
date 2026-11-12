@@ -42,11 +42,6 @@ export interface DuplicateAnswerWarningPayload {
   reason?: 'EXACT_RAW' | 'SEMANTIC_MATCH';
 }
 
-export interface TimerTickPayload {
-  secondsRemaining: number;
-  endsAt: number;
-}
-
 export interface TurnEndedPayload {
   roomCode: string;
   reason: 'TIME_EXPIRED' | 'ALL_ANSWERED';

@@ -73,7 +73,6 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
           currentNickname="Alice"
           currentPlayerId="p1"
           roomCode="FEUD-5555"
-          roomName="Family Feud Championship"
           {...props}
         />
       </LanguageProvider>
@@ -383,7 +382,6 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
           currentNickname="Alice"
           currentPlayerId="p1"
           roomCode="FEUD-5555"
-          roomName="Family Feud Championship"
           stealResolved={{
             roomCode: 'FEUD-5555',
             success: false,
@@ -479,7 +477,6 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
           currentNickname="Alice"
           currentPlayerId="p1"
           roomCode="FEUD-5555"
-          roomName="Family Feud Championship"
           strikeIssued={{
             roomCode: 'FEUD-5555',
             team: 'TEAM_1',
@@ -504,7 +501,6 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
           currentNickname="Alice"
           currentPlayerId="p1"
           roomCode="FEUD-5555"
-          roomName="Family Feud Championship"
           answerRevealCompleted={{ roomCode: 'FEUD-5555' }}
         />
       </LanguageProvider>
@@ -537,7 +533,6 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
           currentNickname="David"
           currentPlayerId="p2"
           roomCode="FEUD-5555"
-          roomName="Family Feud Championship"
           teamGuessSubmitted={{
             roomCode: 'FEUD-5555',
             playerId: 'p1',
@@ -581,7 +576,6 @@ describe('US-14 & US-15 MainGameTeamController Component Tests', () => {
           currentNickname="David"
           currentPlayerId="p2"
           roomCode="FEUD-5555"
-          roomName="Family Feud Championship"
           answerRevealCompleted={{ roomCode: 'FEUD-5555' }}
         />
       </LanguageProvider>

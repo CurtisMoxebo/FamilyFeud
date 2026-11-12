@@ -17,7 +17,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
   const mockRoom: Room = {
     id: 'room-abc',
     roomCode: 'FEUD-7890',
-    roomName: 'Soirée Famille',
     language: 'FR',
     gameMode: 'FAST_MONEY',
     status: 'LOBBY',
@@ -139,8 +138,7 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
   it('satisfies Scenario 3: Language and Mode Persistence with initialRoom prop', () => {
     renderWithProviders(<HostBoard roomCode="FEUD-7890" initialRoom={mockRoom} />);
 
-    // Room Name and Code
-    expect(screen.getByText('Soirée Famille')).toBeInTheDocument();
+    // Room Code
     expect(screen.getByTestId('host-room-code')).toHaveTextContent('FEUD-7890');
 
     // Language reflects French
@@ -195,7 +193,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
           ...mockRoom,
           language: 'ES',
           gameMode: 'MAIN_GAME',
-          roomName: 'Noche en Familia',
         },
       }),
     } as Response);
@@ -207,7 +204,7 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     // Resolves and displays Spanish Main Game details
     await waitFor(() => {
-      expect(screen.getByText('Noche en Familia')).toBeInTheDocument();
+      expect(screen.getByTestId('host-room-code')).toHaveTextContent('FEUD-7890');
     });
 
     expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/rooms/FEUD-7890'));
@@ -280,7 +277,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     const mockState: RoomStateUpdate = {
       roomCode: 'FEUD-7890',
-      roomName: 'Soirée Famille',
       language: 'FR',
       gameMode: 'FAST_MONEY',
       status: 'LOBBY',
@@ -332,7 +328,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     const mockState: RoomStateUpdate = {
       roomCode: 'FEUD-7890',
-      roomName: 'Soirée Famille',
       language: 'FR',
       gameMode: 'MAIN_GAME',
       status: 'LOBBY',
@@ -367,7 +362,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
   it('satisfies US-04 Scenario 4: renders disconnected badge when a player disconnects', () => {
     const mockState: RoomStateUpdate = {
       roomCode: 'FEUD-7890',
-      roomName: 'Soirée Famille',
       language: 'FR',
       gameMode: 'FAST_MONEY',
       status: 'LOBBY',
@@ -483,7 +477,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const mainGameRoomEN: Room = {
       id: 'room-us11',
       roomCode: 'FEUD-5555',
-      roomName: 'Family Game Night',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'LOBBY',
@@ -492,7 +485,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
 
     const mockState5Players: RoomStateUpdate = {
       roomCode: 'FEUD-5555',
-      roomName: 'Family Game Night',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'LOBBY',
@@ -533,7 +525,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const mainGameRoomEN: Room = {
       id: 'room-us11',
       roomCode: 'FEUD-4444',
-      roomName: 'Family Game Night',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'LOBBY',
@@ -593,7 +584,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const mainGameRoomEN: Room = {
       id: 'room-main-fo',
       roomCode: 'FEUD-5555',
-      roomName: 'Face-Off Championship',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'ACTIVE',
@@ -647,7 +637,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const mainGameRoomEN: Room = {
       id: 'room-passplay',
       roomCode: 'FEUD-6666',
-      roomName: 'Face-Off Pass Play Show',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'ACTIVE',
@@ -724,7 +713,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const mainGameRoomEN: Room = {
       id: 'room-tg-1',
       roomCode: 'FEUD-7777',
-      roomName: 'Team Turn Show',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'ACTIVE',
@@ -851,7 +839,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
         const testRoom: Room = {
       id: 'room-7777',
       roomCode: 'FEUD-7777',
-      roomName: 'Test Room',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'IN_PROGRESS',
@@ -925,7 +912,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const testRoom: Room = {
       id: 'room-7777',
       roomCode: 'FEUD-7777',
-      roomName: 'Test Room',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'IN_PROGRESS',
@@ -1040,7 +1026,6 @@ describe('Frontend Regression Suite: HostBoard Page & QR Code (US-02, US-03 & US
     const mainGameRoomEN: Room = {
       id: 'room-main-showcase',
       roomCode: 'FEUD-9999',
-      roomName: 'Family Feud US-28',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'ACTIVE',

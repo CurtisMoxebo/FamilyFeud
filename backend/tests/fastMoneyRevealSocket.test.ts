@@ -184,7 +184,7 @@ describe('Fast Money Reveal WebSocket Handlers (US-08 Step 2)', () => {
 
   describe('reveal_answer (Scenario 1: Host Triggers Question Answer Reveal)', () => {
     it('flips slot 1 answer, broadcasts board_reveal, and updates host/player states', () => {
-      const session = setupSessionWithAnswers();
+      setupSessionWithAnswers();
       const callback = vi.fn();
 
       hostListeners['reveal_answer']({ roomCode: 'FEUD-REV2', slotNumber: 1 }, callback);

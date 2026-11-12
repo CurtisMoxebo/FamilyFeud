@@ -13,7 +13,6 @@ export interface FastMoneyIsolationProps {
   player1Name?: string;
   player2Name?: string;
   onReady?: () => void;
-  onLeave?: () => void;
 }
 
 export const FastMoneyIsolation: React.FC<FastMoneyIsolationProps> = ({

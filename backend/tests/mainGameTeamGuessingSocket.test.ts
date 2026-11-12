@@ -8,8 +8,6 @@ import { setupSocketServer } from '../src/sockets/lobbyHandler';
 import {
   initFaceOffSession,
   clearAllFaceOffSessions,
-  FaceOffQuestion,
-  FaceOffPlayer,
 } from '../src/services/faceOffService';
 import {
   initTeamGuessingSession,
@@ -20,9 +18,6 @@ import {
 } from '../src/services/teamGuessingService';
 import {
   handleTeamGuessingTimeoutBroadcast,
-  broadcastTeamGuessingState,
-  SubmitTeamGuessPayload,
-  PassTeamTurnPayload,
   StrikeIssuedPayload,
   RoundClearedPayload,
   TransitionStealPhasePayload,
@@ -93,35 +88,30 @@ describe('US-14: Main Game Team Guessing Turn, Board Flips & 3-Strike System Web
       data: [
         {
           roomCode: 'FEUD-S14A',
-          roomName: 'Team Guessing Room A',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-S14B',
-          roomName: 'Team Guessing Room B',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-S14C',
-          roomName: 'Team Guessing Room C',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-S14D',
-          roomName: 'Team Guessing Room D',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-S14E',
-          roomName: 'Team Guessing Room E',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',

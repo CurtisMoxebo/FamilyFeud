@@ -31,6 +31,7 @@ export interface FastMoneyQuestionItem {
   id: string;
   questionText: string;
   orderIndex: number;
+  answerCount?: number;
   answers?: FastMoneyQuestionAnswer[];
 }
 

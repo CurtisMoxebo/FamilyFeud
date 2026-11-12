@@ -28,7 +28,6 @@ export const RoomCreateForm: React.FC<RoomCreateFormProps> = ({
     language || defaultLanguage
   );
   const [selectedGameMode, setSelectedGameMode] = useState<GameMode>(defaultGameMode);
-  const [roomName, setRoomName] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -38,23 +37,9 @@ export const RoomCreateForm: React.FC<RoomCreateFormProps> = ({
     setLanguage(newLanguage);
   };
 
-  const validateInput = (): boolean => {
-    const trimmed = roomName.trim();
-    if (!trimmed || trimmed.length < 3 || trimmed.length > 50) {
-      setErrorMessage(t.createRoom.validationErrorEmpty);
-      return false;
-    }
-    setErrorMessage(null);
-    return true;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     resumeAudioContext();
-
-    if (!validateInput()) {
-      return;
-    }
 
     setIsLoading(true);
     setErrorMessage(null);
@@ -66,7 +51,6 @@ export const RoomCreateForm: React.FC<RoomCreateFormProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          roomName: roomName.trim(),
           language: selectedLanguage,
           gameMode: selectedGameMode,
         }),
@@ -161,40 +145,6 @@ export const RoomCreateForm: React.FC<RoomCreateFormProps> = ({
               disabled={isLoading}
             />
           </div>
-        </section>
-
-        {/* Step 3: Room Name */}
-        <section aria-labelledby="step-name-title">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-6 h-6 rounded-full bg-feud-gold/20 text-feud-gold font-bold text-xs flex items-center justify-center border border-feud-gold/40">
-              3
-            </span>
-            <h3 id="step-name-title" className="text-base font-bold text-white uppercase tracking-wider">
-              {t.createRoom.step3Title}
-            </h3>
-          </div>
-          <p className="text-xs text-slate-400 mb-3 ml-8">{t.createRoom.step3Desc}</p>
-
-          <input
-            id="room-name-input"
-            type="text"
-            name="roomName"
-            value={roomName}
-            disabled={isLoading}
-            onChange={(e) => {
-              setRoomName(e.target.value);
-              if (errorMessage) setErrorMessage(null);
-            }}
-            placeholder={t.createRoom.roomNamePlaceholder}
-            aria-label={t.createRoom.roomNamePlaceholder}
-            data-testid="room-name-input"
-            maxLength={50}
-            className={`w-full px-4 py-3.5 rounded-xl bg-feud-slate border text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all ${
-              errorMessage
-                ? 'border-feud-red focus:ring-feud-red/50'
-                : 'border-feud-slate-border focus:border-feud-gold focus:ring-feud-gold/40'
-            }`}
-          />
         </section>
 
         {/* Error Alert Box */}

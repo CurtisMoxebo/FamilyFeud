@@ -12,8 +12,6 @@ import {
 import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import {
   initFastMoneySession,
-  broadcastFastMoneyState,
-  getFastMoneySession,
 } from '../src/sockets/fastMoneyHandler';
 import {
   initTeamGuessingSession,
@@ -87,7 +85,6 @@ describe('US-20 Step 3: Player Automatic Reconnection & Turn Resumption Suite', 
     const room1 = await prisma.room.create({
       data: {
         roomCode: 'FEUD-PR01',
-        roomName: 'Player Fast Money Reconnect Room',
         language: 'EN',
         gameMode: 'FAST_MONEY',
         status: 'ACTIVE',
@@ -115,7 +112,6 @@ describe('US-20 Step 3: Player Automatic Reconnection & Turn Resumption Suite', 
     const room2 = await prisma.room.create({
       data: {
         roomCode: 'FEUD-PR02',
-        roomName: 'Player Main Game Reconnect Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',
@@ -180,16 +176,18 @@ describe('US-20 Step 3: Player Automatic Reconnection & Turn Resumption Suite', 
 
     // Initialize Fast Money session
     const fastMoney = initFastMoneySession(roomCode, {
+      gameId: 'game-fm-pr1',
       player1Id: playerId,
       player2Id: 'player-p2-uuid',
       questions: [
         {
           id: 'q-fm-1',
           questionText: 'Name something you eat with soup',
+          orderIndex: 1,
           answerCount: 2,
           answers: [
-            { text: 'Crackers', points: 45 },
-            { text: 'Bread', points: 35 },
+            { id: 'a1', answerText: 'Crackers', points: 45 },
+            { id: 'a2', answerText: 'Bread', points: 35 },
           ],
         },
       ],
@@ -197,12 +195,12 @@ describe('US-20 Step 3: Player Automatic Reconnection & Turn Resumption Suite', 
 
     // Start Player 1's turn (Scenario 2: Player 1 is taking their 60-second turn)
     fastMoney.startPlayer1Turn(playerId);
-    expect(fastMoney.phase).toBe('P1_PLAYING');
+    expect(fastMoney.getPhase()).toBe('P1_PLAYING');
 
     // Initial socket connects and disconnects (screen lock simulation)
     const initialSocket = await connectClient(port);
     clientSockets.push(initialSocket);
-    sessionRecoveryService.updatePlayerSocket(playerId, initialSocket.id);
+    sessionRecoveryService.updatePlayerSocket(playerId, initialSocket.id!);
     initialSocket.disconnect();
 
     // 5 seconds later, phone unlocks and reconnects

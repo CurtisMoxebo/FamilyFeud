@@ -5,7 +5,6 @@ import { Tv, Swords, ArrowLeft, Sparkles, Shield, Play } from 'lucide-react';
 
 export interface MainGameTeamsStageProps {
   roomCode: string;
-  roomName: string;
   team1: AssignedTeamPlayer[];
   team2: AssignedTeamPlayer[];
   onLeave?: () => void;
@@ -14,7 +13,6 @@ export interface MainGameTeamsStageProps {
 
 export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
   roomCode,
-  roomName,
   team1,
   team2,
   onLeave,
@@ -65,9 +63,6 @@ export const MainGameTeamsStage: React.FC<MainGameTeamsStageProps> = ({
                   {roomCode}
                 </span>
               </div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-white mt-0.5">
-                {roomName}
-              </h1>
             </div>
           </div>
 

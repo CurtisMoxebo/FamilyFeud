@@ -19,7 +19,7 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders all 3 setup sections: Language, Game Mode, and Room Name', () => {
+  it('renders both setup sections: Language and Game Mode (without Room Name input)', () => {
     renderWithProviders(<RoomCreateForm />);
 
     // Step 1: Languages
@@ -31,19 +31,18 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     expect(screen.getByTestId('gamemode-card-fast_money')).toBeInTheDocument();
     expect(screen.getByTestId('gamemode-card-main_game')).toBeInTheDocument();
 
-    // Step 3: Room name
-    expect(screen.getByTestId('room-name-input')).toBeInTheDocument();
+    // Room name input is deprecated (US-29)
+    expect(screen.queryByTestId('room-name-input')).not.toBeInTheDocument();
     expect(screen.getByTestId('create-room-submit-btn')).toBeInTheDocument();
   });
 
-  it('satisfies Scenario 1: Successful Room Creation (French, Fast Money, Soirée Famille)', async () => {
+  it('satisfies Scenario 1: Successful Room Creation (French, Fast Money)', async () => {
     const user = userEvent.setup();
     const onRoomCreatedMock = vi.fn();
 
     const mockResponseRoom = {
       id: 'room-123',
       roomCode: 'FEUD-7890',
-      roomName: 'Soirée Famille',
       language: 'FR',
       gameMode: 'FAST_MONEY',
       status: 'LOBBY',
@@ -65,10 +64,6 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     // Select Fast Money
     await user.click(screen.getByTestId('gamemode-card-fast_money'));
 
-    // Type room name
-    const input = screen.getByTestId('room-name-input');
-    await user.type(input, 'Soirée Famille');
-
     // Click submit button
     const submitBtn = screen.getByTestId('create-room-submit-btn');
     await user.click(submitBtn);
@@ -82,43 +77,12 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     expect(callUrl).toContain('/rooms');
     expect(callOptions?.method).toBe('POST');
     expect(JSON.parse(callOptions?.body as string)).toEqual({
-      roomName: 'Soirée Famille',
       language: 'FR',
       gameMode: 'FAST_MONEY',
     });
 
     // Verify onRoomCreated callback
     expect(onRoomCreatedMock).toHaveBeenCalledWith(mockResponseRoom);
-  });
-
-  it('satisfies Scenario 2: Validation of Empty or Invalid Room Name', async () => {
-    const user = userEvent.setup();
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    const onRoomCreatedMock = vi.fn();
-
-    renderWithProviders(<RoomCreateForm onRoomCreated={onRoomCreatedMock} />);
-
-    // Try submitting with empty room name
-    const submitBtn = screen.getByTestId('create-room-submit-btn');
-    await user.click(submitBtn);
-
-    // Fetch should NOT be called
-    expect(fetchSpy).not.toHaveBeenCalled();
-    expect(onRoomCreatedMock).not.toHaveBeenCalled();
-
-    // Error message must appear
-    const errorEl = await screen.findByTestId('room-create-error');
-    expect(errorEl).toHaveTextContent('Please enter a room name (3-50 characters)');
-
-    // Try submitting with name shorter than 3 characters
-    const input = screen.getByTestId('room-name-input');
-    await user.type(input, 'AB');
-    await user.click(submitBtn);
-
-    expect(fetchSpy).not.toHaveBeenCalled();
-    expect(screen.getByTestId('room-create-error')).toHaveTextContent(
-      'Please enter a room name (3-50 characters)'
-    );
   });
 
   it('updates form labels dynamically when switching languages (i18n)', async () => {
@@ -131,12 +95,10 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     // Switch to Spanish
     await user.click(screen.getByTestId('language-option-ES'));
     expect(screen.getByTestId('create-room-submit-btn')).toHaveTextContent(/Crear sala/i);
-    expect(screen.getByPlaceholderText(/ej\. Noche Familiar/i)).toBeInTheDocument();
 
     // Switch to French
     await user.click(screen.getByTestId('language-option-FR'));
     expect(screen.getByTestId('create-room-submit-btn')).toHaveTextContent(/Créer le salon/i);
-    expect(screen.getByPlaceholderText(/ex\. Soirée Famille/i)).toBeInTheDocument();
   });
 
   it('displays server error message when API responds with error', async () => {
@@ -152,9 +114,6 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
 
     renderWithProviders(<RoomCreateForm />);
 
-    const input = screen.getByTestId('room-name-input');
-    await user.type(input, 'Valid Room Name');
-
     await user.click(screen.getByTestId('create-room-submit-btn'));
 
     const errorEl = await screen.findByTestId('room-create-error');
@@ -168,9 +127,6 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
 
     renderWithProviders(<RoomCreateForm />);
 
-    const input = screen.getByTestId('room-name-input');
-    await user.type(input, 'Valid Room Name');
-
     await user.click(screen.getByTestId('create-room-submit-btn'));
 
     const errorEl = await screen.findByTestId('room-create-error');
@@ -183,7 +139,6 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     const mockRoom = {
       id: 'room-1',
       roomCode: 'FEUD-SFX1',
-      roomName: 'Sound Room',
       language: 'EN',
       gameMode: 'FAST_MONEY',
       status: 'LOBBY',
@@ -196,9 +151,6 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     } as Response);
 
     renderWithProviders(<RoomCreateForm />);
-    const input = screen.getByTestId('room-name-input');
-    await user.clear(input);
-    await user.type(input, 'Sound Room');
 
     const submitBtn = screen.getByTestId('create-room-submit-btn');
     await user.click(submitBtn);
@@ -210,7 +162,6 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     const mockRoom = {
       id: 'room-sec-1',
       roomCode: 'FEUD-SEC1',
-      roomName: 'Host Secret Suite',
       language: 'EN',
       gameMode: 'MAIN_GAME',
       status: 'LOBBY',
@@ -226,9 +177,6 @@ describe('Frontend Regression Suite: RoomCreateForm Component (US-02)', () => {
     } as Response);
 
     renderWithProviders(<RoomCreateForm />);
-    const input = screen.getByTestId('room-name-input');
-    await user.clear(input);
-    await user.type(input, 'Host Secret Suite');
 
     const submitBtn = screen.getByTestId('create-room-submit-btn');
     await user.click(submitBtn);

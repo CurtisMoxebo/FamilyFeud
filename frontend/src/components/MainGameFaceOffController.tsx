@@ -10,7 +10,6 @@ import {
   FaceOffTimeoutPayload,
   PromptPassPlayPayload,
   RoundControlAssignedPayload,
-  OpponentTurnPromptPayload,
   FaceOffAnswerSubmittedPayload,
   AnswerRevealCompletedPayload,
   StrikeIssuedPayload,
@@ -45,11 +44,9 @@ export interface MainGameFaceOffControllerProps {
   strikeIssued?: StrikeIssuedPayload | null;
   promptPassPlay?: PromptPassPlayPayload | null;
   roundControlAssigned?: RoundControlAssignedPayload | null;
-  opponentTurnPrompt?: OpponentTurnPromptPayload | null;
   currentNickname: string;
   currentPlayerId?: string;
   roomCode: string;
-  roomName: string;
   onReady?: () => void;
   onBuzz?: () => void;
   onSubmitAnswer?: (rawAnswer: string) => void;
@@ -57,7 +54,6 @@ export interface MainGameFaceOffControllerProps {
   scoreboardState?: ScoreboardUpdatePayload | null;
   faceOffAnswerSubmitted?: FaceOffAnswerSubmittedPayload | null;
   answerRevealCompleted?: AnswerRevealCompletedPayload | null;
-  onLeave?: () => void;
 }
 
 export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps> = ({
@@ -72,19 +68,16 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
   strikeIssued,
   promptPassPlay,
   roundControlAssigned,
-  opponentTurnPrompt: _opponentTurnPrompt,
   faceOffAnswerSubmitted,
   answerRevealCompleted,
   currentNickname,
   currentPlayerId,
   roomCode,
-  roomName,
   onReady,
   onBuzz,
   onSubmitAnswer,
   onChoosePlayPass,
   scoreboardState,
-  onLeave: _onLeave,
 }) => {
   const { t } = useTranslation();
   const [answerInput, setAnswerInput] = useState<string>('');
@@ -563,12 +556,6 @@ export const MainGameFaceOffController: React.FC<MainGameFaceOffControllerProps>
             className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 py-0.5 rounded bg-slate-800"
           >
             {roomCode}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 truncate max-w-[140px]">
-            {roomName}
           </span>
         </div>
       </div>

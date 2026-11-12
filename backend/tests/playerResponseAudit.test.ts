@@ -52,7 +52,6 @@ describe('US-19: Turn Audit Logging & Player Responses Suite', () => {
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}01`,
-          roomName: 'Fast Money Audit Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'ACTIVE',
@@ -139,7 +138,6 @@ describe('US-19: Turn Audit Logging & Player Responses Suite', () => {
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}02`,
-          roomName: 'Fast Money Miss Audit',
           language: 'EN',
           gameMode: 'FAST_MONEY',
         },
@@ -200,7 +198,6 @@ describe('US-19: Turn Audit Logging & Player Responses Suite', () => {
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}03`,
-          roomName: 'FaceOff Audit Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
         },
@@ -275,7 +272,6 @@ describe('US-19: Turn Audit Logging & Player Responses Suite', () => {
       const room = await prisma.room.create({
         data: {
           roomCode: `${TEST_ROOM_PREFIX}04`,
-          roomName: 'Team Guess Audit Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
         },

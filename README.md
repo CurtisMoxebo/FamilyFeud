@@ -203,7 +203,7 @@ The project includes automated Continuous Deployment ([US-24](docs/user%20storie
 
 The project includes automated regression test suites powered by **Vitest** for both backend and frontend.
 
-All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **all 999 regression tests** (564 backend, 435 frontend) pass cleanly with **>90% code coverage** across 76 suites:
+All test suites are symmetrically organized in dedicated top-level `tests/` directories (`backend/tests/` and `frontend/tests/`), completely isolated from production application code in `src/`. Currently, **over 1,000 regression tests** (across 45 backend and 32 frontend test suites) pass cleanly with **>90% code coverage**:
 
 ```bash
 # Run all regression tests across the whole project
@@ -226,7 +226,7 @@ npm run test:coverage:frontend
 ## 📱 Dual-Screen Local Testing
 
 To test the TV Host view and Player mobile controllers on a single computer:
-1. **Host Screen**: Open `http://localhost:5173` in a standard browser window. Select a language, game mode, enter a room name, and click Create.
+1. **Host Screen**: Open `http://localhost:5173` in a standard browser window. Select a language, choose a game mode, and click Create.
 2. **Player 1**: Open an **Incognito / Private** window and visit the join URL or scan the QR code.
 3. **Player 2**: Open a second **Incognito** window or a different browser profile.
 4. **Mobile Phone Testing**: Find your local IP (e.g. `192.168.1.50`), ensure your phone is connected to the same Wi-Fi, and scan the QR code directly from your phone camera!

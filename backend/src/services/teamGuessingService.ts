@@ -18,6 +18,7 @@ export interface TeamGuessingPlayer {
   nickname: string;
   team: TeamId;
   battingOrder: number;
+  isConnected?: boolean;
 }
 
 export interface TeamGuessingQuestionAnswer {
@@ -110,11 +111,14 @@ export interface TeamGuessingSessionConfig {
   gameId: string;
   roundNumber: number;
   controllingTeam: TeamId;
+  opposingTeam?: TeamId;
   team1Players: TeamGuessingPlayer[];
   team2Players: TeamGuessingPlayer[];
   question: TeamGuessingQuestion;
   initialRevealedAnswers?: TeamRevealedAnswer[];
   initialBank?: number;
+  roundBank?: number;
+  strikes?: number;
   startPlayerIndex?: number;
   startPlayerId?: string;
   stealSpokespersonId?: string;

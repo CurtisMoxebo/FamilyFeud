@@ -4,7 +4,7 @@ import { app } from '../src/server';
 import prisma from '../src/services/db';
 import { isValidRoomCodeFormat } from '../src/utils/roomCode';
 
-describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
+describe('Backend Regression Suite: Room API Endpoints (US-02 & US-29)', () => {
   const createdRoomIds: string[] = [];
 
   afterAll(async () => {
@@ -20,7 +20,6 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       const res = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'TEST-Soirée Famille',
           language: 'FR',
           gameMode: 'FAST_MONEY',
         });
@@ -31,7 +30,6 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
 
       const { room } = res.body;
       expect(room.id).toBeDefined();
-      expect(room.roomName).toBe('TEST-Soirée Famille');
       expect(room.language).toBe('FR');
       expect(room.gameMode).toBe('FAST_MONEY');
       expect(room.status).toBe('LOBBY');
@@ -45,14 +43,12 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       });
       expect(dbRecord).not.toBeNull();
       expect(dbRecord?.roomCode).toBe(room.roomCode);
-      expect(dbRecord?.roomName).toBe('TEST-Soirée Famille');
     });
 
     it('creates a room in Spanish Main Game mode', async () => {
       const res = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'TEST-Noche en Familia',
           language: 'ES',
           gameMode: 'MAIN_GAME',
         });
@@ -69,7 +65,6 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       const res = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'TEST-Family Feud Night',
           language: 'EN',
           gameMode: 'FAST_MONEY',
         });
@@ -82,40 +77,10 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       createdRoomIds.push(res.body.room.id);
     });
 
-    it('rejects creation when room name is blank (Scenario 2: Validation of Empty Room Name)', async () => {
-      const res = await request(app)
-        .post('/api/rooms')
-        .send({
-          roomName: '   ',
-          language: 'FR',
-          gameMode: 'FAST_MONEY',
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error).toBe('Validation failed');
-      expect(res.body.message).toBe('Please enter a room name (3-50 characters)');
-    });
-
-    it('rejects creation when room name is shorter than 3 characters', async () => {
-      const res = await request(app)
-        .post('/api/rooms')
-        .send({
-          roomName: 'Hi',
-          language: 'EN',
-          gameMode: 'FAST_MONEY',
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
-      expect(res.body.message).toBe('Please enter a room name (3-50 characters)');
-    });
-
     it('rejects creation when language is invalid or unsupported', async () => {
       const res = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'TEST-Valid Name',
           language: 'DE',
           gameMode: 'FAST_MONEY',
         });
@@ -129,7 +94,6 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       const res = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'TEST-Valid Name',
           language: 'EN',
           gameMode: 'INVALID_MODE',
         });
@@ -145,7 +109,6 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       const res = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'TEST-Fail Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
         });
@@ -164,7 +127,6 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       const createRes = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'TEST-Fetch Target',
           language: 'EN',
           gameMode: 'FAST_MONEY',
         });
@@ -177,7 +139,6 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       expect(fetchRes.status).toBe(200);
       expect(fetchRes.body.success).toBe(true);
       expect(fetchRes.body.room.roomCode).toBe(roomCode);
-      expect(fetchRes.body.room.roomName).toBe('TEST-Fetch Target');
       expect(fetchRes.body.room.status).toBe('LOBBY');
       expect(Array.isArray(fetchRes.body.room.players)).toBe(true);
     });
@@ -186,7 +147,6 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
       const createRes = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'TEST-Case Insensitive',
           language: 'FR',
           gameMode: 'MAIN_GAME',
         });
@@ -226,4 +186,3 @@ describe('Backend Regression Suite: Room API Endpoints (US-02)', () => {
     });
   });
 });
-

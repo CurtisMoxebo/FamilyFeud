@@ -10,12 +10,8 @@ export interface TranslationDictionary {
     step1Desc: string;
     step2Title: string;
     step2Desc: string;
-    step3Title: string;
-    step3Desc: string;
-    roomNamePlaceholder: string;
     submitButton: string;
     submitting: string;
-    validationErrorEmpty: string;
   };
   gameModes: {
     fastMoneyTitle: string;
@@ -24,13 +20,6 @@ export interface TranslationDictionary {
     mainGameTitle: string;
     mainGameBadge: string;
     mainGameDesc: string;
-  };
-  gameActions: {
-    ready: string;
-    submit: string;
-    pass: string;
-    play: string;
-    duplicateAnswer: string;
   };
   host: {
     hostBoard: string;
@@ -80,10 +69,8 @@ export interface TranslationDictionary {
     startGame: string;
     startGameWithCount: string;
     mainGameEvenCountRequired: string;
-    mainGameCurrentWaiting: string;
     oddPlayerCountWarning: string;
     fastMoneyWaiting: string;
-    statusHost: string;
     statusReady: string;
     statusWaiting: string;
     statusDisconnected: string;
@@ -131,7 +118,6 @@ export interface TranslationDictionary {
     p1ColumnTitle: string;
     p2ColumnTitle: string;
     grandTotal: string;
-    targetGoal: string;
     startP2RevealBtn: string;
     repeatQuestionButton: string;
     hostRepeatAlert: string;
@@ -182,12 +168,9 @@ export interface TranslationDictionary {
     buzzerWinner: string;
     youBuzzedFirst: string;
     spectatorCheer: string;
-    faceOffTimeRemaining: string;
     faceOffInputPlaceholder: string;
     submitAnswer: string;
     answeringTurn: string;
-    timeUpHandOff: string;
-    timeUpTeammate: string;
     deadlockReset: string;
     passOrPlayTitle: string;
     passOrPlaySubtitle: string;
@@ -228,14 +211,11 @@ export interface TranslationDictionary {
     remainingAnswersTitle: string;
     roundWinnerBanner: string;
     // US-16: Real-Time Grand Total Scores & Match Replay
-    grandTotalHeader: string;
     roundBank: string;
     roundProgress: string;
     yourTeam: string;
     nextRoundBtn: string;
-    nextContendersBanner: string;
     matchWinnerTitle: string;
-    matchTieTitle: string;
     suddenDeathTitle: string;
     suddenDeathSubtitle: string;
     playAgainBtn: string;

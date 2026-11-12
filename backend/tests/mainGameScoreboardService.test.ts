@@ -243,18 +243,18 @@ describe('US-16: Main Game Scoreboard & Replay Service (mainGameScoreboardServic
     });
     it('allows every player in team to do a face-off when total rounds equals team size (e.g. 5 rounds for 5 players)', () => {
       const team1 = [
-        { id: 't1-p1', nickname: 'Alice', battingOrder: 1 },
-        { id: 't1-p2', nickname: 'Bob', battingOrder: 2 },
-        { id: 't1-p3', nickname: 'Charlie', battingOrder: 3 },
-        { id: 't1-p4', nickname: 'David', battingOrder: 4 },
-        { id: 't1-p5', nickname: 'Eve', battingOrder: 5 },
+        { id: 't1-p1', nickname: 'Alice', team: 'TEAM_1' as const, battingOrder: 1 },
+        { id: 't1-p2', nickname: 'Bob', team: 'TEAM_1' as const, battingOrder: 2 },
+        { id: 't1-p3', nickname: 'Charlie', team: 'TEAM_1' as const, battingOrder: 3 },
+        { id: 't1-p4', nickname: 'David', team: 'TEAM_1' as const, battingOrder: 4 },
+        { id: 't1-p5', nickname: 'Eve', team: 'TEAM_1' as const, battingOrder: 5 },
       ];
       const team2 = [
-        { id: 't2-p1', nickname: 'Frank', battingOrder: 1 },
-        { id: 't2-p2', nickname: 'Grace', battingOrder: 2 },
-        { id: 't2-p3', nickname: 'Heidi', battingOrder: 3 },
-        { id: 't2-p4', nickname: 'Ivan', battingOrder: 4 },
-        { id: 't2-p5', nickname: 'Judy', battingOrder: 5 },
+        { id: 't2-p1', nickname: 'Frank', team: 'TEAM_2' as const, battingOrder: 1 },
+        { id: 't2-p2', nickname: 'Grace', team: 'TEAM_2' as const, battingOrder: 2 },
+        { id: 't2-p3', nickname: 'Heidi', team: 'TEAM_2' as const, battingOrder: 3 },
+        { id: 't2-p4', nickname: 'Ivan', team: 'TEAM_2' as const, battingOrder: 4 },
+        { id: 't2-p5', nickname: 'Judy', team: 'TEAM_2' as const, battingOrder: 5 },
       ];
 
       const session = new MainGameScoreboardSession(roomCode, gameId, { totalRounds: 5 });

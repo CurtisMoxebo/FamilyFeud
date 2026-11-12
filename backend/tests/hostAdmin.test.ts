@@ -4,13 +4,19 @@ import { AddressInfo } from 'net';
 import { io as Client, Socket as ClientSocket } from 'socket.io-client';
 import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from '../src/services/db';
-import { setupSocketServer, RoomStateUpdate } from '../src/sockets/lobbyHandler';
+import { setupSocketServer, RoomStateUpdate, handleAutoForfeitIfActiveTimer } from '../src/sockets/lobbyHandler';
 import { sessionRecoveryService } from '../src/services/sessionRecoveryService';
 import { hostAdminService, ManualOverrideResult } from '../src/services/hostAdminService';
 import { initTeamGuessingSession, removeTeamGuessingSession } from '../src/services/teamGuessingService';
 import { initFaceOffSession, removeFaceOffSession } from '../src/services/faceOffService';
 import { initMatchScoreboard, deleteMatchScoreboard } from '../src/services/mainGameScoreboardService';
-import { initFastMoneySession, clearFastMoneyTimer } from '../src/sockets/fastMoneyHandler';
+import {
+  initFastMoneySession,
+  clearFastMoneyTimer,
+  startAuthoritativeTimer,
+  fastMoneyPausedTimers,
+  resumeFastMoneyTimer,
+} from '../src/sockets/fastMoneyHandler';
 import { AdminErrorPayload } from '../src/sockets/adminHandler';
 
 describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
@@ -125,7 +131,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Security Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
@@ -204,10 +209,9 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
   describe('Scenario 3: Kicking an Inactive Player from Lobby', () => {
     it('allows host to kick an unresponsive player, terminating socket and deleting database row', async () => {
       const roomCode = 'FEUD-ADM2';
-      const room = await prisma.room.create({
+      await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Kick Test Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'LOBBY',
@@ -280,7 +284,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Kick Non-Existent Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'LOBBY',
@@ -308,7 +311,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Pause Team Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -341,8 +343,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       expect(teamSession.isTimerRunning).toBe(true);
@@ -390,7 +392,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Fast Money Pause Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'LOBBY',
@@ -412,6 +413,7 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           {
             id: 'q1',
             questionText: 'Name a pizza topping',
+            orderIndex: 1,
             answers: [{ id: 'a1', answerText: 'Pepperoni', points: 50, rankOrder: 1 }],
           },
         ],
@@ -419,7 +421,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
 
       fmSession.startPlayer1Turn('fm-p1');
       // Start timer
-      const { startAuthoritativeTimer } = await import('../src/sockets/fastMoneyHandler');
       startAuthoritativeTimer(testIo, fmSession, 1);
 
       // Host pauses Fast Money
@@ -492,7 +493,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Steal Pause Lockout Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -524,8 +524,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Pause during TEAM_GUESSING and verify submit_team_guess + pass_team_turn are locked out
@@ -590,7 +590,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Reconnect Paused Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -619,8 +618,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: joinRes.playerId, nickname: 'ReconnectBob', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Other', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: joinRes.playerId, nickname: 'ReconnectBob', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Other', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       await new Promise<any>((resolve) => {
@@ -663,7 +662,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Override Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -696,8 +694,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Simulate a strike issued for an answer that Gemini flagged/rejected (e.g. "Puppy")
@@ -752,7 +750,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Override Invalid Slot Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -779,8 +776,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Try overriding an invalid rankOrder
@@ -801,7 +798,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Custom Override Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -827,8 +823,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const overrideRes: ManualOverrideResult = await new Promise((resolve) => {
@@ -850,7 +846,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Override Options Security Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -882,8 +877,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // 1. Non-host player cannot fetch unrevealed override options
@@ -929,7 +924,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Third Strike Retract Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -964,10 +958,10 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
         team1Players: [
-          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true },
-          { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', isConnected: true },
+          { id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true },
+          { id: 'p3', nickname: 'Charlie', team: 'TEAM_1', battingOrder: 2, isConnected: true },
         ],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Accumulate 3 strikes -> STEAL_PHASE (active player starts at index 1 = Charlie -> Alice -> Charlie)
@@ -1016,7 +1010,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Board Clear Override Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1048,8 +1041,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const roundClearedPromise = waitForEvent<any>(playerSocket, 'round_cleared');
@@ -1148,7 +1141,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Not Paused Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1174,7 +1166,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'FaceOff Pause Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1187,7 +1178,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         hostSocket.emit('join_room', { roomCode, isHost: true }, () => resolve());
       });
 
-      const { initFaceOffSession } = await import('../src/services/faceOffService');
       const foSession = initFaceOffSession(roomCode, {
         gameId: 'game-fo-pause',
         roundNumber: 1,
@@ -1196,8 +1186,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           questionText: 'Name an animal',
           answers: [{ id: 'a1', rankOrder: 1, answerText: 'Lion', points: 50 }],
         },
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       foSession.markContenderReady('p1');
@@ -1232,7 +1222,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Admin Deep Coverage Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1283,7 +1272,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       expect(missingRoomKick.success).toBe(false);
 
       // 4. Face-Off GENERIC pause (before buzzer is pressed) + idempotent second pause + resume
-      const { initFaceOffSession } = await import('../src/services/faceOffService');
       const foSession = initFaceOffSession(roomCode, {
         gameId: 'game-fo-generic',
         roundNumber: 1,
@@ -1292,8 +1280,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           questionText: 'Name a planet',
           answers: [{ id: 'a1', rankOrder: 1, answerText: 'Mars', points: 50 }],
         },
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const firstPause = await new Promise<any>((resolve) => {
@@ -1332,8 +1320,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const sdEventPromise = waitForEvent<any>(hostSocket, 'sudden_death_initiated');
@@ -1354,7 +1342,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Admin Error Catch Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1433,14 +1420,12 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         data: [
           {
             roomCode: fmCode,
-            roomName: 'FM Expiry Room',
             language: 'EN',
             gameMode: 'FAST_MONEY',
             status: 'LOBBY',
           },
           {
             roomCode: mgCode,
-            roomName: 'MG Completion Room',
             language: 'EN',
             gameMode: 'MAIN_GAME',
             status: 'LOBBY',
@@ -1460,9 +1445,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       });
 
       // 1. Fast Money paused-timer resume natural expiration (P1 & P2) + inactive phase submit rejection
-      const { fastMoneyPausedTimers, resumeFastMoneyTimer } = await import(
-        '../src/sockets/fastMoneyHandler'
-      );
       const fmSession = initFastMoneySession(fmCode, {
         gameId: 'game-fm-exp',
         player1Id: 'fm-p1',
@@ -1473,6 +1455,7 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           {
             id: 'q1',
             questionText: 'Name a fruit',
+            orderIndex: 1,
             answers: [{ id: 'a1', answerText: 'Apple', points: 50, rankOrder: 1 }],
           },
         ],
@@ -1535,8 +1518,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       const matchOverPromise = waitForEvent<any>(playerMg, 'match_over');
@@ -1564,8 +1547,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
       stealSession.passTurn('p1');
       stealSession.passTurn('p1');
@@ -1588,7 +1571,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Pause Lockout & Guards Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1705,8 +1687,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
       // Steal guess while in TEAM_GUESSING phase -> INVALID_PHASE
       expect(
@@ -1730,6 +1712,7 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
           {
             id: 'q1',
             questionText: 'Name a color',
+            orderIndex: 1,
             answers: [{ id: 'a1', answerText: 'Blue', points: 50, rankOrder: 1 }],
           },
         ],
@@ -1749,7 +1732,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       await prisma.room.create({
         data: {
           roomCode,
-          roomName: 'Hardening Guards Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
@@ -1773,8 +1755,8 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
         },
         controllingTeam: 'TEAM_1',
         opposingTeam: 'TEAM_2',
-        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', isConnected: true }],
-        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', isConnected: true }],
+        team1Players: [{ id: 'p1', nickname: 'Alice', team: 'TEAM_1', battingOrder: 1, isConnected: true }],
+        team2Players: [{ id: 'p2', nickname: 'Bob', team: 'TEAM_2', battingOrder: 1, isConnected: true }],
       });
 
       // Pause room via hostAdminService
@@ -1782,7 +1764,6 @@ describe('US-21 Step 1: Host Administrative Controls & Security Suite', () => {
       expect(hostAdminService.isRoomPaused(roomCode)).toBe(true);
 
       // 1. Disconnect auto-forfeit must NOT penalize/forfeit active player while room is paused
-      const { handleAutoForfeitIfActiveTimer } = await import('../src/sockets/lobbyHandler');
       const forfeited = await handleAutoForfeitIfActiveTimer(testIo, roomCode, 'p1', prisma);
       expect(forfeited).toBe(false);
       expect(tg.strikes).toBe(0);

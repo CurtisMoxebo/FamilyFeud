@@ -91,21 +91,18 @@ describe('US-20 Step 2: Host Display Fast Reconnection & State Recovery Suite', 
       data: [
         {
           roomCode: 'FEUD-REC1',
-          roomName: 'Host Recovery Team Guessing Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
         },
         {
           roomCode: 'FEUD-REC2',
-          roomName: 'Host Recovery Face Off Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'ACTIVE',
         },
         {
           roomCode: 'FEUD-REC3',
-          roomName: 'Host Recovery Fast Money Room',
           language: 'EN',
           gameMode: 'FAST_MONEY',
           status: 'ACTIVE',
@@ -202,8 +199,7 @@ describe('US-20 Step 2: Host Display Fast Reconnection & State Recovery Suite', 
     expect(teamGuessing.getState().roundBank).toBe(40);
 
     // Scoreboard with active match score
-    const scoreboard = initMatchScoreboard(roomCode, {
-      gameId: 'game-rec-1',
+    const scoreboard = initMatchScoreboard(roomCode, 'game-rec-1', {
       totalRounds: 3,
     });
     scoreboard.team1GrandTotal = 100;
@@ -211,7 +207,7 @@ describe('US-20 Step 2: Host Display Fast Reconnection & State Recovery Suite', 
     // Host initially connected and then browser refreshes (disconnects)
     const oldHostSocket = await connectClient(port);
     clientSockets.push(oldHostSocket);
-    sessionRecoveryService.registerHostSocket(roomCode, oldHostSocket.id);
+    sessionRecoveryService.registerHostSocket(roomCode, oldHostSocket.id!);
     oldHostSocket.disconnect();
 
     // Reconnection via new socket simulating page reload
@@ -312,15 +308,17 @@ describe('US-20 Step 2: Host Display Fast Reconnection & State Recovery Suite', 
     const roomCode = 'FEUD-REC3';
     const hostSecret = sessionRecoveryService.createHostSecret(roomCode);
 
-    const fastMoney = initFastMoneySession(roomCode, {
+    initFastMoneySession(roomCode, {
+      gameId: 'game-fm-rec3',
       player1Id: 'fm-p1',
       player2Id: 'fm-p2',
       questions: [
         {
           id: 'fm-q1',
           questionText: 'Fast Money Q1',
+          orderIndex: 1,
           answerCount: 1,
-          answers: [{ text: 'Sunny', points: 50 }],
+          answers: [{ id: 'fm-a1', answerText: 'Sunny', points: 50 }],
         },
       ],
     });

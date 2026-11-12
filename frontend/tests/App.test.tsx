@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, renderHook, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App, { AppContent } from '../src/App';
 import { LanguageProvider } from '../src/i18n/LanguageContext';
-import { RouterProvider } from '../src/router/router';
+import { RouterProvider, matchRoute, useRouter } from '../src/router/router';
 
 describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-03)', () => {
   beforeEach(() => {
@@ -20,7 +20,6 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
     expect(screen.getByText(/multiplayer game show & real-time duel/i)).toBeInTheDocument();
 
     // Check Room Creation Form is mounted
-    expect(screen.getByTestId('room-name-input')).toBeInTheDocument();
     expect(screen.getByTestId('create-room-submit-btn')).toBeInTheDocument();
   });
 
@@ -30,7 +29,6 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
     const mockRoom = {
       id: 'room-xyz-123',
       roomCode: 'FEUD-9999',
-      roomName: 'Victory Feud',
       language: 'EN' as const,
       gameMode: 'FAST_MONEY' as const,
       status: 'LOBBY' as const,
@@ -47,10 +45,6 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
 
     render(<App />);
 
-    // Type a room name
-    const roomInput = screen.getByTestId('room-name-input');
-    await user.type(roomInput, 'Victory Feud');
-
     // Click submit
     const submitBtn = screen.getByTestId('create-room-submit-btn');
     await user.click(submitBtn);
@@ -60,7 +54,6 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
       expect(screen.getByTestId('host-room-code')).toHaveTextContent('FEUD-9999');
     });
 
-    expect(screen.getByText('Victory Feud')).toBeInTheDocument();
     expect(screen.getByTestId('host-room-mode')).toHaveTextContent(/fast money/i);
     expect(screen.getByTestId('host-qr-code')).toBeInTheDocument();
   });
@@ -73,7 +66,6 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
         room: {
           id: 'room-direct-1',
           roomCode: 'FEUD-1234',
-          roomName: 'Direct Access Night',
           language: 'EN' as const,
           gameMode: 'FAST_MONEY' as const,
           status: 'LOBBY' as const,
@@ -94,7 +86,6 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
       expect(screen.getByTestId('host-room-code')).toHaveTextContent('FEUD-1234');
     });
 
-    expect(screen.getByText('Direct Access Night')).toBeInTheDocument();
     expect(screen.getByTestId('host-qr-code')).toBeInTheDocument();
   });
 
@@ -106,7 +97,6 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
         room: {
           id: 'room-play-1',
           roomCode: 'FEUD-7777',
-          roomName: 'Mobile Contenders',
           language: 'EN' as const,
           gameMode: 'MAIN_GAME' as const,
           status: 'LOBBY' as const,
@@ -124,7 +114,7 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('player-room-name')).toHaveTextContent('Mobile Contenders');
+      expect(screen.getByText('FEUD-7777')).toBeInTheDocument();
     });
 
     expect(screen.getByTestId('player-nickname-input')).toBeInTheDocument();
@@ -141,7 +131,6 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
         room: {
           id: 'room-manual-1',
           roomCode: 'FEUD-8293',
-          roomName: 'Manual Join Match',
           language: 'EN' as const,
           gameMode: 'FAST_MONEY' as const,
           status: 'LOBBY' as const,
@@ -167,7 +156,32 @@ describe('Frontend Regression Suite: App Flow & End-to-End Routing (US-02 & US-0
 
     // Transitions to PlayerJoin view for FEUD-8293
     await waitFor(() => {
-      expect(screen.getByTestId('player-room-name')).toHaveTextContent('Manual Join Match');
+      expect(screen.getByText('FEUD-8293')).toBeInTheDocument();
     });
+  });
+
+  it('matches dynamic routes accurately and handles popstate & useRouter fallback outside provider', () => {
+    expect(matchRoute('/host/:roomCode', '/host/FEUD-2345')).toEqual({ roomCode: 'FEUD-2345' });
+    expect(matchRoute('/host/:roomCode', '/HOST/feud-2345')).toEqual({ roomCode: 'feud-2345' });
+    expect(matchRoute('/host/:roomCode', '/play/FEUD-2345')).toBeNull();
+    expect(matchRoute('/host/:roomCode', '/host/FEUD-2345/extra')).toBeNull();
+
+    // Test useRouter fallback when used outside RouterProvider
+    const { result: fallbackResult } = renderHook(() => useRouter());
+    expect(fallbackResult.current.path).toBe('/');
+    act(() => {
+      fallbackResult.current.navigate('/host/FEUD-8888');
+    });
+    expect(window.location.pathname).toBe('/host/FEUD-8888');
+
+    // Test popstate event listener inside RouterProvider
+    const { result: providerResult } = renderHook(() => useRouter(), {
+      wrapper: ({ children }) => <RouterProvider>{children}</RouterProvider>,
+    });
+    act(() => {
+      window.history.pushState({}, '', '/play/FEUD-4567');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(providerResult.current.path).toBe('/play/FEUD-4567');
   });
 });

@@ -809,7 +809,7 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       expect(session.activeRespondentId).toBe('p3');
 
       // Charlie (p2-t2) gives an available answer ("Sunglasses", 10 pts)
-      const res = await session.evaluateContenderAnswer('p3', 'Sunglasses');
+      await session.evaluateContenderAnswer('p3', 'Sunglasses');
       // Charlie landed an available answer! Team 2 wins face-off!
       // Only the original contender (Bob, p2) is prompted to Pass or Play!
       expect(session.phase).toBe('PASS_OR_PLAY');
@@ -952,7 +952,7 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
 
     it('satisfies Scenario 6: Contender 1 non-#1 answer, Contender 2 higher/lower/equal/miss', async () => {
       // 6A: Above
-      const sA = initFaceOffSession('FEUD-REG-S6A', { gameId: 'g6a', question: mockQuestion, team1Players: team1FourPlayers, team2Players: team2FourPlayers });
+      const sA = initFaceOffSession('FEUD-REG-S6A', { gameId: 'g6a', roundNumber: 1, question: mockQuestion, team1Players: team1FourPlayers, team2Players: team2FourPlayers });
       sA.markContenderReady('p1'); sA.markContenderReady('p2'); sA.pressBuzzer('p1');
       await sA.evaluateContenderAnswer('p1', 'Flashlight'); // 24 pts
       const rA = await sA.evaluateContenderAnswer('p2', 'Registration / Insurance'); // 38 pts
@@ -961,7 +961,7 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       expect(sA.winnerPlayerId).toBe('p2');
 
       // 6B: Below
-      const sB = initFaceOffSession('FEUD-REG-S6B', { gameId: 'g6b', question: mockQuestion, team1Players: team1FourPlayers, team2Players: team2FourPlayers });
+      const sB = initFaceOffSession('FEUD-REG-S6B', { gameId: 'g6b', roundNumber: 1, question: mockQuestion, team1Players: team1FourPlayers, team2Players: team2FourPlayers });
       sB.markContenderReady('p1'); sB.markContenderReady('p2'); sB.pressBuzzer('p1');
       await sB.evaluateContenderAnswer('p1', 'Flashlight');
       const rB = await sB.evaluateContenderAnswer('p2', 'Sunglasses'); // 10 pts
@@ -970,7 +970,7 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       expect(sB.winnerPlayerId).toBe('p1');
 
       // 6C: Miss / Unavailable
-      const sC = initFaceOffSession('FEUD-REG-S6C', { gameId: 'g6c', question: mockQuestion, team1Players: team1FourPlayers, team2Players: team2FourPlayers });
+      const sC = initFaceOffSession('FEUD-REG-S6C', { gameId: 'g6c', roundNumber: 1, question: mockQuestion, team1Players: team1FourPlayers, team2Players: team2FourPlayers });
       sC.markContenderReady('p1'); sC.markContenderReady('p2'); sC.pressBuzzer('p1');
       await sC.evaluateContenderAnswer('p1', 'Flashlight');
       const rC = await sC.evaluateContenderAnswer('p2', 'Elephant'); // 0 pts
@@ -979,7 +979,7 @@ describe('US-12: Main Game Face-Off Service & Buzzer Arbiter (faceOffService)', 
       expect(sC.winnerPlayerId).toBe('p1');
 
       // 6D: Equal
-      const sD = initFaceOffSession('FEUD-REG-S6D', { gameId: 'g6d', question: mockQuestion, team1Players: team1FourPlayers, team2Players: team2FourPlayers });
+      const sD = initFaceOffSession('FEUD-REG-S6D', { gameId: 'g6d', roundNumber: 1, question: mockQuestion, team1Players: team1FourPlayers, team2Players: team2FourPlayers });
       sD.markContenderReady('p1'); sD.markContenderReady('p2'); sD.pressBuzzer('p1');
       await sD.evaluateContenderAnswer('p1', 'Flashlight');
       const rD = await sD.evaluateContenderAnswer('p2', 'Equal', async () => ({ isMatched: true, points: 24, rankOrder: 2 }));

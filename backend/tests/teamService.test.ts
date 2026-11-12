@@ -96,8 +96,6 @@ describe('US-11: Main Game Team Partitioning Service (teamService)', () => {
     ];
 
     it('satisfies Scenario 1: partitions 4 players into 2 players in Team 1 and 2 in Team 2', () => {
-      // Deterministic reverse order shuffle simulation
-      const reversedRandom = (i: number) => 0;
       const result = partitionTeams(mockPlayers4);
 
       expect(result.team1).toHaveLength(2);

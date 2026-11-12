@@ -81,7 +81,6 @@ export interface MainGameTeamGuessingBoardProps {
   onReplay?: () => void;
   language?: string;
   audioEnabled?: boolean;
-  roomName: string;
   roomCode: string;
   onLeave?: () => void;
   isFullscreen?: boolean;
@@ -117,7 +116,6 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
   onReplay,
   language = 'EN',
   audioEnabled: propAudioEnabled,
-  roomName,
   roomCode,
   onLeave,
   isFullscreen: propsIsFullscreen,
@@ -912,9 +910,6 @@ export const MainGameTeamGuessingBoard: React.FC<MainGameTeamGuessingBoardProps>
                   {roomCode}
                 </span>
               </div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-white mt-0.5">
-                {roomName}
-              </h1>
             </div>
           </div>
 

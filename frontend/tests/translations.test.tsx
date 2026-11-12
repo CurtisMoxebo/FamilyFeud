@@ -14,46 +14,10 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
         expect(translations[lang].app).toBeDefined();
         expect(translations[lang].createRoom).toBeDefined();
         expect(translations[lang].gameModes).toBeDefined();
-        expect(translations[lang].gameActions).toBeDefined();
         expect(translations[lang].host).toBeDefined();
         expect(translations[lang].joinRoom).toBeDefined();
         expect(translations[lang].lobby).toBeDefined();
       }
-    });
-
-    it('matches US-02 Scenario 4 core game action translations exactly', () => {
-      // English
-      expect(translations.EN.gameActions.ready).toBe('Ready');
-      expect(translations.EN.gameActions.submit).toBe('Submit');
-      expect(translations.EN.gameActions.pass).toBe('Pass');
-      expect(translations.EN.gameActions.play).toBe('Play');
-      expect(translations.EN.gameActions.duplicateAnswer).toBe('Duplicate Answer! Try Again');
-
-      // French
-      expect(translations.FR.gameActions.ready).toBe('Je suis prêt');
-      expect(translations.FR.gameActions.submit).toBe('Valider');
-      expect(translations.FR.gameActions.pass).toBe('Passer');
-      expect(translations.FR.gameActions.play).toBe('Jouer');
-      expect(translations.FR.gameActions.duplicateAnswer).toBe('Réponse déjà donnée ! Réessayez');
-
-      // Spanish
-      expect(translations.ES.gameActions.ready).toBe('¡Listo!');
-      expect(translations.ES.gameActions.submit).toBe('Enviar');
-      expect(translations.ES.gameActions.pass).toBe('Pasar');
-      expect(translations.ES.gameActions.play).toBe('Jugar');
-      expect(translations.ES.gameActions.duplicateAnswer).toBe('¡Respuesta repetida! Intenta de nuevo');
-    });
-
-    it('contains matching US-02 Scenario 2 validation error message', () => {
-      expect(translations.EN.createRoom.validationErrorEmpty).toBe(
-        'Please enter a room name (3-50 characters)'
-      );
-      expect(translations.FR.createRoom.validationErrorEmpty).toBe(
-        'Please enter a room name (3-50 characters)'
-      );
-      expect(translations.ES.createRoom.validationErrorEmpty).toBe(
-        'Please enter a room name (3-50 characters)'
-      );
     });
 
     it('defines distinct titles and descriptions for both Fast Money and Main Game modes', () => {
@@ -109,9 +73,7 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
         expect(lobby.startGame).toBeTruthy();
         expect(lobby.startGameWithCount).toBeTruthy();
         expect(lobby.mainGameEvenCountRequired).toBeTruthy();
-        expect(lobby.mainGameCurrentWaiting).toBeTruthy();
         expect(lobby.fastMoneyWaiting).toBeTruthy();
-        expect(lobby.statusHost).toBeTruthy();
         expect(lobby.statusReady).toBeTruthy();
         expect(lobby.statusWaiting).toBeTruthy();
         expect(lobby.statusDisconnected).toBeTruthy();
@@ -156,7 +118,6 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
         expect(fm.p1ColumnTitle).toBeTruthy();
         expect(fm.p2ColumnTitle).toBeTruthy();
         expect(fm.grandTotal).toBeTruthy();
-        expect(fm.targetGoal).toBeTruthy();
         expect(fm.startP2RevealBtn).toBeTruthy();
       }
 
@@ -181,7 +142,6 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       const { result } = renderHook(() => useTranslation(), { wrapper });
 
       expect(result.current.language).toBe('EN');
-      expect(result.current.t.gameActions.ready).toBe('Ready');
       expect(result.current.t.createRoom.submitButton).toBe('Create Room');
       expect(result.current.t.joinRoom.tabJoin).toBe('Join a Game');
       expect(result.current.t.lobby.startGame).toBe('Start Game');
@@ -195,7 +155,6 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       const { result } = renderHook(() => useTranslation(), { wrapper });
 
       expect(result.current.language).toBe('FR');
-      expect(result.current.t.gameActions.ready).toBe('Je suis prêt');
       expect(result.current.t.createRoom.submitButton).toBe('Créer le salon');
       expect(result.current.t.joinRoom.tabJoin).toBe('Rejoindre une partie');
       expect(result.current.t.lobby.startGame).toBe('Lancer la partie');
@@ -215,7 +174,6 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       });
 
       expect(result.current.language).toBe('ES');
-      expect(result.current.t.gameActions.ready).toBe('¡Listo!');
       expect(result.current.t.createRoom.submitButton).toBe('Crear sala');
       expect(result.current.t.joinRoom.tabJoin).toBe('Unirse a una sala');
       expect(result.current.t.lobby.startGame).toBe('Iniciar partida');
@@ -225,7 +183,6 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       });
 
       expect(result.current.language).toBe('FR');
-      expect(result.current.t.gameActions.ready).toBe('Je suis prêt');
       expect(result.current.t.joinRoom.tabJoin).toBe('Rejoindre une partie');
       expect(result.current.t.lobby.startGame).toBe('Lancer la partie');
     });
@@ -294,12 +251,9 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
         expect(mg.buzzerLocked).toBeTruthy();
         expect(mg.buzzerWinner).toBeTruthy();
         expect(mg.spectatorCheer).toBeTruthy();
-        expect(mg.faceOffTimeRemaining).toBeTruthy();
         expect(mg.faceOffInputPlaceholder).toBeTruthy();
         expect(mg.submitAnswer).toBeTruthy();
         expect(mg.answeringTurn).toBeTruthy();
-        expect(mg.timeUpHandOff).toBeTruthy();
-        expect(mg.timeUpTeammate).toBeTruthy();
         expect(mg.deadlockReset).toBeTruthy();
       }
 
@@ -334,16 +288,6 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       expect(translations.EN.mainGame.youBuzzedFirst).toBe('You buzzed first!');
       expect(translations.FR.mainGame.youBuzzedFirst).toBe('Vous avez buzzé en premier !');
       expect(translations.ES.mainGame.youBuzzedFirst).toBe('¡Tocaste primero!');
-
-      expect(translations.EN.mainGame.timeUpHandOff.replace('{next}', 'David')).toBe(
-        "Time's up! Turn passed to David"
-      );
-      expect(translations.FR.mainGame.timeUpHandOff.replace('{next}', 'David')).toBe(
-        'Temps écoulé ! La main passe à David'
-      );
-      expect(translations.ES.mainGame.timeUpHandOff.replace('{next}', 'David')).toBe(
-        '¡Tiempo agotado! Turno para David'
-      );
 
       expect(translations.EN.mainGame.youMissedChance).toBe(
         'You missed! Any valid answer on the board wins the Face-Off!'
@@ -508,14 +452,11 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
     it('defines US-16 Real-Time Grand Total Scores & Match Replay dictionary keys with full trilingual parity', () => {
       for (const lang of supportedLanguages) {
         const mg = translations[lang].mainGame;
-        expect(mg.grandTotalHeader).toBeTruthy();
         expect(mg.roundBank).toBeTruthy();
         expect(mg.roundProgress).toBeTruthy();
         expect(mg.yourTeam).toBeTruthy();
         expect(mg.nextRoundBtn).toBeTruthy();
-        expect(mg.nextContendersBanner).toBeTruthy();
         expect(mg.matchWinnerTitle).toBeTruthy();
-        expect(mg.matchTieTitle).toBeTruthy();
         expect(mg.suddenDeathTitle).toBeTruthy();
         expect(mg.suddenDeathSubtitle).toBeTruthy();
         expect(mg.playAgainBtn).toBeTruthy();
@@ -523,20 +464,15 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       }
 
       // English specific assertions
-      expect(translations.EN.mainGame.grandTotalHeader).toBe('Grand Total');
       expect(translations.EN.mainGame.roundBank).toBe('Round Bank');
       expect(translations.EN.mainGame.yourTeam).toBe('YOUR TEAM');
       expect(translations.EN.mainGame.nextRoundBtn).toBe('Next Round');
       expect(translations.EN.mainGame.playAgainBtn).toBe('Play Again');
       expect(translations.EN.mainGame.exitRoomBtn).toBe('Exit Room');
-      expect(translations.EN.mainGame.matchTieTitle).toBe('Match Ended in a Tie!');
       expect(translations.EN.mainGame.suddenDeathTitle).toBe('Sudden Death Tie-Breaker!');
       expect(
         translations.EN.mainGame.roundProgress.replace('{current}', '2').replace('{total}', '3')
       ).toBe('Round 2 of 3');
-      expect(
-        translations.EN.mainGame.nextContendersBanner.replace('{c1}', 'Bob').replace('{c2}', 'David')
-      ).toBe('Up Next at the Buzzer: Bob vs David');
       expect(
         translations.EN.mainGame.matchWinnerTitle
           .replace('{team}', 'TEAM 1')
@@ -545,20 +481,15 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       ).toBe('🏆 TEAM 1 WINS THE GAME! (245 vs 180)');
 
       // French specific assertions
-      expect(translations.FR.mainGame.grandTotalHeader).toBe('Total Général');
       expect(translations.FR.mainGame.roundBank).toBe('Cagnotte de Manche');
       expect(translations.FR.mainGame.yourTeam).toBe('VOTRE ÉQUIPE');
       expect(translations.FR.mainGame.nextRoundBtn).toBe('Manche suivante');
       expect(translations.FR.mainGame.playAgainBtn).toBe('Rejouer');
       expect(translations.FR.mainGame.exitRoomBtn).toBe('Quitter la salle');
-      expect(translations.FR.mainGame.matchTieTitle).toBe('Match nul !');
       expect(translations.FR.mainGame.suddenDeathTitle).toBe('Mort Subite - Égalité !');
       expect(
         translations.FR.mainGame.roundProgress.replace('{current}', '2').replace('{total}', '3')
       ).toBe('Manche 2 sur 3');
-      expect(
-        translations.FR.mainGame.nextContendersBanner.replace('{c1}', 'Bob').replace('{c2}', 'David')
-      ).toBe('Prochains au buzzer : Bob contre David');
       expect(
         translations.FR.mainGame.matchWinnerTitle
           .replace('{team}', 'ÉQUIPE 1')
@@ -567,20 +498,15 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       ).toBe("🏆 L'ÉQUIPE 1 REMPORTE LA PARTIE ! (245 contre 180)");
 
       // Spanish specific assertions
-      expect(translations.ES.mainGame.grandTotalHeader).toBe('Gran Total');
       expect(translations.ES.mainGame.roundBank).toBe('Banca de Ronda');
       expect(translations.ES.mainGame.yourTeam).toBe('TU EQUIPO');
       expect(translations.ES.mainGame.nextRoundBtn).toBe('Siguiente ronda');
       expect(translations.ES.mainGame.playAgainBtn).toBe('Jugar de nuevo');
       expect(translations.ES.mainGame.exitRoomBtn).toBe('Salir de la sala');
-      expect(translations.ES.mainGame.matchTieTitle).toBe('¡Empate en la partida!');
       expect(translations.ES.mainGame.suddenDeathTitle).toBe('¡Muerte Súbita de Desempate!');
       expect(
         translations.ES.mainGame.roundProgress.replace('{current}', '2').replace('{total}', '3')
       ).toBe('Ronda 2 de 3');
-      expect(
-        translations.ES.mainGame.nextContendersBanner.replace('{c1}', 'Bob').replace('{c2}', 'David')
-      ).toBe('Siguientes en el pulsador: Bob vs David');
       expect(
         translations.ES.mainGame.matchWinnerTitle
           .replace('{team}', 'EQUIPO 1')
@@ -593,7 +519,6 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
       const { result } = renderHook(() => useTranslation());
 
       expect(result.current.language).toBe('EN');
-      expect(result.current.t.gameActions.ready).toBe('Ready');
       expect(result.current.t.joinRoom.tabJoin).toBe('Join a Game');
       expect(result.current.t.lobby.startGame).toBe('Start Game');
       expect(typeof result.current.setLanguage).toBe('function');
@@ -606,10 +531,8 @@ describe('Frontend Regression Suite: i18n Localization System (US-02, US-03 & US
 
       const { result } = renderHook(() => useTranslation(), { wrapper });
 
-      expect(result.current.getTranslation('FR').gameActions.ready).toBe('Je suis prêt');
       expect(result.current.getTranslation('FR').joinRoom.tabJoin).toBe('Rejoindre une partie');
       expect(result.current.getTranslation('FR').lobby.startGame).toBe('Lancer la partie');
-      expect(result.current.getTranslation('ES').gameActions.ready).toBe('¡Listo!');
       expect(result.current.getTranslation('ES').joinRoom.tabJoin).toBe('Unirse a una sala');
       expect(result.current.getTranslation('ES').lobby.startGame).toBe('Iniciar partida');
     });

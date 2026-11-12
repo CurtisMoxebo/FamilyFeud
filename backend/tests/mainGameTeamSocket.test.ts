@@ -46,21 +46,18 @@ describe('US-11: Main Game Team Partitioning WebSocket Integration', () => {
       data: [
         {
           roomCode: 'FEUD-TM01',
-          roomName: 'Main Game 4 Players Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-TM02',
-          roomName: 'Main Game Odd Players Room',
           language: 'FR',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',
         },
         {
           roomCode: 'FEUD-TM03',
-          roomName: 'Main Game 10 Players Room',
           language: 'ES',
           gameMode: 'MAIN_GAME',
           status: 'LOBBY',

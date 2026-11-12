@@ -5,7 +5,6 @@ import {
   getAuditResponsesForQuestion,
   getAuditResponsesForPlayer,
 } from '../src/services/answerValidationService';
-import { geminiClientFactory } from '../src/services/geminiService';
 import { config } from '../src/config/env';
 
 describe('Backend Integration Suite: Answer Validation & DB Persistence (US-06 Step 5)', () => {
@@ -36,7 +35,6 @@ describe('Backend Integration Suite: Answer Validation & DB Persistence (US-06 S
     const room = await prisma.room.create({
       data: {
         roomCode: 'FEUD-AV01',
-        roomName: 'TEST-AV-Room',
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'ACTIVE',

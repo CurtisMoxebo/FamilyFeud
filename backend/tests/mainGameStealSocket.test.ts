@@ -10,14 +10,12 @@ import {
 } from '../src/services/faceOffService';
 import {
   initTeamGuessingSession,
-  getTeamGuessingSession,
   clearAllTeamGuessingSessions,
   TeamGuessingQuestion,
   TeamGuessingPlayer,
 } from '../src/services/teamGuessingService';
 import {
   handleStealResolvedBroadcast,
-  SubmitStealGuessPayload,
   StealResolvedPayload,
   RoundWinnerPayload,
   ScoreboardUpdatePayload,
@@ -97,7 +95,6 @@ describe('US-15: Main Game 3-Strike Steal Phase & Round Resolution WebSocket Int
     await prisma.room.createMany({
       data: testRooms.map((code) => ({
         roomCode: code,
-        roomName: `Steal Test Room ${code}`,
         language: 'EN',
         gameMode: 'MAIN_GAME',
         status: 'LOBBY',

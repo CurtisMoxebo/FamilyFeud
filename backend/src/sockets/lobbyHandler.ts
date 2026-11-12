@@ -59,7 +59,6 @@ export interface PlayerRosterItem {
 
 export interface RoomStateUpdate {
   roomCode: string;
-  roomName: string;
   language: 'EN' | 'FR' | 'ES';
   gameMode: 'FAST_MONEY' | 'MAIN_GAME';
   status: 'LOBBY' | 'ACTIVE' | 'FINISHED';
@@ -110,7 +109,6 @@ export interface ReconnectHostPayload {
 
 export interface FullGameState {
   roomCode: string;
-  roomName: string;
   language: 'EN' | 'FR' | 'ES';
   gameMode: 'FAST_MONEY' | 'MAIN_GAME';
   status: 'LOBBY' | 'ACTIVE' | 'FINISHED';
@@ -189,7 +187,6 @@ export function buildRoomStateUpdate(room: Room & { players: Player[] }): RoomSt
 
   return {
     roomCode: room.roomCode,
-    roomName: room.roomName,
     language: room.language,
     gameMode: room.gameMode,
     status: room.status,
@@ -280,7 +277,6 @@ export async function buildFullGameState(
 
   return {
     roomCode: normalizedCode,
-    roomName: room.roomName,
     language: room.language as 'EN' | 'FR' | 'ES',
     gameMode: room.gameMode as 'FAST_MONEY' | 'MAIN_GAME',
     status: room.status as 'LOBBY' | 'ACTIVE' | 'FINISHED',
@@ -407,10 +403,6 @@ let gracePeriodDurationMs = 30000;
 
 export function setGracePeriodDuration(ms: number): void {
   gracePeriodDurationMs = ms;
-}
-
-export function getGracePeriodDuration(): number {
-  return gracePeriodDurationMs;
 }
 
 /**

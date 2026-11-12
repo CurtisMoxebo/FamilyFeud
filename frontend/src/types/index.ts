@@ -24,7 +24,6 @@ export interface PlayerRosterItem {
 
 export interface RoomStateUpdate {
   roomCode: string;
-  roomName: string;
   language: Language;
   gameMode: GameMode;
   status: RoomStatus;
@@ -58,20 +57,11 @@ export interface GameStartedPayload {
 export interface Room {
   id: string;
   roomCode: string;
-  roomName: string;
   gameMode: GameMode;
   status: RoomStatus;
   language: Language;
   createdAt: string;
   players?: Player[];
-}
-
-export interface AnswerItem {
-  id: string;
-  answerText: string;
-  points: number;
-  rankOrder: number;
-  isRevealed?: boolean;
 }
 
 export type FastMoneyPhase =
@@ -203,15 +193,6 @@ export interface HostStateSnapshot {
   targetScore?: number;
   player1Name?: string;
   player2Name?: string;
-}
-
-export interface QuestionData {
-  id: string;
-  questionText: string;
-  orderIndex: number;
-  roundNumber: number;
-  language: string;
-  answers: AnswerItem[];
 }
 
 export interface BoardRevealPayload {
@@ -390,22 +371,6 @@ export interface FaceOffTimeoutPayload {
 export interface FaceOffResetPayload {
   roomCode: string;
   newQuestion: {
-    id: string;
-    questionText: string;
-  };
-}
-
-export interface ContenderReadyPayload {
-  roomCode: string;
-  playerId: string;
-  bothReady: boolean;
-  waitingForPlayerId?: string;
-  waitingForNickname?: string;
-}
-
-export interface BuzzerActivePayload {
-  roomCode: string;
-  question: {
     id: string;
     questionText: string;
   };
@@ -640,11 +605,6 @@ export interface RoundWinnerPayload {
   message?: string;
 }
 
-export interface RemainingAnswersRevealPayload {
-  roomCode: string;
-  remainingAnswers: TeamRevealedAnswer[];
-}
-
 // US-16: Real-Time Grand Total Scores & Match Replay Payloads
 export interface ScoreboardState {
   team1GrandTotal: number;
@@ -722,20 +682,8 @@ export interface NextRoundStartedPayload {
 }
 
 // US-20: Reconnection and State Recovery Payloads
-export interface ReconnectHostPayload {
-  roomCode: string;
-  hostSecret: string;
-}
-
-export interface ReconnectSessionPayload {
-  roomCode: string;
-  playerId: string;
-  sessionToken: string;
-}
-
 export interface FullGameState {
   roomCode: string;
-  roomName: string;
   language: Language;
   gameMode: GameMode;
   status: RoomStatus;

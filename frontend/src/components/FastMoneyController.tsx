@@ -39,7 +39,6 @@ export interface FastMoneyControllerProps {
   onSubmitAnswer: (questionId: string, answer: string) => void;
   onPass: (questionId: string) => void;
   onRepeatQuestion?: (questionId?: string) => void;
-  onLeave?: () => void;
 }
 
 export const FastMoneyController: React.FC<FastMoneyControllerProps> = ({

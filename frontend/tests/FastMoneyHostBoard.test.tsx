@@ -125,7 +125,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={playingHostSnapshot}
-          roomName="Family Feud Duel"
           roomCode="FEUD-9999"
           enableTTS={false}
         />
@@ -148,7 +147,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={playingHostSnapshot}
-          roomName="Family Feud Duel"
           roomCode="FEUD-9999"
           enableTTS={false}
         />
@@ -162,7 +160,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={playingHostSnapshot}
-          roomName="Family Feud Duel"
           roomCode="FEUD-9999"
           enableTTS={false}
         />
@@ -183,7 +180,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={playingHostSnapshot}
-          roomName="Family Feud Duel"
           roomCode="FEUD-9999"
           player1Name="Alice"
           player2Name="Bob"
@@ -213,7 +209,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={playingHostSnapshot}
           timerTick={tick}
-          roomName="Family Feud Duel"
           enableTTS={false}
         />
       );
@@ -232,7 +227,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={playingHostSnapshot}
           timerTick={lowTick}
-          roomName="Family Feud Duel"
           enableTTS={false}
         />
       );
@@ -249,7 +243,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={playingHostSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={true}
         />
       );
@@ -264,7 +257,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={readyHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
         />
       );
@@ -284,7 +276,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={true}
         />
       );
@@ -304,7 +295,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
         />
       );
@@ -333,7 +323,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       const { rerender } = render(
         <FastMoneyHostBoard
           snapshot={initialSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
           enableSFX={true}
         />
@@ -345,7 +334,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       rerender(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
           enableSFX={true}
         />
@@ -363,7 +351,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       const { rerender } = render(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
           enableSFX={true}
         />
@@ -382,7 +369,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       rerender(
         <FastMoneyHostBoard
           snapshot={afterSlot2Points}
-          roomName="Family Feud Duel"
           enableTTS={false}
           enableSFX={true}
         />
@@ -397,7 +383,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
         />
       );
@@ -415,7 +400,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
           defaultAutoPacing={false}
           onRevealPoints={onRevealPointsMock}
@@ -444,7 +428,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={snapshotSlot3Active}
-          roomName="Family Feud Duel"
           enableTTS={false}
           onRevealAnswer={onRevealAnswerMock}
         />
@@ -464,7 +447,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={true}
         />
       );
@@ -487,7 +469,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={true}
         />
       );
@@ -508,7 +489,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             phase: 'P1_PLAYING',
             currentQuestionText: 'Question 1: Name a fruit',
           }}
-          roomName="Family Feud Duel"
           enableTTS={true}
         />
       );
@@ -523,7 +503,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             phase: 'P1_PLAYING',
             currentQuestionText: 'Question 2: Name an animal',
           }}
-          roomName="Family Feud Duel"
           enableTTS={true}
         />
       );
@@ -539,7 +518,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={revealHostSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
           defaultAutoPacing={false}
           onRevealPoints={onRevealPointsMock}
@@ -593,7 +571,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={backendSnapshotWithStrippedP1Slots}
-          roomName="Family Feud Duel"
           enableTTS={true}
           language="EN"
         />
@@ -634,7 +611,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={unrevealedSlotSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
           onRevealAnswer={onRevealAnswerMock}
         />
@@ -664,7 +640,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={p2ReadySnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
         />
       );
@@ -682,7 +657,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
       render(
         <FastMoneyHostBoard
           snapshot={finishedSnapshot}
-          roomName="Family Feud Duel"
           enableTTS={false}
           onStartReveal={onStartRevealMock}
         />
@@ -729,7 +703,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={p2PlayingSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={true}
         />
       );
@@ -771,7 +744,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
           snapshot={p2PlayingSnapshot}
           duplicateWarning={duplicateWarning}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={true}
           enableSFX={true}
         />
@@ -806,7 +778,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={advancedSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={false}
         />
       );
@@ -862,7 +833,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={p2FinishedSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           onStartP2Reveal={startP2Spy}
         />
       );
@@ -883,7 +853,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={p2FinishedSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           onStartP2Reveal={startP2Spy}
         />
       );
@@ -913,7 +882,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={p2RevealSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={true}
           enableSFX={true}
           onRevealP2Answer={onRevealAnswerSpy}
@@ -945,7 +913,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={slot1AnswerRevealed}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={true}
           enableSFX={true}
           onRevealP2Answer={onRevealAnswerSpy}
@@ -980,7 +947,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={p2RevealSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={false}
           enableSFX={false}
           defaultAutoPacing={false}
@@ -1010,7 +976,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             ],
           }}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={false}
           enableSFX={false}
           onRevealP2Answer={onRevealAnswerSpy}
@@ -1044,7 +1009,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={victorySnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={true}
           enableSFX={true}
           onReplay={vi.fn()}
@@ -1084,7 +1048,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={defeatSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           enableTTS={true}
           enableSFX={true}
           onReplay={vi.fn()}
@@ -1119,7 +1082,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={gameOverSnapshot}
           language="EN"
-          roomName="Family Feud Duel"
           onReplay={replaySpy}
         />
       );
@@ -1155,7 +1117,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={midRevealGameOver}
           language="EN"
-          roomName="Family Feud Duel"
         />
       );
 
@@ -1229,7 +1190,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             currentQuestionText: "Nommez quelque chose que l'on trouve dans un salon",
           }}
           language="FR"
-          roomName="Soirée Famille"
           enableTTS={true}
         />
       );
@@ -1251,7 +1211,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             currentQuestionText: 'Mencione algo que encuentra en la sala',
           }}
           language="ES"
-          roomName="Noche Familiar"
           enableTTS={true}
         />
       );
@@ -1273,7 +1232,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             currentQuestionText: 'Question 1: Name a fruit',
           }}
           language="EN"
-          roomName="Fast Money"
           enableTTS={true}
         />
       );
@@ -1290,7 +1248,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             currentQuestionText: 'Question 2: Name an animal',
           }}
           language="EN"
-          roomName="Fast Money"
           enableTTS={true}
         />
       );
@@ -1314,7 +1271,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
               currentQuestionText: 'Test unsupported question',
             }}
             language="EN"
-            roomName="Fast Money"
             enableTTS={true}
           />
         );
@@ -1334,7 +1290,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             currentQuestionText: 'Question to be muted',
           }}
           language="EN"
-          roomName="Fast Money"
           enableTTS={true}
         />
       );
@@ -1358,7 +1313,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             currentQuestionText: 'Should not speak while muted',
           }}
           language="EN"
-          roomName="Fast Money"
           enableTTS={true}
         />
       );
@@ -1373,7 +1327,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={playingHostSnapshot}
           language="EN"
-          roomName="Fast Money"
           player1Name="Alice"
           player2Name="Bob"
           enableTTS={true}
@@ -1483,7 +1436,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={revealSnapshot}
           language="EN"
-          roomName="Fast Money Feud"
           player1Name="Alice"
           player2Name="Bob"
           enableTTS={true}
@@ -1540,7 +1492,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             ],
           }}
           language="EN"
-          roomName="Fast Money Feud"
           player1Name="Alice"
           player2Name="Bob"
           enableTTS={true}
@@ -1611,7 +1562,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={frenchSnapshot}
           language="FR"
-          roomName="Une Famille en Or"
           enableTTS={true}
           enableSFX={true}
           defaultAutoPacing={false}
@@ -1651,7 +1601,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             ],
           }}
           language="FR"
-          roomName="Une Famille en Or"
           enableTTS={true}
           enableSFX={true}
           defaultAutoPacing={false}
@@ -1718,7 +1667,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={revealSnapshot}
           language="EN"
-          roomName="Fast Money Feud"
           enableTTS={true}
           enableSFX={true}
           defaultAutoPacing={true}
@@ -1846,7 +1794,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
         <FastMoneyHostBoard
           snapshot={initialSanitizedSnapshot}
           language="EN"
-          roomName="Fast Money Feud"
           enableTTS={true}
           enableSFX={true}
           defaultAutoPacing={false}
@@ -1883,7 +1830,6 @@ describe('Frontend Component Suite: FastMoneyHostBoard (US-07 & US-08)', () => {
             ],
           }}
           language="EN"
-          roomName="Fast Money Feud"
           enableTTS={true}
           enableSFX={true}
           defaultAutoPacing={false}

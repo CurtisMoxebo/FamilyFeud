@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/server';
 import { prisma } from '../src/config/db';
@@ -116,7 +116,7 @@ describe('US-20: Session Recovery Service & Token Architecture Suite (Step 1)', 
 
     it('resets existing grace timer when startGraceTimer is called repeatedly', () => {
       sessionRecoveryService.createPlayerSession('REC-01', 'p-grace-repeat', 'Eve');
-      const timer1 = sessionRecoveryService.startGraceTimer('p-grace-repeat', 10000, () => {});
+      sessionRecoveryService.startGraceTimer('p-grace-repeat', 10000, () => {});
       expect(sessionRecoveryService.isPlayerInGracePeriod('p-grace-repeat')).toBe(true);
 
       const timer2 = sessionRecoveryService.startGraceTimer('p-grace-repeat', 10000, () => {});
@@ -190,7 +190,6 @@ describe('US-20: Session Recovery Service & Token Architecture Suite (Step 1)', 
       const res = await request(app)
         .post('/api/rooms')
         .send({
-          roomName: 'Host Secret Test Room',
           language: 'EN',
           gameMode: 'MAIN_GAME',
         });

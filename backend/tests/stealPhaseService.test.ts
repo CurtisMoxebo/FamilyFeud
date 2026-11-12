@@ -256,7 +256,7 @@ describe('US-15: 3-Strike Steal Phase & Round Resolution (Domain Service)', () =
    * ------------------------------------------------------------- */
   describe('Scenario 2: Steal Phase 15-Second Timeout', () => {
     it('awards Round Bank points to controlling team when 15 seconds expire without submission', () => {
-      let resolvedResult: StealEvaluationResult | null = null;
+      let resolvedResult: StealEvaluationResult | null = null as StealEvaluationResult | null;
       const session = setupStealPhaseSession({
         onStealResolved: (res: StealEvaluationResult) => {
           resolvedResult = res;
