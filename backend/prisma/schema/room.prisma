@@ -1,7 +1,6 @@
 model Room {
   id        String     @id @default(uuid())
   roomCode  String     @unique @map("room_code") @db.VarChar(10)
-  roomName  String     @map("room_name") @db.VarChar(100)
   language  Language   @default(EN)
   gameMode  GameMode   @map("game_mode")
   status    RoomStatus @default(LOBBY)
